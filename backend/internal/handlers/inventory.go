@@ -1,0 +1,375 @@
+package handlers
+
+import (
+	"drcrwell/backend/internal/models"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+// Products
+func CreateProduct(c *gin.Context) {
+	var product models.Product
+	if err := c.ShouldBindJSON(&product); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	db := c.MustGet("db").(*gorm.DB)
+	if err := db.Create(&product).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
+		return
+	}
+
+	// Load relationships
+	db.Preload("Supplier").First(&product, product.ID)
+
+	c.JSON(http.StatusCreated, gin.H{"product": product})
+}
+
+func GetProducts(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
+	offset := (page - 1) * pageSize
+
+	query := db.Model(&models.Product{})
+
+	if search := c.Query("search"); search != "" {
+		query = query.Where("name ILIKE ? OR code ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+	if category := c.Query("category"); category != "" {
+		query = query.Where("category = ?", category)
+	}
+	if active := c.Query("active"); active != "" {
+		query = query.Where("active = ?", active == "true")
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var products []models.Product
+	if err := query.Preload("Supplier").Offset(offset).Limit(pageSize).Order("name ASC").
+		Find(&products).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"products":  products,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+func GetProduct(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	var product models.Product
+	if err := db.Preload("Supplier").First(&product, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"product": product})
+}
+
+func UpdateProduct(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	// Check if product exists
+	var count int64
+	if err := db.Model(&models.Product{}).Where("id = ?", id).Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if count == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	var input models.Product
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update using Exec to avoid the duplicate table error
+	result := db.Exec(`
+		UPDATE products
+		SET name = ?, code = ?, description = ?, category = ?, supplier_id = ?,
+		    quantity = ?, minimum_stock = ?, unit = ?, cost_price = ?, sale_price = ?,
+		    expiration_date = ?, active = ?, barcode = ?, updated_at = NOW()
+		WHERE id = ? AND deleted_at IS NULL
+	`, input.Name, input.Code, input.Description, input.Category, input.SupplierID,
+		input.Quantity, input.MinimumStock, input.Unit, input.CostPrice, input.SalePrice,
+		input.ExpirationDate, input.Active, input.Barcode, id)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
+		return
+	}
+
+	// Load the updated product with relationships
+	var product models.Product
+	db.Preload("Supplier").First(&product, id)
+
+	c.JSON(http.StatusOK, gin.H{"product": product})
+}
+
+func DeleteProduct(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	if err := db.Delete(&models.Product{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Product deleted successfully"})
+}
+
+func GetLowStockProducts(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	var products []models.Product
+	if err := db.Where("quantity <= minimum_stock AND active = ?", true).
+		Order("quantity ASC").Find(&products).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch low stock products"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"products": products})
+}
+
+// Suppliers
+func CreateSupplier(c *gin.Context) {
+	var supplier models.Supplier
+	if err := c.ShouldBindJSON(&supplier); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	db := c.MustGet("db").(*gorm.DB)
+	if err := db.Create(&supplier).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create supplier"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"supplier": supplier})
+}
+
+func GetSuppliers(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	var suppliers []models.Supplier
+	if err := db.Order("name ASC").Find(&suppliers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch suppliers"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"suppliers": suppliers})
+}
+
+func GetSupplier(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	var supplier models.Supplier
+	if err := db.First(&supplier, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Supplier not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"supplier": supplier})
+}
+
+func UpdateSupplier(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	// Check if supplier exists
+	var count int64
+	if err := db.Model(&models.Supplier{}).Where("id = ?", id).Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if count == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Supplier not found"})
+		return
+	}
+
+	var input models.Supplier
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update using Exec to avoid the duplicate table error
+	result := db.Exec(`
+		UPDATE suppliers
+		SET name = ?, cnpj = ?, email = ?, phone = ?, address = ?,
+		    city = ?, state = ?, zip_code = ?, active = ?, notes = ?, updated_at = NOW()
+		WHERE id = ? AND deleted_at IS NULL
+	`, input.Name, input.CNPJ, input.Email, input.Phone, input.Address,
+		input.City, input.State, input.ZipCode, input.Active, input.Notes, id)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update supplier"})
+		return
+	}
+
+	// Load the updated supplier
+	var supplier models.Supplier
+	db.First(&supplier, id)
+
+	c.JSON(http.StatusOK, gin.H{"supplier": supplier})
+}
+
+func DeleteSupplier(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	if err := db.Delete(&models.Supplier{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete supplier"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Supplier deleted successfully"})
+}
+
+// Stock Movements
+func CreateStockMovement(c *gin.Context) {
+	var movement models.StockMovement
+	if err := c.ShouldBindJSON(&movement); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate movement type
+	if movement.Type != "entry" && movement.Type != "exit" && movement.Type != "adjustment" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid movement type. Must be: entry, exit, or adjustment"})
+		return
+	}
+
+	// Validate quantity
+	if movement.Quantity < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Quantity cannot be negative"})
+		return
+	}
+
+	db := c.MustGet("db").(*gorm.DB)
+	userID := c.GetUint("user_id")
+	movement.UserID = userID
+
+	// Start transaction
+	tx := db.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+
+	// Get product with row lock to prevent race conditions
+	var product models.Product
+	if err := tx.Clauses().First(&product, movement.ProductID).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	// Store old quantity for logging
+	oldQuantity := product.Quantity
+
+	// Update product quantity based on movement type
+	switch movement.Type {
+	case "entry":
+		product.Quantity += movement.Quantity
+	case "exit":
+		// Validate sufficient stock
+		if product.Quantity < movement.Quantity {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Insufficient stock",
+				"available": product.Quantity,
+				"requested": movement.Quantity,
+			})
+			return
+		}
+		product.Quantity -= movement.Quantity
+	case "adjustment":
+		// For adjustment, the quantity represents the new total quantity
+		product.Quantity = movement.Quantity
+	}
+
+	// Ensure quantity doesn't go negative
+	if product.Quantity < 0 {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Product quantity cannot be negative"})
+		return
+	}
+
+	// Save the updated product
+	if err := tx.Save(&product).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product quantity"})
+		return
+	}
+
+	// Create movement record
+	if err := tx.Create(&movement).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create movement record"})
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"movement": movement,
+		"product": product,
+		"old_quantity": oldQuantity,
+		"new_quantity": product.Quantity,
+	})
+}
+
+func GetStockMovements(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
+	offset := (page - 1) * pageSize
+
+	query := db.Model(&models.StockMovement{})
+
+	if productID := c.Query("product_id"); productID != "" {
+		query = query.Where("product_id = ?", productID)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var movements []models.StockMovement
+	if err := query.Preload("Product").Preload("User").
+		Offset(offset).Limit(pageSize).Order("created_at DESC").
+		Find(&movements).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch movements"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"movements": movements,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}

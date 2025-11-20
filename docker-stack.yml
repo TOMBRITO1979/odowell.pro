@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-drcrwell_db}
+      POSTGRES_USER: ${DB_USER:-drcrwell_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_this_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - network_public
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+  backend:
+    image: ${DOCKER_USERNAME:-tomautomations}/drcrwell-backend:latest
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-drcrwell_user}
+      DB_PASSWORD: ${DB_PASSWORD:-change_this_password}
+      DB_NAME: ${DB_NAME:-drcrwell_db}
+      JWT_SECRET: ${JWT_SECRET:-change_this_secret_key_to_something_very_secure}
+      PORT: 8080
+      GIN_MODE: release
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://dr.crwell.pro}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_BUCKET_NAME: ${AWS_BUCKET_NAME:-drcrwell-app}
+      AWS_REGION: ${AWS_REGION:-sa-east-1}
+      S3_BASE_FOLDER: ${S3_BASE_FOLDER:-exams}
+    networks:
+      - network_public
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-1}
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.drcrwell-backend.rule=Host(`${BACKEND_URL:-drapi.crwell.pro}`)"
+        - "traefik.http.routers.drcrwell-backend.entrypoints=websecure"
+        - "traefik.http.routers.drcrwell-backend.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.drcrwell-backend.loadbalancer.server.port=8080"
+        - "traefik.docker.network=network_public"
+    depends_on:
+      - postgres
+
+  frontend:
+    image: ${DOCKER_USERNAME:-tomautomations}/drcrwell-frontend:latest
+    environment:
+      VITE_API_URL: https://${BACKEND_URL:-drapi.crwell.pro}
+    networks:
+      - network_public
+    deploy:
+      replicas: ${FRONTEND_REPLICAS:-1}
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.drcrwell-frontend.rule=Host(`${FRONTEND_URL:-dr.crwell.pro}`)"
+        - "traefik.http.routers.drcrwell-frontend.entrypoints=websecure"
+        - "traefik.http.routers.drcrwell-frontend.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.drcrwell-frontend.loadbalancer.server.port=80"
+        - "traefik.docker.network=network_public"
+    depends_on:
+      - backend
+
+networks:
+  network_public:
+    external: true
+
+volumes:
+  postgres_data:
+    driver: local

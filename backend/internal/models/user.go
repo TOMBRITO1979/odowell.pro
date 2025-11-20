@@ -1,0 +1,51 @@
+package models
+
+import (
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+)
+
+// User represents a system user
+type User struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+
+	TenantID  uint   `gorm:"not null;index" json:"tenant_id"`
+
+	Name      string `gorm:"not null" json:"name"`
+	Email     string `gorm:"not null;index" json:"email"`
+	Password  string `gorm:"not null" json:"-"`
+	Phone     string `json:"phone,omitempty"`
+
+	Role      string `gorm:"default:'user'" json:"role"` // admin, dentist, receptionist, user
+	Active    bool   `gorm:"default:true" json:"active"`
+
+	// Professional info (for dentists)
+	CRO       string `json:"cro,omitempty"`
+	Specialty string `json:"specialty,omitempty"`
+}
+
+// TableName specifies the table name for User model
+func (User) TableName() string {
+	return "public.users"
+}
+
+// HashPassword generates bcrypt hash of the password
+func (u *User) HashPassword(password string) error {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	if err != nil {
+		return err
+	}
+	u.Password = string(bytes)
+	return nil
+}
+
+// CheckPassword compares password with hash
+func (u *User) CheckPassword(password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	return err == nil
+}

@@ -1,0 +1,277 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Table,
+  Button,
+  Space,
+  Tag,
+  Input,
+  Select,
+  Card,
+  message,
+  Popconfirm,
+  Row,
+  Col,
+  DatePicker,
+} from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  SearchOutlined,
+  FileTextOutlined,
+} from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { medicalRecordsAPI, patientsAPI } from '../../services/api';
+
+const { RangePicker } = DatePicker;
+
+const MedicalRecords = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [records, setRecords] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 20,
+    total: 0,
+  });
+
+  // Filters
+  const [filters, setFilters] = useState({
+    patient_id: undefined,
+    type: undefined,
+    search: '',
+    date_range: null,
+  });
+
+  const recordTypes = [
+    { value: 'anamnesis', label: 'Anamnese', color: 'blue' },
+    { value: 'treatment', label: 'Tratamento', color: 'green' },
+    { value: 'procedure', label: 'Procedimento', color: 'purple' },
+    { value: 'prescription', label: 'Receita', color: 'orange' },
+    { value: 'certificate', label: 'Atestado', color: 'red' },
+  ];
+
+  useEffect(() => {
+    fetchRecords();
+    fetchPatients();
+  }, [pagination.current, filters]);
+
+  const fetchPatients = async () => {
+    try {
+      const response = await patientsAPI.getAll({ page: 1, page_size: 1000 });
+      setPatients(response.data.patients || []);
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    }
+  };
+
+  const fetchRecords = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: pagination.current,
+        page_size: pagination.pageSize,
+        ...filters,
+      };
+
+      const response = await medicalRecordsAPI.getAll(params);
+      setRecords(response.data.records || []);
+      setPagination({
+        ...pagination,
+        total: response.data.total || 0,
+      });
+    } catch (error) {
+      message.error('Erro ao carregar prontuários');
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await medicalRecordsAPI.delete(id);
+      message.success('Prontuário excluído com sucesso');
+      fetchRecords();
+    } catch (error) {
+      message.error('Erro ao excluir prontuário');
+    }
+  };
+
+  const handleTableChange = (newPagination) => {
+    setPagination(newPagination);
+  };
+
+  const getTypeTag = (type) => {
+    const typeObj = recordTypes.find((t) => t.value === type);
+    return typeObj ? (
+      <Tag color={typeObj.color}>{typeObj.label}</Tag>
+    ) : (
+      <Tag>{type}</Tag>
+    );
+  };
+
+  const columns = [
+    {
+      title: 'Data',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 120,
+      render: (date) => dayjs(date).format('DD/MM/YYYY'),
+      sorter: true,
+    },
+    {
+      title: 'Paciente',
+      dataIndex: ['patient', 'name'],
+      key: 'patient',
+      ellipsis: true,
+    },
+    {
+      title: 'Tipo',
+      dataIndex: 'type',
+      key: 'type',
+      width: 140,
+      render: (type) => getTypeTag(type),
+    },
+    {
+      title: 'Profissional',
+      dataIndex: ['dentist', 'name'],
+      key: 'dentist',
+      ellipsis: true,
+    },
+    {
+      title: 'Diagnóstico',
+      dataIndex: 'diagnosis',
+      key: 'diagnosis',
+      ellipsis: true,
+      render: (text) => text || '-',
+    },
+    {
+      title: 'Ações',
+      key: 'actions',
+      width: 150,
+      fixed: 'right',
+      render: (_, record) => (
+        <Space>
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/medical-records/${record.id}/view`)}
+            title="Visualizar"
+          />
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            onClick={() => navigate(`/medical-records/${record.id}/edit`)}
+            title="Editar"
+          />
+          <Popconfirm
+            title="Tem certeza que deseja excluir?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Sim"
+            cancelText="Não"
+          >
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              title="Excluir"
+            />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <Card
+        title={
+          <Space>
+            <FileTextOutlined />
+            <span>Prontuários Médicos</span>
+          </Space>
+        }
+        extra={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/medical-records/new')}
+          >
+            Novo Prontuário
+          </Button>
+        }
+      >
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12} md={6}>
+            <Select
+              placeholder="Selecione o paciente"
+              style={{ width: '100%' }}
+              allowClear
+              showSearch
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
+              value={filters.patient_id}
+              onChange={(value) =>
+                setFilters({ ...filters, patient_id: value })
+              }
+            >
+              {patients.map((patient) => (
+                <Select.Option key={patient.id} value={patient.id}>
+                  {patient.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Select
+              placeholder="Tipo de registro"
+              style={{ width: '100%' }}
+              allowClear
+              value={filters.type}
+              onChange={(value) => setFilters({ ...filters, type: value })}
+            >
+              {recordTypes.map((type) => (
+                <Select.Option key={type.value} value={type.value}>
+                  {type.label}
+                </Select.Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Input
+              placeholder="Buscar por diagnóstico..."
+              prefix={<SearchOutlined />}
+              allowClear
+              value={filters.search}
+              onChange={(e) =>
+                setFilters({ ...filters, search: e.target.value })
+              }
+            />
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Button onClick={fetchRecords} loading={loading}>
+              Atualizar
+            </Button>
+          </Col>
+        </Row>
+
+        <Table
+          columns={columns}
+          dataSource={records}
+          rowKey="id"
+          loading={loading}
+          pagination={pagination}
+          onChange={handleTableChange}
+          scroll={{ x: 1000 }}
+        />
+      </Card>
+    </div>
+  );
+};
+
+export default MedicalRecords;
