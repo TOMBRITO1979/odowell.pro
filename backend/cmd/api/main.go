@@ -196,6 +196,25 @@ func main() {
 		// Tenant Settings
 		tenanted.GET("/settings", handlers.GetTenantSettings)
 		tenanted.PUT("/settings", handlers.UpdateTenantSettings)
+
+		// User Management (admin only)
+		users := tenanted.Group("/users")
+		{
+			users.GET("", handlers.GetTenantUsers)
+			users.POST("", handlers.CreateTenantUser)
+			users.PUT("/:id", handlers.UpdateTenantUser)
+		}
+
+		// Permission Management (admin only)
+		permissions := tenanted.Group("/permissions")
+		{
+			permissions.GET("/modules", handlers.GetModules)
+			permissions.GET("/all", handlers.GetAllPermissions)
+			permissions.GET("/users/:id", handlers.GetUserPermissions)
+			permissions.PUT("/users/:id", handlers.UpdateUserPermissions)
+			permissions.POST("/users/:id/bulk", handlers.BulkUpdateUserPermissions)
+			permissions.GET("/defaults/:role", handlers.GetDefaultRolePermissions)
+		}
 	}
 
 	port := os.Getenv("PORT")
