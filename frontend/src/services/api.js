@@ -190,3 +190,20 @@ export const prescriptionsAPI = {
   print: (id) => api.post(`/prescriptions/${id}/print`),
   downloadPDF: (id) => api.get(`/prescriptions/${id}/pdf`, { responseType: 'blob' }),
 };
+
+// Users API
+export const usersAPI = {
+  getAll: () => api.get('/users'),
+  create: (data) => api.post('/users', data),
+  update: (id, data) => api.put(`/users/${id}`, data),
+};
+
+// Permissions API
+export const permissionsAPI = {
+  getModules: () => api.get('/permissions/modules'),
+  getAllPermissions: () => api.get('/permissions/all'),
+  getUserPermissions: (userId) => api.get(`/permissions/users/${userId}`),
+  updateUserPermissions: (userId, permissions) => api.put(`/permissions/users/${userId}`, { permissions }),
+  bulkUpdateUserPermissions: (userId, permissionIds) => api.post(`/permissions/users/${userId}/bulk`, { permission_ids: permissionIds }),
+  getDefaultRolePermissions: (role) => api.get(`/permissions/defaults/${role}`),
+};

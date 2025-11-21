@@ -15,7 +15,7 @@ import {
   SettingOutlined,
   FormOutlined,
 } from '@ant-design/icons';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, usePermission } from '../../contexts/AuthContext';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -24,45 +24,53 @@ const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const { user, tenant, logout } = useAuth();
+  const { canView, isAdmin } = usePermission();
 
-  const menuItems = [
+  // Filter menu items based on permissions
+  const allMenuItems = [
     {
       key: '/',
       icon: <DashboardOutlined />,
       label: 'Dashboard',
+      permission: 'dashboard',
     },
     {
       key: '/appointments',
       icon: <CalendarOutlined />,
       label: 'Agenda',
+      permission: 'appointments',
     },
     {
       key: '/patients',
       icon: <UserOutlined />,
       label: 'Pacientes',
+      permission: 'patients',
     },
     {
       key: '/medical-records',
       icon: <MedicineBoxOutlined />,
       label: 'Prontuários',
+      permission: 'medical_records',
     },
     {
       key: '/prescriptions',
       icon: <FormOutlined />,
       label: 'Receituário',
+      permission: 'prescriptions',
     },
     {
       key: '/exams',
       icon: <FileOutlined />,
       label: 'Exames',
+      permission: 'exams',
     },
     {
       key: 'financial',
       icon: <DollarOutlined />,
       label: 'Financeiro',
       children: [
-        { key: '/budgets', label: 'Orçamentos' },
-        { key: '/payments', label: 'Pagamentos' },
+        { key: '/budgets', label: 'Orçamentos', permission: 'budgets' },
+        { key: '/payments', label: 'Pagamentos', permission: 'payments' },
       ],
     },
     {
@@ -70,22 +78,45 @@ const DashboardLayout = () => {
       icon: <ShoppingOutlined />,
       label: 'Estoque',
       children: [
-        { key: '/products', label: 'Produtos' },
-        { key: '/suppliers', label: 'Fornecedores' },
-        { key: '/stock-movements', label: 'Movimentações' },
+        { key: '/products', label: 'Produtos', permission: 'products' },
+        { key: '/suppliers', label: 'Fornecedores', permission: 'suppliers' },
+        { key: '/stock-movements', label: 'Movimentações', permission: 'stock_movements' },
       ],
     },
     {
       key: '/campaigns',
       icon: <MessageOutlined />,
       label: 'Campanhas',
+      permission: 'campaigns',
     },
     {
       key: '/reports',
       icon: <BarChartOutlined />,
       label: 'Relatórios',
+      permission: 'reports',
     },
+    // Admin only
+    ...(isAdmin ? [{
+      key: '/users',
+      icon: <UserOutlined />,
+      label: 'Usuários',
+      adminOnly: true,
+    }] : []),
   ];
+
+  // Filter items based on permissions
+  const menuItems = allMenuItems.filter(item => {
+    if (item.adminOnly) return isAdmin;
+    if (!item.permission) return true; // Dashboard always visible
+    if (item.children) {
+      // Filter children and keep parent if any child is accessible
+      item.children = item.children.filter(child => {
+        return child.permission ? canView(child.permission) : true;
+      });
+      return item.children.length > 0;
+    }
+    return canView(item.permission);
+  });
 
   const handleUserMenuClick = ({ key }) => {
     if (key === 'profile') {

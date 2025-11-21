@@ -40,6 +40,7 @@ import Prescriptions from './pages/prescriptions/Prescriptions';
 import PrescriptionForm from './pages/prescriptions/PrescriptionForm';
 import PrescriptionDetails from './pages/prescriptions/PrescriptionDetails';
 import Reports from './pages/reports/Reports';
+import Users from './pages/users/Users';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -131,6 +132,9 @@ function App() {
 
         {/* Reports */}
         <Route path="reports" element={<Reports />} />
+
+        {/* User Management (Admin only) */}
+        <Route path="users" element={<Users />} />
       </Route>
 
       {/* Catch all */}

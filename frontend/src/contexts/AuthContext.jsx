@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext({});
@@ -6,7 +7,19 @@ const AuthContext = createContext({});
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [tenant, setTenant] = useState(null);
+  const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(true);
+
+  // Helper function to extract permissions from JWT
+  const extractPermissions = (token) => {
+    try {
+      const decoded = jwtDecode(token);
+      return decoded.permissions || {};
+    } catch (error) {
+      console.error('Failed to decode JWT:', error);
+      return {};
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -18,6 +31,10 @@ export const AuthProvider = ({ children }) => {
       if (storedTenant) {
         setTenant(JSON.parse(storedTenant));
       }
+      // Extract permissions from JWT
+      const perms = extractPermissions(token);
+      setPermissions(perms);
+
       // Verify token is still valid
       authAPI.getMe()
         .then(response => {
@@ -43,6 +60,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('tenant', JSON.stringify(tenantData));
 
+    // Extract and set permissions
+    const perms = extractPermissions(token);
+    setPermissions(perms);
+
     setUser(userData);
     setTenant(tenantData);
 
@@ -62,6 +83,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(admin));
     localStorage.setItem('tenant', JSON.stringify(tenantData));
 
+    // Extract and set permissions
+    const perms = extractPermissions(token);
+    setPermissions(perms);
+
     setUser(admin);
     setTenant(tenantData);
 
@@ -74,6 +99,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('tenant');
     setUser(null);
     setTenant(null);
+    setPermissions({});
   };
 
   const updateUser = (userData) => {
@@ -84,6 +110,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     tenant,
+    permissions,
     loading,
     login,
     register,
@@ -102,4 +129,63 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+// Hook to check user permissions
+export const usePermission = () => {
+  const { user, permissions } = useAuth();
+
+  // Check if user has a specific permission
+  const hasPermission = (module, action) => {
+    // Admins have all permissions
+    if (user?.role === 'admin') {
+      return true;
+    }
+
+    // Check if user has the specific permission
+    return permissions?.[module]?.[action] === true;
+  };
+
+  // Check if user has at least one permission for a module
+  const hasAnyPermission = (module) => {
+    if (user?.role === 'admin') {
+      return true;
+    }
+
+    const modulePerms = permissions?.[module];
+    if (!modulePerms) return false;
+
+    return Object.values(modulePerms).some(perm => perm === true);
+  };
+
+  // Check if user can view a module (has view permission or any other permission)
+  const canView = (module) => {
+    return hasPermission(module, 'view') || hasAnyPermission(module);
+  };
+
+  // Check if user can create in a module
+  const canCreate = (module) => {
+    return hasPermission(module, 'create');
+  };
+
+  // Check if user can edit in a module
+  const canEdit = (module) => {
+    return hasPermission(module, 'edit');
+  };
+
+  // Check if user can delete in a module
+  const canDelete = (module) => {
+    return hasPermission(module, 'delete');
+  };
+
+  return {
+    hasPermission,
+    hasAnyPermission,
+    canView,
+    canCreate,
+    canEdit,
+    canDelete,
+    permissions,
+    isAdmin: user?.role === 'admin',
+  };
 };
