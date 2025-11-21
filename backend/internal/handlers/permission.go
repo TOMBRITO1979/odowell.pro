@@ -133,8 +133,8 @@ func UpdateUserPermissions(c *gin.Context) {
 		}
 	}()
 
-	// Delete all existing permissions for this user
-	if err := tx.Where("user_id = ?", userID).Delete(&models.UserPermission{}).Error; err != nil {
+	// Delete all existing permissions for this user (hard delete to avoid unique constraint issues)
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&models.UserPermission{}).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear existing permissions"})
 		return
@@ -234,8 +234,8 @@ func BulkUpdateUserPermissions(c *gin.Context) {
 		}
 	}()
 
-	// Delete all existing permissions for this user
-	if err := tx.Where("user_id = ?", userID).Delete(&models.UserPermission{}).Error; err != nil {
+	// Delete all existing permissions for this user (hard delete to avoid unique constraint issues)
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&models.UserPermission{}).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear existing permissions"})
 		return
