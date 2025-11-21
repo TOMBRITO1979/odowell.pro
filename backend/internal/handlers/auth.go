@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"net/http"
 	"os"
@@ -24,10 +25,11 @@ type RegisterRequest struct {
 }
 
 type Claims struct {
-	UserID   uint   `json:"user_id"`
-	TenantID uint   `json:"tenant_id"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
+	UserID      uint                       `json:"user_id"`
+	TenantID    uint                       `json:"tenant_id"`
+	Email       string                     `json:"email"`
+	Role        string                     `json:"role"`
+	Permissions map[string]map[string]bool `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -287,11 +289,32 @@ func ChangePassword(c *gin.Context) {
 
 // Helper function to generate JWT token
 func generateToken(userID, tenantID uint, email, role string) (string, error) {
+	// Get user permissions (admins get all permissions in the middleware, but we still include them for consistency)
+	var permissions map[string]map[string]bool
+	var err error
+
+	if role == "admin" {
+		// Admins get all permissions
+		permissions, err = middleware.GetAllUserPermissionsWithDefaults(userID)
+		if err != nil {
+			// Log error but continue - admin will have bypass anyway
+			permissions = make(map[string]map[string]bool)
+		}
+	} else {
+		// Regular users get their assigned permissions
+		permissions, err = middleware.GetUserPermissions(userID)
+		if err != nil {
+			// Log error but continue with empty permissions
+			permissions = make(map[string]map[string]bool)
+		}
+	}
+
 	claims := Claims{
-		UserID:   userID,
-		TenantID: tenantID,
-		Email:    email,
-		Role:     role,
+		UserID:      userID,
+		TenantID:    tenantID,
+		Email:       email,
+		Role:        role,
+		Permissions: permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
