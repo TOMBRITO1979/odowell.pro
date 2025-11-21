@@ -63,139 +63,139 @@ func main() {
 		// Patients CRUD
 		patients := tenanted.Group("/patients")
 		{
-			patients.POST("", handlers.CreatePatient)
-			patients.GET("", handlers.GetPatients)
-			patients.GET("/:id", handlers.GetPatient)
-			patients.PUT("/:id", handlers.UpdatePatient)
-			patients.DELETE("/:id", handlers.DeletePatient)
+			patients.POST("", middleware.PermissionMiddleware("patients", "create"), handlers.CreatePatient)
+			patients.GET("", middleware.PermissionMiddleware("patients", "view"), handlers.GetPatients)
+			patients.GET("/:id", middleware.PermissionMiddleware("patients", "view"), handlers.GetPatient)
+			patients.PUT("/:id", middleware.PermissionMiddleware("patients", "edit"), handlers.UpdatePatient)
+			patients.DELETE("/:id", middleware.PermissionMiddleware("patients", "delete"), handlers.DeletePatient)
 		}
 
 		// Appointments CRUD
 		appointments := tenanted.Group("/appointments")
 		{
-			appointments.POST("", handlers.CreateAppointment)
-			appointments.GET("", handlers.GetAppointments)
-			appointments.GET("/:id", handlers.GetAppointment)
-			appointments.PUT("/:id", handlers.UpdateAppointment)
-			appointments.DELETE("/:id", handlers.DeleteAppointment)
-			appointments.PATCH("/:id/status", handlers.UpdateAppointmentStatus)
+			appointments.POST("", middleware.PermissionMiddleware("appointments", "create"), handlers.CreateAppointment)
+			appointments.GET("", middleware.PermissionMiddleware("appointments", "view"), handlers.GetAppointments)
+			appointments.GET("/:id", middleware.PermissionMiddleware("appointments", "view"), handlers.GetAppointment)
+			appointments.PUT("/:id", middleware.PermissionMiddleware("appointments", "edit"), handlers.UpdateAppointment)
+			appointments.DELETE("/:id", middleware.PermissionMiddleware("appointments", "delete"), handlers.DeleteAppointment)
+			appointments.PATCH("/:id/status", middleware.PermissionMiddleware("appointments", "edit"), handlers.UpdateAppointmentStatus)
 		}
 
 		// Medical Records CRUD
 		medicalRecords := tenanted.Group("/medical-records")
 		{
-			medicalRecords.POST("", handlers.CreateMedicalRecord)
-			medicalRecords.GET("", handlers.GetMedicalRecords)
-			medicalRecords.GET("/:id", handlers.GetMedicalRecord)
-			medicalRecords.PUT("/:id", handlers.UpdateMedicalRecord)
-			medicalRecords.DELETE("/:id", handlers.DeleteMedicalRecord)
-			medicalRecords.GET("/:id/pdf", handlers.GenerateMedicalRecordPDF)
+			medicalRecords.POST("", middleware.PermissionMiddleware("medical_records", "create"), handlers.CreateMedicalRecord)
+			medicalRecords.GET("", middleware.PermissionMiddleware("medical_records", "view"), handlers.GetMedicalRecords)
+			medicalRecords.GET("/:id", middleware.PermissionMiddleware("medical_records", "view"), handlers.GetMedicalRecord)
+			medicalRecords.PUT("/:id", middleware.PermissionMiddleware("medical_records", "edit"), handlers.UpdateMedicalRecord)
+			medicalRecords.DELETE("/:id", middleware.PermissionMiddleware("medical_records", "delete"), handlers.DeleteMedicalRecord)
+			medicalRecords.GET("/:id/pdf", middleware.PermissionMiddleware("medical_records", "view"), handlers.GenerateMedicalRecordPDF)
 		}
 
 		// Prescriptions CRUD (Receituário)
 		prescriptions := tenanted.Group("/prescriptions")
 		{
-			prescriptions.POST("", handlers.CreatePrescription)
-			prescriptions.GET("", handlers.GetPrescriptions)
-			prescriptions.GET("/:id", handlers.GetPrescription)
-			prescriptions.PUT("/:id", handlers.UpdatePrescription)
-			prescriptions.DELETE("/:id", handlers.DeletePrescription)
-			prescriptions.POST("/:id/issue", handlers.IssuePrescription)
-			prescriptions.POST("/:id/print", handlers.PrintPrescription)
-			prescriptions.GET("/:id/pdf", handlers.GeneratePrescriptionPDF)
+			prescriptions.POST("", middleware.PermissionMiddleware("prescriptions", "create"), handlers.CreatePrescription)
+			prescriptions.GET("", middleware.PermissionMiddleware("prescriptions", "view"), handlers.GetPrescriptions)
+			prescriptions.GET("/:id", middleware.PermissionMiddleware("prescriptions", "view"), handlers.GetPrescription)
+			prescriptions.PUT("/:id", middleware.PermissionMiddleware("prescriptions", "edit"), handlers.UpdatePrescription)
+			prescriptions.DELETE("/:id", middleware.PermissionMiddleware("prescriptions", "delete"), handlers.DeletePrescription)
+			prescriptions.POST("/:id/issue", middleware.PermissionMiddleware("prescriptions", "edit"), handlers.IssuePrescription)
+			prescriptions.POST("/:id/print", middleware.PermissionMiddleware("prescriptions", "view"), handlers.PrintPrescription)
+			prescriptions.GET("/:id/pdf", middleware.PermissionMiddleware("prescriptions", "view"), handlers.GeneratePrescriptionPDF)
 		}
 
 		// Budgets CRUD
 		budgets := tenanted.Group("/budgets")
 		{
-			budgets.POST("", handlers.CreateBudget)
-			budgets.GET("", handlers.GetBudgets)
-			budgets.GET("/:id", handlers.GetBudget)
-			budgets.PUT("/:id", handlers.UpdateBudget)
-			budgets.DELETE("/:id", handlers.DeleteBudget)
-			budgets.GET("/:id/pdf", handlers.GenerateBudgetPDF)
-			budgets.GET("/:id/payment/:payment_id/receipt", handlers.GeneratePaymentReceipt)
+			budgets.POST("", middleware.PermissionMiddleware("budgets", "create"), handlers.CreateBudget)
+			budgets.GET("", middleware.PermissionMiddleware("budgets", "view"), handlers.GetBudgets)
+			budgets.GET("/:id", middleware.PermissionMiddleware("budgets", "view"), handlers.GetBudget)
+			budgets.PUT("/:id", middleware.PermissionMiddleware("budgets", "edit"), handlers.UpdateBudget)
+			budgets.DELETE("/:id", middleware.PermissionMiddleware("budgets", "delete"), handlers.DeleteBudget)
+			budgets.GET("/:id/pdf", middleware.PermissionMiddleware("budgets", "view"), handlers.GenerateBudgetPDF)
+			budgets.GET("/:id/payment/:payment_id/receipt", middleware.PermissionMiddleware("budgets", "view"), handlers.GeneratePaymentReceipt)
 		}
 
 		// Payments CRUD
 		payments := tenanted.Group("/payments")
 		{
-			payments.POST("", handlers.CreatePayment)
-			payments.GET("", handlers.GetPayments)
-			payments.GET("/:id", handlers.GetPayment)
-			payments.PUT("/:id", handlers.UpdatePayment)
-			payments.DELETE("/:id", handlers.DeletePayment)
-			payments.GET("/pdf/export", handlers.GeneratePaymentsPDF)
+			payments.POST("", middleware.PermissionMiddleware("payments", "create"), handlers.CreatePayment)
+			payments.GET("", middleware.PermissionMiddleware("payments", "view"), handlers.GetPayments)
+			payments.GET("/:id", middleware.PermissionMiddleware("payments", "view"), handlers.GetPayment)
+			payments.PUT("/:id", middleware.PermissionMiddleware("payments", "edit"), handlers.UpdatePayment)
+			payments.DELETE("/:id", middleware.PermissionMiddleware("payments", "delete"), handlers.DeletePayment)
+			payments.GET("/pdf/export", middleware.PermissionMiddleware("payments", "view"), handlers.GeneratePaymentsPDF)
 		}
 
 		// Products CRUD
 		products := tenanted.Group("/products")
 		{
-			products.POST("", handlers.CreateProduct)
-			products.GET("", handlers.GetProducts)
-			products.GET("/:id", handlers.GetProduct)
-			products.PUT("/:id", handlers.UpdateProduct)
-			products.DELETE("/:id", handlers.DeleteProduct)
-			products.GET("/low-stock", handlers.GetLowStockProducts)
+			products.POST("", middleware.PermissionMiddleware("products", "create"), handlers.CreateProduct)
+			products.GET("", middleware.PermissionMiddleware("products", "view"), handlers.GetProducts)
+			products.GET("/:id", middleware.PermissionMiddleware("products", "view"), handlers.GetProduct)
+			products.PUT("/:id", middleware.PermissionMiddleware("products", "edit"), handlers.UpdateProduct)
+			products.DELETE("/:id", middleware.PermissionMiddleware("products", "delete"), handlers.DeleteProduct)
+			products.GET("/low-stock", middleware.PermissionMiddleware("products", "view"), handlers.GetLowStockProducts)
 		}
 
 		// Suppliers CRUD
 		suppliers := tenanted.Group("/suppliers")
 		{
-			suppliers.POST("", handlers.CreateSupplier)
-			suppliers.GET("", handlers.GetSuppliers)
-			suppliers.GET("/:id", handlers.GetSupplier)
-			suppliers.PUT("/:id", handlers.UpdateSupplier)
-			suppliers.DELETE("/:id", handlers.DeleteSupplier)
+			suppliers.POST("", middleware.PermissionMiddleware("suppliers", "create"), handlers.CreateSupplier)
+			suppliers.GET("", middleware.PermissionMiddleware("suppliers", "view"), handlers.GetSuppliers)
+			suppliers.GET("/:id", middleware.PermissionMiddleware("suppliers", "view"), handlers.GetSupplier)
+			suppliers.PUT("/:id", middleware.PermissionMiddleware("suppliers", "edit"), handlers.UpdateSupplier)
+			suppliers.DELETE("/:id", middleware.PermissionMiddleware("suppliers", "delete"), handlers.DeleteSupplier)
 		}
 
 		// Stock Movements
 		stockMovements := tenanted.Group("/stock-movements")
 		{
-			stockMovements.POST("", handlers.CreateStockMovement)
-			stockMovements.GET("", handlers.GetStockMovements)
+			stockMovements.POST("", middleware.PermissionMiddleware("stock_movements", "create"), handlers.CreateStockMovement)
+			stockMovements.GET("", middleware.PermissionMiddleware("stock_movements", "view"), handlers.GetStockMovements)
 		}
 
 		// Dashboard and Reports
 		reports := tenanted.Group("/reports")
 		{
-			reports.GET("/dashboard", handlers.GetDashboard)
-			reports.GET("/revenue", handlers.GetRevenueReport)
-			reports.GET("/procedures", handlers.GetProceduresReport)
-			reports.GET("/attendance", handlers.GetAttendanceReport)
-			reports.GET("/revenue/pdf", handlers.GenerateRevenuePDF)
-			reports.GET("/attendance/pdf", handlers.GenerateAttendancePDF)
-			reports.GET("/procedures/pdf", handlers.GenerateProceduresPDF)
-			reports.GET("/revenue/excel", handlers.GenerateRevenueExcel)
-			reports.GET("/attendance/excel", handlers.GenerateAttendanceExcel)
-			reports.GET("/procedures/excel", handlers.GenerateProceduresExcel)
+			reports.GET("/dashboard", middleware.PermissionMiddleware("reports", "view"), handlers.GetDashboard)
+			reports.GET("/revenue", middleware.PermissionMiddleware("reports", "view"), handlers.GetRevenueReport)
+			reports.GET("/procedures", middleware.PermissionMiddleware("reports", "view"), handlers.GetProceduresReport)
+			reports.GET("/attendance", middleware.PermissionMiddleware("reports", "view"), handlers.GetAttendanceReport)
+			reports.GET("/revenue/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateRevenuePDF)
+			reports.GET("/attendance/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateAttendancePDF)
+			reports.GET("/procedures/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateProceduresPDF)
+			reports.GET("/revenue/excel", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateRevenueExcel)
+			reports.GET("/attendance/excel", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateAttendanceExcel)
+			reports.GET("/procedures/excel", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateProceduresExcel)
 		}
 
 		// Campaigns CRUD
 		campaigns := tenanted.Group("/campaigns")
 		{
-			campaigns.POST("", handlers.CreateCampaign)
-			campaigns.GET("", handlers.GetCampaigns)
-			campaigns.GET("/:id", handlers.GetCampaign)
-			campaigns.PUT("/:id", handlers.UpdateCampaign)
-			campaigns.DELETE("/:id", handlers.DeleteCampaign)
-			campaigns.POST("/:id/send", handlers.SendCampaign)
+			campaigns.POST("", middleware.PermissionMiddleware("campaigns", "create"), handlers.CreateCampaign)
+			campaigns.GET("", middleware.PermissionMiddleware("campaigns", "view"), handlers.GetCampaigns)
+			campaigns.GET("/:id", middleware.PermissionMiddleware("campaigns", "view"), handlers.GetCampaign)
+			campaigns.PUT("/:id", middleware.PermissionMiddleware("campaigns", "edit"), handlers.UpdateCampaign)
+			campaigns.DELETE("/:id", middleware.PermissionMiddleware("campaigns", "delete"), handlers.DeleteCampaign)
+			campaigns.POST("/:id/send", middleware.PermissionMiddleware("campaigns", "edit"), handlers.SendCampaign)
 		}
 
 		// Exams CRUD
 		exams := tenanted.Group("/exams")
 		{
-			exams.POST("", handlers.CreateExam)
-			exams.GET("", handlers.GetExams)
-			exams.GET("/:id", handlers.GetExam)
-			exams.PUT("/:id", handlers.UpdateExam)
-			exams.DELETE("/:id", handlers.DeleteExam)
-			exams.GET("/:id/download", handlers.GetExamDownloadURL)
+			exams.POST("", middleware.PermissionMiddleware("exams", "create"), handlers.CreateExam)
+			exams.GET("", middleware.PermissionMiddleware("exams", "view"), handlers.GetExams)
+			exams.GET("/:id", middleware.PermissionMiddleware("exams", "view"), handlers.GetExam)
+			exams.PUT("/:id", middleware.PermissionMiddleware("exams", "edit"), handlers.UpdateExam)
+			exams.DELETE("/:id", middleware.PermissionMiddleware("exams", "delete"), handlers.DeleteExam)
+			exams.GET("/:id/download", middleware.PermissionMiddleware("exams", "view"), handlers.GetExamDownloadURL)
 		}
 
 		// Tenant Settings
-		tenanted.GET("/settings", handlers.GetTenantSettings)
-		tenanted.PUT("/settings", handlers.UpdateTenantSettings)
+		tenanted.GET("/settings", middleware.PermissionMiddleware("settings", "view"), handlers.GetTenantSettings)
+		tenanted.PUT("/settings", middleware.PermissionMiddleware("settings", "edit"), handlers.UpdateTenantSettings)
 
 		// User Management (admin only)
 		users := tenanted.Group("/users")
