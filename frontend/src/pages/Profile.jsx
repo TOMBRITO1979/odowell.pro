@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, message, Row, Col, Modal, Divider } from 'antd';
-import { UserOutlined, LockOutlined, PhoneOutlined, MailOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, message, Row, Col, Modal, Divider, Avatar, Upload } from 'antd';
+import { UserOutlined, LockOutlined, PhoneOutlined, MailOutlined, CameraOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/api';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [uploadingPicture, setUploadingPicture] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
 
   useEffect(() => {
@@ -52,6 +55,47 @@ const Profile = () => {
     }
   };
 
+  const handleProfilePictureUpload = async (file) => {
+    // Validate file type
+    const isImage = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
+    if (!isImage) {
+      message.error('Você só pode fazer upload de arquivos JPG/PNG!');
+      return false;
+    }
+
+    // Validate file size (5MB)
+    const isLt5M = file.size / 1024 / 1024 < 5;
+    if (!isLt5M) {
+      message.error('A imagem deve ter menos de 5MB!');
+      return false;
+    }
+
+    setUploadingPicture(true);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await authAPI.uploadProfilePicture(formData);
+      message.success('Foto de perfil atualizada com sucesso!');
+
+      // Update user with new profile picture
+      const updatedUser = { ...user, profile_picture: response.data.profile_picture };
+      updateUser(updatedUser);
+    } catch (error) {
+      message.error('Erro ao fazer upload da foto de perfil');
+      console.error('Error:', error);
+    } finally {
+      setUploadingPicture(false);
+    }
+
+    return false; // Prevent default upload behavior
+  };
+
+  const profilePictureUrl = user?.profile_picture
+    ? `${API_URL}/${user.profile_picture}`
+    : null;
+
   return (
     <div>
       <Card
@@ -62,6 +106,44 @@ const Profile = () => {
           </div>
         }
       >
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+          <Upload
+            name="file"
+            showUploadList={false}
+            beforeUpload={handleProfilePictureUpload}
+            accept="image/jpeg,image/png,image/jpg"
+          >
+            <div style={{ position: 'relative', cursor: 'pointer' }}>
+              <Avatar
+                size={120}
+                icon={<UserOutlined />}
+                src={profilePictureUrl}
+                style={{ backgroundColor: '#16a34a' }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  backgroundColor: '#16a34a',
+                  borderRadius: '50%',
+                  width: 36,
+                  height: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '3px solid white',
+                  cursor: 'pointer',
+                }}
+              >
+                <CameraOutlined style={{ color: 'white', fontSize: 16 }} />
+              </div>
+            </div>
+          </Upload>
+        </div>
+
+        <Divider />
+
         <Form
           form={form}
           layout="vertical"

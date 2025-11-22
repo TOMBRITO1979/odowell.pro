@@ -47,6 +47,9 @@ func main() {
 		public.POST("/auth/login", handlers.Login)
 	}
 
+	// Static file serving for uploads
+	r.Static("/uploads", "/root/uploads")
+
 	// Protected routes
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
@@ -54,6 +57,7 @@ func main() {
 		protected.GET("/auth/me", handlers.GetMe)
 		protected.PUT("/auth/profile", handlers.UpdateProfile)
 		protected.PUT("/auth/password", handlers.ChangePassword)
+		protected.POST("/auth/profile/picture", handlers.UploadProfilePicture)
 	}
 
 	// Tenant-scoped routes
@@ -68,6 +72,10 @@ func main() {
 			patients.GET("/:id", middleware.PermissionMiddleware("patients", "view"), handlers.GetPatient)
 			patients.PUT("/:id", middleware.PermissionMiddleware("patients", "edit"), handlers.UpdatePatient)
 			patients.DELETE("/:id", middleware.PermissionMiddleware("patients", "delete"), handlers.DeletePatient)
+			// Export/Import
+			patients.GET("/export/csv", middleware.PermissionMiddleware("patients", "view"), handlers.ExportPatientsCSV)
+			patients.POST("/import/csv", middleware.PermissionMiddleware("patients", "create"), handlers.ImportPatientsCSV)
+			patients.GET("/export/pdf", middleware.PermissionMiddleware("patients", "view"), handlers.GeneratePatientsListPDF)
 		}
 
 		// Appointments CRUD
@@ -79,6 +87,9 @@ func main() {
 			appointments.PUT("/:id", middleware.PermissionMiddleware("appointments", "edit"), handlers.UpdateAppointment)
 			appointments.DELETE("/:id", middleware.PermissionMiddleware("appointments", "delete"), handlers.DeleteAppointment)
 			appointments.PATCH("/:id/status", middleware.PermissionMiddleware("appointments", "edit"), handlers.UpdateAppointmentStatus)
+			// Export
+			appointments.GET("/export/csv", middleware.PermissionMiddleware("appointments", "view"), handlers.ExportAppointmentsCSV)
+			appointments.GET("/export/pdf", middleware.PermissionMiddleware("appointments", "view"), handlers.GenerateAppointmentsListPDF)
 		}
 
 		// Medical Records CRUD
@@ -115,6 +126,10 @@ func main() {
 			budgets.DELETE("/:id", middleware.PermissionMiddleware("budgets", "delete"), handlers.DeleteBudget)
 			budgets.GET("/:id/pdf", middleware.PermissionMiddleware("budgets", "view"), handlers.GenerateBudgetPDF)
 			budgets.GET("/:id/payment/:payment_id/receipt", middleware.PermissionMiddleware("budgets", "view"), handlers.GeneratePaymentReceipt)
+			// Export/Import
+			budgets.GET("/export/csv", middleware.PermissionMiddleware("budgets", "view"), handlers.ExportBudgetsCSV)
+			budgets.POST("/import/csv", middleware.PermissionMiddleware("budgets", "create"), handlers.ImportBudgetsCSV)
+			budgets.GET("/export/pdf", middleware.PermissionMiddleware("budgets", "view"), handlers.GenerateBudgetsListPDF)
 		}
 
 		// Payments CRUD
@@ -126,6 +141,9 @@ func main() {
 			payments.PUT("/:id", middleware.PermissionMiddleware("payments", "edit"), handlers.UpdatePayment)
 			payments.DELETE("/:id", middleware.PermissionMiddleware("payments", "delete"), handlers.DeletePayment)
 			payments.GET("/pdf/export", middleware.PermissionMiddleware("payments", "view"), handlers.GeneratePaymentsPDF)
+			// Export/Import
+			payments.GET("/export/csv", middleware.PermissionMiddleware("payments", "view"), handlers.ExportPaymentsCSV)
+			payments.POST("/import/csv", middleware.PermissionMiddleware("payments", "create"), handlers.ImportPaymentsCSV)
 		}
 
 		// Products CRUD
@@ -137,6 +155,10 @@ func main() {
 			products.PUT("/:id", middleware.PermissionMiddleware("products", "edit"), handlers.UpdateProduct)
 			products.DELETE("/:id", middleware.PermissionMiddleware("products", "delete"), handlers.DeleteProduct)
 			products.GET("/low-stock", middleware.PermissionMiddleware("products", "view"), handlers.GetLowStockProducts)
+			// Export/Import
+			products.GET("/export/csv", middleware.PermissionMiddleware("products", "view"), handlers.ExportProductsCSV)
+			products.POST("/import/csv", middleware.PermissionMiddleware("products", "create"), handlers.ImportProductsCSV)
+			products.GET("/export/pdf", middleware.PermissionMiddleware("products", "view"), handlers.GenerateProductsListPDF)
 		}
 
 		// Suppliers CRUD
@@ -147,6 +169,10 @@ func main() {
 			suppliers.GET("/:id", middleware.PermissionMiddleware("suppliers", "view"), handlers.GetSupplier)
 			suppliers.PUT("/:id", middleware.PermissionMiddleware("suppliers", "edit"), handlers.UpdateSupplier)
 			suppliers.DELETE("/:id", middleware.PermissionMiddleware("suppliers", "delete"), handlers.DeleteSupplier)
+			// Export/Import
+			suppliers.GET("/export/csv", middleware.PermissionMiddleware("suppliers", "view"), handlers.ExportSuppliersCSV)
+			suppliers.POST("/import/csv", middleware.PermissionMiddleware("suppliers", "create"), handlers.ImportSuppliersCSV)
+			suppliers.GET("/export/pdf", middleware.PermissionMiddleware("suppliers", "view"), handlers.GenerateSuppliersListPDF)
 		}
 
 		// Stock Movements
@@ -154,6 +180,9 @@ func main() {
 		{
 			stockMovements.POST("", middleware.PermissionMiddleware("stock_movements", "create"), handlers.CreateStockMovement)
 			stockMovements.GET("", middleware.PermissionMiddleware("stock_movements", "view"), handlers.GetStockMovements)
+			// Export
+			stockMovements.GET("/export/csv", middleware.PermissionMiddleware("stock_movements", "view"), handlers.ExportStockMovementsCSV)
+			stockMovements.GET("/export/pdf", middleware.PermissionMiddleware("stock_movements", "view"), handlers.GenerateStockMovementsListPDF)
 		}
 
 		// Dashboard and Reports
@@ -191,6 +220,17 @@ func main() {
 			exams.PUT("/:id", middleware.PermissionMiddleware("exams", "edit"), handlers.UpdateExam)
 			exams.DELETE("/:id", middleware.PermissionMiddleware("exams", "delete"), handlers.DeleteExam)
 			exams.GET("/:id/download", middleware.PermissionMiddleware("exams", "view"), handlers.GetExamDownloadURL)
+		}
+
+		// Tasks CRUD
+		tasks := tenanted.Group("/tasks")
+		{
+			tasks.POST("", middleware.PermissionMiddleware("tasks", "create"), handlers.CreateTask)
+			tasks.GET("", middleware.PermissionMiddleware("tasks", "view"), handlers.GetTasks)
+			tasks.GET("/pending-count", middleware.PermissionMiddleware("tasks", "view"), handlers.GetPendingCount)
+			tasks.GET("/:id", middleware.PermissionMiddleware("tasks", "view"), handlers.GetTask)
+			tasks.PUT("/:id", middleware.PermissionMiddleware("tasks", "edit"), handlers.UpdateTask)
+			tasks.DELETE("/:id", middleware.PermissionMiddleware("tasks", "delete"), handlers.DeleteTask)
 		}
 
 		// Tenant Settings

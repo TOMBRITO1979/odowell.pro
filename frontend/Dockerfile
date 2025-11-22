@@ -1,6 +1,9 @@
 # Multi-stage build for production
 FROM node:18-alpine AS builder
 
+# Build argument for API URL
+ARG VITE_API_URL=https://drapi.crwell.pro
+
 WORKDIR /app
 
 # Copy package files
@@ -12,7 +15,8 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build for production
+# Build for production with environment variable
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # Production stage - nginx

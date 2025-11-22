@@ -4,6 +4,8 @@ import (
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -164,13 +166,14 @@ func GetMe(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":        user.ID,
-			"name":      user.Name,
-			"email":     user.Email,
-			"role":      user.Role,
-			"tenant_id": user.TenantID,
-			"cro":       user.CRO,
-			"specialty": user.Specialty,
+			"id":              user.ID,
+			"name":            user.Name,
+			"email":           user.Email,
+			"role":            user.Role,
+			"tenant_id":       user.TenantID,
+			"cro":             user.CRO,
+			"specialty":       user.Specialty,
+			"profile_picture": user.ProfilePicture,
 		},
 		"tenant": gin.H{
 			"id":   tenant.ID,
@@ -228,14 +231,15 @@ func UpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Profile updated successfully",
 		"user": gin.H{
-			"id":        user.ID,
-			"name":      user.Name,
-			"email":     user.Email,
-			"phone":     user.Phone,
-			"cro":       user.CRO,
-			"specialty": user.Specialty,
-			"role":      user.Role,
-			"tenant_id": user.TenantID,
+			"id":              user.ID,
+			"name":            user.Name,
+			"email":           user.Email,
+			"phone":           user.Phone,
+			"cro":             user.CRO,
+			"specialty":       user.Specialty,
+			"role":            user.Role,
+			"tenant_id":       user.TenantID,
+			"profile_picture": user.ProfilePicture,
 		},
 	})
 }
@@ -287,6 +291,74 @@ func ChangePassword(c *gin.Context) {
 	})
 }
 
+// UploadProfilePicture handles profile picture upload
+func UploadProfilePicture(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	// Get the file from the request
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File is required"})
+		return
+	}
+
+	// Validate file size (max 5MB)
+	if file.Size > 5*1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File size must be less than 5MB"})
+		return
+	}
+
+	// Validate file type
+	contentType := file.Header.Get("Content-Type")
+	if contentType != "image/jpeg" && contentType != "image/png" && contentType != "image/jpg" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only JPEG and PNG images are allowed"})
+		return
+	}
+
+	// Create uploads directory if it doesn't exist
+	uploadsDir := "/root/uploads/profile-pictures"
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create uploads directory"})
+		return
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("user_%d_%d.jpg", userID, time.Now().Unix())
+	filepath := fmt.Sprintf("%s/%s", uploadsDir, filename)
+
+	// Save the file
+	if err := c.SaveUploadedFile(file, filepath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+
+	// Update user profile picture in database
+	db := database.GetDB()
+	var user models.User
+	if err := db.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Delete old profile picture if exists
+	if user.ProfilePicture != "" {
+		oldPath := fmt.Sprintf("/root/%s", user.ProfilePicture)
+		os.Remove(oldPath)
+	}
+
+	// Update user with new profile picture path
+	user.ProfilePicture = fmt.Sprintf("uploads/profile-pictures/%s", filename)
+	if err := db.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile picture"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Profile picture uploaded successfully",
+		"profile_picture": user.ProfilePicture,
+	})
+}
+
 // Helper function to generate JWT token
 func generateToken(userID, tenantID uint, email, role string) (string, error) {
 	// Get user permissions (admins get all permissions in the middleware, but we still include them for consistency)
@@ -305,7 +377,13 @@ func generateToken(userID, tenantID uint, email, role string) (string, error) {
 		permissions, err = middleware.GetUserPermissions(userID)
 		if err != nil {
 			// Log error but continue with empty permissions
+			log.Printf("ERROR loading permissions for user %d: %v", userID, err)
 			permissions = make(map[string]map[string]bool)
+		} else {
+			log.Printf("DEBUG: Loaded %d modules permissions for user %d (%s)", len(permissions), userID, email)
+			for module, perms := range permissions {
+				log.Printf("  - %s: %v", module, perms)
+			}
 		}
 	}
 

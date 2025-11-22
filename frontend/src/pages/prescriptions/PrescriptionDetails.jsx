@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { prescriptionsAPI } from '../../services/api';
+import { usePermission } from '../../contexts/AuthContext';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -27,6 +28,7 @@ const PrescriptionDetails = () => {
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
   const [prescription, setPrescription] = useState(null);
+  const { canEdit } = usePermission();
 
   useEffect(() => {
     fetchPrescription();
@@ -100,7 +102,7 @@ const PrescriptionDetails = () => {
         }
         extra={
           <Space>
-            {prescription.status === 'draft' && (
+            {prescription.status === 'draft' && canEdit('prescriptions') && (
               <Button
                 icon={<EditOutlined />}
                 onClick={() => navigate(`/prescriptions/${id}/edit`)}

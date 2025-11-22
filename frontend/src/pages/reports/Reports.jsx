@@ -376,19 +376,17 @@ const Reports = () => {
         footer={[
           <Button
             key="excel"
-            type="default"
             icon={<FileExcelOutlined />}
             onClick={handleDownloadExcel}
-            style={{ backgroundColor: '#217346', color: 'white', borderColor: '#217346' }}
+            style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
           >
             Baixar Excel
           </Button>,
           <Button
             key="pdf"
-            type="primary"
-            danger
             icon={<FilePdfOutlined />}
             onClick={handleDownloadPDF}
+            style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
           >
             Baixar PDF
           </Button>,

@@ -47,6 +47,18 @@ func GetDashboard(c *gin.Context) {
 		Where("quantity <= minimum_stock AND active = ?", true).
 		Count(&lowStockCount)
 
+	// Pending budgets
+	var pendingBudgets int64
+	db.Session(&gorm.Session{NewDB: true}).Table("budgets").
+		Where("status = ?", "pending").
+		Count(&pendingBudgets)
+
+	// Pending tasks
+	var pendingTasks int64
+	db.Session(&gorm.Session{NewDB: true}).Table("tasks").
+		Where("status = ?", "pending").
+		Count(&pendingTasks)
+
 	c.JSON(http.StatusOK, gin.H{
 		"total_patients":     totalPatients,
 		"appointments_today": appointmentsToday,
@@ -54,6 +66,8 @@ func GetDashboard(c *gin.Context) {
 		"revenue_month":      revenueMonth,
 		"pending_payments":   pendingPayments,
 		"low_stock_count":    lowStockCount,
+		"pending_budgets":    pendingBudgets,
+		"pending_tasks":      pendingTasks,
 	})
 }
 

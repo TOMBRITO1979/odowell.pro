@@ -55,6 +55,10 @@ make push
 # Deploy to Swarm
 echo ""
 echo "Deploy no Docker Swarm..."
+# Export all env vars so docker stack can use them
+set -a
+source .env
+set +a
 make deploy
 
 echo ""

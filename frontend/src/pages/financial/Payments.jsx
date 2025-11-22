@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Table,
@@ -14,6 +14,8 @@ import {
   Col,
   DatePicker,
   Statistic,
+  Upload,
+  Modal,
 } from 'antd';
 import {
   PlusOutlined,
@@ -25,14 +27,18 @@ import {
   ArrowUpOutlined,
   ArrowDownOutlined,
   FilePdfOutlined,
+  FileExcelOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { paymentsAPI, patientsAPI } from '../../services/api';
+import { usePermission } from '../../contexts/AuthContext';
 
 const { RangePicker } = DatePicker;
 
 const Payments = () => {
   const navigate = useNavigate();
+  const { canCreate, canEdit, canDelete } = usePermission();
   const [loading, setLoading] = useState(false);
   const [payments, setPayments] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -47,6 +53,9 @@ const Payments = () => {
     pageSize: 20,
     total: 0,
   });
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -161,6 +170,81 @@ const Payments = () => {
     }
   };
 
+  const handleExportCSV = async () => {
+    try {
+      const params = { ...filters };
+
+      // Convert date_range to start_date and end_date if exists
+      if (filters.date_range && filters.date_range.length === 2) {
+        params.start_date = filters.date_range[0].format('YYYY-MM-DD');
+        params.end_date = filters.date_range[1].format('YYYY-MM-DD');
+        delete params.date_range;
+      }
+
+      // Only include defined filter values
+      const cleanFilters = Object.fromEntries(
+        Object.entries(params).filter(([_, value]) => value !== undefined && value !== null && value !== '')
+      );
+      const queryString = new URLSearchParams(cleanFilters).toString();
+      const response = await paymentsAPI.exportCSV(queryString);
+
+      // Create blob and download
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `pagamentos_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      message.success('CSV exportado com sucesso');
+    } catch (error) {
+      message.error('Erro ao exportar CSV');
+      console.error('Export error:', error);
+    }
+  };
+
+  const handleImportCSV = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploading(true);
+    try {
+      const response = await paymentsAPI.importCSV(formData);
+      message.success(response.data.message);
+
+      if (response.data.errors && response.data.errors.length > 0) {
+        Modal.warning({
+          title: 'Avisos durante a importação',
+          content: (
+            <div>
+              <p>{response.data.imported} pagamentos importados com sucesso.</p>
+              <p>Erros encontrados:</p>
+              <ul>
+                {response.data.errors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          ),
+          width: 600,
+        });
+      }
+
+      setUploadModalVisible(false);
+      fetchPayments();
+    } catch (error) {
+      message.error('Erro ao importar CSV');
+      console.error('Import error:', error);
+    } finally {
+      setUploading(false);
+    }
+
+    return false; // Prevent default upload behavior
+  };
+
   const handleTableChange = (newPagination) => {
     setPagination(newPagination);
   };
@@ -260,25 +344,29 @@ const Payments = () => {
       fixed: 'right',
       render: (_, record) => (
         <Space>
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/payments/${record.id}/edit`)}
-            title="Editar"
-          />
-          <Popconfirm
-            title="Tem certeza que deseja excluir?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Sim"
-            cancelText="Não"
-          >
+          {canEdit('payments') && (
             <Button
               type="text"
-              danger
-              icon={<DeleteOutlined />}
-              title="Excluir"
+              icon={<EditOutlined />}
+              onClick={() => navigate(`/payments/${record.id}/edit`)}
+              title="Editar"
             />
-          </Popconfirm>
+          )}
+          {canDelete('payments') && (
+            <Popconfirm
+              title="Tem certeza que deseja excluir?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Sim"
+              cancelText="Não"
+            >
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                title="Excluir"
+              />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -345,20 +433,39 @@ const Payments = () => {
         extra={
           <Space>
             <Button
-              type="primary"
-              danger
               icon={<FilePdfOutlined />}
               onClick={handleDownloadPDF}
+              style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
             >
               Baixar PDF
             </Button>
             <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/payments/new')}
+              icon={<FileExcelOutlined />}
+              onClick={handleExportCSV}
+              title="Exportar CSV"
+              style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
             >
-              Novo Pagamento
+              Exportar CSV
             </Button>
+            {canCreate('payments') && (
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => setUploadModalVisible(true)}
+                title="Importar CSV"
+                style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}
+              >
+                Importar CSV
+              </Button>
+            )}
+            {canCreate('payments') && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/payments/new')}
+              >
+                Novo Pagamento
+              </Button>
+            )}
           </Space>
         }
       >
@@ -431,6 +538,44 @@ const Payments = () => {
           scroll={{ x: 1200 }}
         />
       </Card>
+
+      <Modal
+        title="Importar Pagamentos via CSV"
+        open={uploadModalVisible}
+        onCancel={() => setUploadModalVisible(false)}
+        footer={null}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <p><strong>Formato do CSV:</strong></p>
+          <p>O arquivo deve conter as seguintes colunas (sem cabeçalho):</p>
+          <ol>
+            <li>ID do Paciente (número)</li>
+            <li>Tipo (income/expense)</li>
+            <li>Categoria (texto)</li>
+            <li>Descrição</li>
+            <li>Método de Pagamento (cash/credit_card/debit_card/pix/transfer/insurance)</li>
+            <li>Valor (número decimal, ex: 150.50)</li>
+            <li>ID do Orçamento (opcional, número)</li>
+          </ol>
+          <p><strong>Exemplo:</strong></p>
+          <code>1,income,treatment,"Consulta",cash,150.50,5</code>
+        </div>
+
+        <Upload
+          accept=".csv"
+          beforeUpload={handleImportCSV}
+          showUploadList={false}
+        >
+          <Button
+            icon={<UploadOutlined />}
+            loading={uploading}
+            block
+            type="primary"
+          >
+            {uploading ? 'Importando...' : 'Selecionar arquivo CSV'}
+          </Button>
+        </Upload>
+      </Modal>
     </div>
   );
 };

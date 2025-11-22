@@ -18,12 +18,14 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { appointmentsAPI } from '../../services/api';
+import { usePermission } from '../../contexts/AuthContext';
 
 const AppointmentDetails = () => {
   const [appointment, setAppointment] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
+  const { canEdit, canDelete } = usePermission();
 
   useEffect(() => {
     fetchAppointment();
@@ -111,23 +113,27 @@ const AppointmentDetails = () => {
             >
               Voltar
             </Button>
-            <Button
-              type="primary"
-              icon={<EditOutlined />}
-              onClick={() => navigate(`/appointments/${id}/edit`)}
-            >
-              Editar
-            </Button>
-            <Popconfirm
-              title="Tem certeza que deseja deletar este agendamento?"
-              onConfirm={handleDelete}
-              okText="Sim"
-              cancelText="Não"
-            >
-              <Button danger icon={<DeleteOutlined />}>
-                Deletar
+            {canEdit('appointments') && (
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => navigate(`/appointments/${id}/edit`)}
+              >
+                Editar
               </Button>
-            </Popconfirm>
+            )}
+            {canDelete('appointments') && (
+              <Popconfirm
+                title="Tem certeza que deseja deletar este agendamento?"
+                onConfirm={handleDelete}
+                okText="Sim"
+                cancelText="Não"
+              >
+                <Button danger icon={<DeleteOutlined />}>
+                  Deletar
+                </Button>
+              </Popconfirm>
+            )}
           </Space>
         }
       >

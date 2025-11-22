@@ -1,7 +1,7 @@
 package handlers
 
 import (
-        "drcrwell/backend/internal/middleware"
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"net/http"
 	"strconv"
@@ -101,22 +101,39 @@ func UpdateAppointment(c *gin.Context) {
 		return
 	}
 
-	// Update fields directly on the loaded record
+	// Update fields directly (avoid GORM FROM clause issue)
 	appointment.PatientID = input.PatientID
 	appointment.DentistID = input.DentistID
 	appointment.StartTime = input.StartTime
 	appointment.EndTime = input.EndTime
 	appointment.Status = input.Status
+	appointment.Type = input.Type
 	appointment.Procedure = input.Procedure
 	appointment.Notes = input.Notes
+	appointment.Confirmed = input.Confirmed
+	appointment.IsRecurring = input.IsRecurring
+	appointment.RecurrenceRule = input.RecurrenceRule
 
-	if err := db.Save(&appointment).Error; err != nil {
+	// Use raw SQL to avoid GORM's FROM clause bug
+	sql := `UPDATE appointments
+		SET patient_id = ?, dentist_id = ?, start_time = ?, end_time = ?,
+			status = ?, type = ?, procedure = ?, notes = ?, confirmed = ?,
+			is_recurring = ?, recurrence_rule = ?, updated_at = NOW()
+		WHERE id = ? AND deleted_at IS NULL`
+
+	if err := db.Exec(sql,
+		appointment.PatientID, appointment.DentistID,
+		appointment.StartTime, appointment.EndTime,
+		appointment.Status, appointment.Type,
+		appointment.Procedure, appointment.Notes,
+		appointment.Confirmed, appointment.IsRecurring,
+		appointment.RecurrenceRule, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update appointment"})
 		return
 	}
 
-	// Load patient relationship
-	db.Preload("Patient").First(&appointment, appointment.ID)
+	// Reload with patient relationship
+	db.Preload("Patient").First(&appointment, id)
 
 	c.JSON(http.StatusOK, gin.H{"appointment": appointment})
 }

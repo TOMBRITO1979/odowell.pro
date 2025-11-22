@@ -1,7 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Spin } from 'antd';
+import { ConfigProvider, Spin } from 'antd';
 import { useAuth } from './contexts/AuthContext';
+import ptBR from 'antd/locale/pt_BR';
 
 // Auth pages
 import Login from './pages/auth/Login';
@@ -41,6 +42,9 @@ import PrescriptionForm from './pages/prescriptions/PrescriptionForm';
 import PrescriptionDetails from './pages/prescriptions/PrescriptionDetails';
 import Reports from './pages/reports/Reports';
 import Users from './pages/users/Users';
+import Tasks from './pages/tasks/Tasks';
+import TaskForm from './pages/tasks/TaskForm';
+import TaskDetails from './pages/tasks/TaskDetails';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -58,7 +62,52 @@ const PrivateRoute = ({ children }) => {
 
 function App() {
   return (
-    <Routes>
+    <ConfigProvider
+      locale={ptBR}
+      theme={{
+        token: {
+          colorPrimary: '#16a34a',
+          colorSuccess: '#52c41a',
+          colorWarning: '#faad14',
+          colorError: '#ff4d4f',
+          colorInfo: '#1890ff',
+          colorTextBase: '#262626',
+          colorBgBase: '#ffffff',
+          fontFamily: "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
+          fontSize: 14,
+          borderRadius: 6,
+          controlHeight: 36,
+        },
+        components: {
+          Button: {
+            controlHeight: 36,
+            controlHeightLG: 40,
+            controlHeightSM: 32,
+            borderRadius: 6,
+            fontWeight: 500,
+          },
+          Input: {
+            controlHeight: 36,
+            borderRadius: 6,
+          },
+          Select: {
+            controlHeight: 36,
+            borderRadius: 6,
+          },
+          Card: {
+            borderRadiusLG: 8,
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+          },
+          Table: {
+            borderRadiusLG: 8,
+          },
+          Modal: {
+            borderRadiusLG: 8,
+          },
+        },
+      }}
+    >
+      <Routes>
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -130,6 +179,12 @@ function App() {
         <Route path="prescriptions/:id" element={<PrescriptionDetails />} />
         <Route path="prescriptions/:id/edit" element={<PrescriptionForm />} />
 
+        {/* Tasks */}
+        <Route path="tasks" element={<Tasks />} />
+        <Route path="tasks/new" element={<TaskForm />} />
+        <Route path="tasks/:id" element={<TaskDetails />} />
+        <Route path="tasks/:id/edit" element={<TaskForm />} />
+
         {/* Reports */}
         <Route path="reports" element={<Reports />} />
 
@@ -140,6 +195,7 @@ function App() {
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
+    </ConfigProvider>
   );
 }
 

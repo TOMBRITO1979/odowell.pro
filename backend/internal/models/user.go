@@ -27,6 +27,9 @@ type User struct {
 	// Professional info (for dentists)
 	CRO       string `json:"cro,omitempty"`
 	Specialty string `json:"specialty,omitempty"`
+
+	// Profile picture
+	ProfilePicture string `json:"profile_picture,omitempty"`
 }
 
 // TableName specifies the table name for User model

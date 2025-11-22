@@ -19,12 +19,14 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { examsAPI } from '../../services/api';
+import { usePermission } from '../../contexts/AuthContext';
 
 const ExamDetails = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [exam, setExam] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { canEdit, canDelete } = usePermission();
 
   useEffect(() => {
     fetchExam();
@@ -105,22 +107,26 @@ const ExamDetails = () => {
             >
               Download
             </Button>
-            <Button
-              icon={<EditOutlined />}
-              onClick={() => navigate(`/exams/${id}/edit`)}
-            >
-              Editar
-            </Button>
-            <Popconfirm
-              title="Tem certeza que deseja deletar este exame?"
-              onConfirm={handleDelete}
-              okText="Sim"
-              cancelText="Não"
-            >
-              <Button danger icon={<DeleteOutlined />}>
-                Deletar
+            {canEdit('exams') && (
+              <Button
+                icon={<EditOutlined />}
+                onClick={() => navigate(`/exams/${id}/edit`)}
+              >
+                Editar
               </Button>
-            </Popconfirm>
+            )}
+            {canDelete('exams') && (
+              <Popconfirm
+                title="Tem certeza que deseja deletar este exame?"
+                onConfirm={handleDelete}
+                okText="Sim"
+                cancelText="Não"
+              >
+                <Button danger icon={<DeleteOutlined />}>
+                  Deletar
+                </Button>
+              </Popconfirm>
+            )}
           </Space>
         }
       >

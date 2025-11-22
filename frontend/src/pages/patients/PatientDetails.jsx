@@ -23,12 +23,14 @@ import {
 } from '@ant-design/icons';
 import { patientsAPI } from '../../services/api';
 import dayjs from 'dayjs';
+import { usePermission } from '../../contexts/AuthContext';
 
 const PatientDetails = () => {
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(true);
   const { id } = useParams();
   const navigate = useNavigate();
+  const { canEdit } = usePermission();
 
   useEffect(() => {
     fetchPatient();
@@ -104,13 +106,15 @@ const PatientDetails = () => {
           </Space>
         }
         extra={
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/patients/${id}/edit`)}
-          >
-            Editar
-          </Button>
+          canEdit('patients') && (
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => navigate(`/patients/${id}/edit`)}
+            >
+              Editar
+            </Button>
+          )
         }
       >
         {/* Informações Pessoais */}

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Table, Button, message, Tag, Space, Popconfirm, Card } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { appointmentsAPI } from '../../services/api';
+import { usePermission } from '../../contexts/AuthContext';
 import dayjs from 'dayjs';
 
 const Appointments = () => {
@@ -14,6 +15,7 @@ const Appointments = () => {
     total: 0,
   });
   const navigate = useNavigate();
+  const { canCreate, canEdit, canDelete } = usePermission();
 
   useEffect(() => {
     fetchAppointments();
@@ -40,6 +42,44 @@ const Appointments = () => {
       fetchAppointments();
     } catch (error) {
       message.error('Erro ao deletar agendamento');
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const response = await appointmentsAPI.exportCSV('');
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `agendamentos_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      message.success('CSV exportado com sucesso');
+    } catch (error) {
+      message.error('Erro ao exportar CSV');
+      console.error('Export error:', error);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const response = await appointmentsAPI.exportPDF('');
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `agendamentos_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      message.success('PDF gerado com sucesso');
+    } catch (error) {
+      message.error('Erro ao gerar PDF');
+      console.error('PDF error:', error);
     }
   };
 
@@ -109,25 +149,29 @@ const Appointments = () => {
             onClick={() => navigate(`/appointments/${record.id}`)}
             title="Visualizar"
           />
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/appointments/${record.id}/edit`)}
-            title="Editar"
-          />
-          <Popconfirm
-            title="Tem certeza que deseja deletar este agendamento?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Sim"
-            cancelText="Não"
-          >
+          {canEdit('appointments') && (
             <Button
               type="text"
-              danger
-              icon={<DeleteOutlined />}
-              title="Deletar"
+              icon={<EditOutlined />}
+              onClick={() => navigate(`/appointments/${record.id}/edit`)}
+              title="Editar"
             />
-          </Popconfirm>
+          )}
+          {canDelete('appointments') && (
+            <Popconfirm
+              title="Tem certeza que deseja deletar este agendamento?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Sim"
+              cancelText="Não"
+            >
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                title="Deletar"
+              />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -138,13 +182,23 @@ const Appointments = () => {
       <Card
         title="Agendamentos"
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/appointments/new')}
-          >
-            Novo Agendamento
-          </Button>
+          <Space>
+            <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}>
+              Exportar CSV
+            </Button>
+            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}>
+              Gerar PDF
+            </Button>
+            {canCreate('appointments') && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/appointments/new')}
+              >
+                Novo Agendamento
+              </Button>
+            )}
+          </Space>
         }
       >
         <Table

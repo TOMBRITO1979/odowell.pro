@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Permissões RBAC</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 { color: #4ec9b0; }
+        .section {
+            background: #252526;
+            padding: 15px;
+            margin: 20px 0;
+            border-left: 3px solid #4ec9b0;
+        }
+        .pass { color: #4ec9b0; }
+        .fail { color: #f48771; }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover { background: #1177bb; }
+        pre {
+            background: #1e1e1e;
+            padding: 10px;
+            overflow-x: auto;
+            border: 1px solid #3e3e42;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 3px solid;
+        }
+        .test-result.pass { border-color: #4ec9b0; background: #1e2f1e; }
+        .test-result.fail { border-color: #f48771; background: #2f1e1e; }
+    </style>
+</head>
+<body>
+    <h1>🔒 Teste de Permissões RBAC</h1>
+
+    <div class="section">
+        <h2>1. Informações do JWT</h2>
+        <button onclick="loadJWT()">Carregar JWT</button>
+        <div id="jwt-info"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. Teste das Funções de Permissão</h2>
+        <button onclick="testPermissions()">Testar Permissões</button>
+        <div id="permission-tests"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Resultado Esperado vs Real</h2>
+        <div id="expected-result"></div>
+    </div>
+
+    <script>
+        // Copiar as funções do AuthContext
+        function hasPermission(permissions, module, action, role) {
+            if (role === 'admin') return true;
+            return permissions?.[module]?.[action] === true;
+        }
+
+        function hasAnyPermission(permissions, module, role) {
+            if (role === 'admin') return true;
+            const modulePerms = permissions?.[module];
+            if (!modulePerms) return false;
+            return Object.values(modulePerms).some(perm => perm === true);
+        }
+
+        function canView(permissions, module, role) {
+            return hasPermission(permissions, module, 'view', role) || hasAnyPermission(permissions, module, role);
+        }
+
+        function canCreate(permissions, module, role) {
+            return hasPermission(permissions, module, 'create', role);
+        }
+
+        function canEdit(permissions, module, role) {
+            return hasPermission(permissions, module, 'edit', role);
+        }
+
+        function canDelete(permissions, module, role) {
+            return hasPermission(permissions, module, 'delete', role);
+        }
+
+        let currentJWT = null;
+
+        function loadJWT() {
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                document.getElementById('jwt-info').innerHTML = '<p class="fail">❌ Nenhum token encontrado no localStorage</p>';
+                return;
+            }
+
+            try {
+                const decoded = JSON.parse(atob(token.split('.')[1]));
+                currentJWT = decoded;
+
+                let html = '<div style="margin-top: 15px;">';
+                html += '<p><strong>Email:</strong> ' + decoded.email + '</p>';
+                html += '<p><strong>Role:</strong> ' + decoded.role + '</p>';
+                html += '<p><strong>User ID:</strong> ' + decoded.user_id + '</p>';
+                html += '<h3>Permissões:</h3>';
+                html += '<pre>' + JSON.stringify(decoded.permissions, null, 2) + '</pre>';
+                html += '</div>';
+
+                document.getElementById('jwt-info').innerHTML = html;
+            } catch (error) {
+                document.getElementById('jwt-info').innerHTML = '<p class="fail">❌ Erro ao decodificar JWT: ' + error.message + '</p>';
+            }
+        }
+
+        function testPermissions() {
+            if (!currentJWT) {
+                document.getElementById('permission-tests').innerHTML = '<p class="fail">❌ Carregue o JWT primeiro!</p>';
+                return;
+            }
+
+            const permissions = currentJWT.permissions;
+            const role = currentJWT.role;
+            const modules = ['appointments', 'patients', 'budgets', 'payments', 'products'];
+            const actions = ['view', 'create', 'edit', 'delete'];
+
+            let html = '<div style="margin-top: 15px;">';
+
+            modules.forEach(module => {
+                html += '<h3>Módulo: ' + module + '</h3>';
+
+                actions.forEach(action => {
+                    let result;
+                    let expected;
+
+                    if (action === 'view') {
+                        result = canView(permissions, module, role);
+                        expected = permissions?.[module]?.view === true;
+                    } else if (action === 'create') {
+                        result = canCreate(permissions, module, role);
+                        expected = permissions?.[module]?.create === true;
+                    } else if (action === 'edit') {
+                        result = canEdit(permissions, module, role);
+                        expected = permissions?.[module]?.edit === true;
+                    } else if (action === 'delete') {
+                        result = canDelete(permissions, module, role);
+                        expected = permissions?.[module]?.delete === true;
+                    }
+
+                    const match = result === expected;
+                    const className = match ? 'pass' : 'fail';
+                    const icon = match ? '✓' : '✗';
+
+                    html += '<div class="test-result ' + className + '">';
+                    html += icon + ' can' + action.charAt(0).toUpperCase() + action.slice(1) + '(\'' + module + '\'): ';
+                    html += '<strong>' + result + '</strong>';
+                    html += ' (esperado: ' + expected + ')';
+                    html += '</div>';
+                });
+            });
+
+            html += '</div>';
+            document.getElementById('permission-tests').innerHTML = html;
+
+            // Resultado esperado
+            let expectedHtml = '<p>Para usuário com APENAS permissões VIEW:</p>';
+            expectedHtml += '<ul>';
+            expectedHtml += '<li class="pass">✓ canView() deve retornar TRUE</li>';
+            expectedHtml += '<li class="fail">✓ canCreate() deve retornar FALSE</li>';
+            expectedHtml += '<li class="fail">✓ canEdit() deve retornar FALSE</li>';
+            expectedHtml += '<li class="fail">✓ canDelete() deve retornar FALSE</li>';
+            expectedHtml += '</ul>';
+            expectedHtml += '<p><strong>Botões que devem aparecer:</strong> Apenas botões de Visualizar (ícone de olho)</p>';
+            expectedHtml += '<p><strong>Botões que NÃO devem aparecer:</strong> Novo, Editar, Deletar</p>';
+
+            document.getElementById('expected-result').innerHTML = expectedHtml;
+        }
+    </script>
+</body>
+</html>

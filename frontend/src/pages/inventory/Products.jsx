@@ -13,6 +13,8 @@ import {
   Row,
   Col,
   Badge,
+  Upload,
+  Modal,
 } from 'antd';
 import {
   PlusOutlined,
@@ -21,12 +23,17 @@ import {
   SearchOutlined,
   InboxOutlined,
   WarningOutlined,
+  FileExcelOutlined,
+  FilePdfOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { productsAPI } from '../../services/api';
+import { usePermission } from '../../contexts/AuthContext';
 
 const Products = () => {
   const navigate = useNavigate();
+  const { canCreate, canEdit, canDelete } = usePermission();
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [pagination, setPagination] = useState({
@@ -34,6 +41,8 @@ const Products = () => {
     pageSize: 20,
     total: 0,
   });
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -84,6 +93,83 @@ const Products = () => {
     } catch (error) {
       message.error('Erro ao excluir produto');
     }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const response = await productsAPI.exportCSV('');
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `produtos_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      message.success('CSV exportado com sucesso');
+    } catch (error) {
+      message.error('Erro ao exportar CSV');
+      console.error('Export error:', error);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const response = await productsAPI.exportPDF('');
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `produtos_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      message.success('PDF gerado com sucesso');
+    } catch (error) {
+      message.error('Erro ao gerar PDF');
+      console.error('PDF error:', error);
+    }
+  };
+
+  const handleImportCSV = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploading(true);
+    try {
+      const response = await productsAPI.importCSV(formData);
+      message.success(response.data.message);
+
+      if (response.data.errors && response.data.errors.length > 0) {
+        Modal.warning({
+          title: 'Avisos durante a importação',
+          content: (
+            <div>
+              <p>{response.data.imported} produtos importados com sucesso.</p>
+              <p>Erros encontrados:</p>
+              <ul>
+                {response.data.errors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          ),
+          width: 600,
+        });
+      }
+
+      setUploadModalVisible(false);
+      fetchProducts();
+    } catch (error) {
+      message.error('Erro ao importar CSV');
+      console.error('Import error:', error);
+    } finally {
+      setUploading(false);
+    }
+
+    return false;
   };
 
   const handleTableChange = (newPagination) => {
@@ -198,25 +284,29 @@ const Products = () => {
       fixed: 'right',
       render: (_, record) => (
         <Space>
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/products/${record.id}/edit`)}
-            title="Editar"
-          />
-          <Popconfirm
-            title="Tem certeza que deseja excluir?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Sim"
-            cancelText="Não"
-          >
+          {canEdit('products') && (
             <Button
               type="text"
-              danger
-              icon={<DeleteOutlined />}
-              title="Excluir"
+              icon={<EditOutlined />}
+              onClick={() => navigate(`/products/${record.id}/edit`)}
+              title="Editar"
             />
-          </Popconfirm>
+          )}
+          {canDelete('products') && (
+            <Popconfirm
+              title="Tem certeza que deseja excluir?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Sim"
+              cancelText="Não"
+            >
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                title="Excluir"
+              />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -232,13 +322,28 @@ const Products = () => {
           </Space>
         }
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/products/new')}
-          >
-            Novo Produto
-          </Button>
+          <Space>
+            <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}>
+              Exportar CSV
+            </Button>
+            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}>
+              Gerar PDF
+            </Button>
+            {canCreate('products') && (
+              <Button icon={<UploadOutlined />} onClick={() => setUploadModalVisible(true)} style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}>
+                Importar CSV
+              </Button>
+            )}
+            {canCreate('products') && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/products/new')}
+              >
+                Novo Produto
+              </Button>
+            )}
+          </Space>
         }
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
@@ -297,6 +402,48 @@ const Products = () => {
           scroll={{ x: 1200 }}
         />
       </Card>
+
+      <Modal
+        title="Importar Produtos via CSV"
+        open={uploadModalVisible}
+        onCancel={() => setUploadModalVisible(false)}
+        footer={null}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <p><strong>Formato do CSV:</strong></p>
+          <p>O arquivo deve conter as seguintes colunas (COM cabeçalho):</p>
+          <ol>
+            <li>Nome (obrigatório)</li>
+            <li>Código</li>
+            <li>Descrição</li>
+            <li>Categoria (material/medicine/equipment/consumable)</li>
+            <li>Quantidade</li>
+            <li>Estoque Mínimo</li>
+            <li>Unidade</li>
+            <li>Preço Custo</li>
+            <li>Preço Venda</li>
+          </ol>
+          <p><strong>Exemplo:</strong></p>
+          <code>Nome,Código,Descrição,Categoria,Quantidade,Estoque Mínimo,Unidade,Preço Custo,Preço Venda</code>
+          <br />
+          <code>Luva Procedimento,LUV001,Luva descartável,material,100,20,cx,15.50,25.00</code>
+        </div>
+
+        <Upload
+          accept=".csv"
+          beforeUpload={handleImportCSV}
+          showUploadList={false}
+        >
+          <Button
+            icon={<UploadOutlined />}
+            loading={uploading}
+            block
+            type="primary"
+          >
+            {uploading ? 'Importando...' : 'Selecionar arquivo CSV'}
+          </Button>
+        </Upload>
+      </Modal>
     </div>
   );
 };

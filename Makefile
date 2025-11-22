@@ -15,7 +15,7 @@ build:
 	@echo "Building backend..."
 	docker build --no-cache -t $(DOCKER_USERNAME)/drcrwell-backend:latest ./backend
 	@echo "Building frontend..."
-	docker build --no-cache -t $(DOCKER_USERNAME)/drcrwell-frontend:latest ./frontend
+	docker build --no-cache --build-arg VITE_API_URL=https://$(BACKEND_URL) -t $(DOCKER_USERNAME)/drcrwell-frontend:latest ./frontend
 	@echo "Build completed!"
 
 push:
@@ -26,6 +26,7 @@ push:
 
 deploy:
 	@echo "Deploying to Docker Swarm..."
+	@echo "CORS_ORIGINS: $(CORS_ORIGINS)"
 	docker stack deploy -c docker-stack.yml drcrwell
 	@echo "Deployment completed!"
 	@echo "Frontend: https://$(FRONTEND_URL)"

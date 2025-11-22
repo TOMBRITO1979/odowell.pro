@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Table,
@@ -12,6 +12,8 @@ import {
   Popconfirm,
   Row,
   Col,
+  Upload,
+  Modal,
 } from 'antd';
 import {
   PlusOutlined,
@@ -20,12 +22,18 @@ import {
   EyeOutlined,
   SearchOutlined,
   DollarOutlined,
+  DownloadOutlined,
+  UploadOutlined,
+  FilePdfOutlined,
+  FileExcelOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { budgetsAPI, patientsAPI } from '../../services/api';
+import { usePermission } from '../../contexts/AuthContext';
 
 const Budgets = () => {
   const navigate = useNavigate();
+  const { canCreate, canEdit, canDelete } = usePermission();
   const [loading, setLoading] = useState(false);
   const [budgets, setBudgets] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -34,6 +42,9 @@ const Budgets = () => {
     pageSize: 20,
     total: 0,
   });
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -93,6 +104,99 @@ const Budgets = () => {
     } catch (error) {
       message.error('Erro ao excluir orçamento');
     }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      // Only include defined filter values
+      const cleanFilters = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value !== undefined && value !== null && value !== '')
+      );
+      const params = new URLSearchParams(cleanFilters).toString();
+      const response = await budgetsAPI.exportCSV(params);
+
+      // Create blob and download
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `orcamentos_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      message.success('CSV exportado com sucesso');
+    } catch (error) {
+      message.error('Erro ao exportar CSV');
+      console.error('Export error:', error);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      // Only include defined filter values
+      const cleanFilters = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value !== undefined && value !== null && value !== '')
+      );
+      const params = new URLSearchParams(cleanFilters).toString();
+      const response = await budgetsAPI.exportPDF(params);
+
+      // Create blob and download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `orcamentos_lista_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      message.success('PDF gerado com sucesso');
+    } catch (error) {
+      message.error('Erro ao gerar PDF');
+      console.error('PDF error:', error);
+    }
+  };
+
+  const handleImportCSV = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploading(true);
+    try {
+      const response = await budgetsAPI.importCSV(formData);
+      message.success(response.data.message);
+
+      if (response.data.errors && response.data.errors.length > 0) {
+        Modal.warning({
+          title: 'Avisos durante a importação',
+          content: (
+            <div>
+              <p>{response.data.imported} orçamentos importados com sucesso.</p>
+              <p>Erros encontrados:</p>
+              <ul>
+                {response.data.errors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          ),
+          width: 600,
+        });
+      }
+
+      setUploadModalVisible(false);
+      fetchBudgets();
+    } catch (error) {
+      message.error('Erro ao importar CSV');
+      console.error('Import error:', error);
+    } finally {
+      setUploading(false);
+    }
+
+    return false; // Prevent default upload behavior
   };
 
   const handleTableChange = (newPagination) => {
@@ -171,25 +275,29 @@ const Budgets = () => {
             onClick={() => navigate(`/budgets/${record.id}/view`)}
             title="Visualizar"
           />
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/budgets/${record.id}/edit`)}
-            title="Editar"
-          />
-          <Popconfirm
-            title="Tem certeza que deseja excluir?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Sim"
-            cancelText="Não"
-          >
+          {canEdit('budgets') && (
             <Button
               type="text"
-              danger
-              icon={<DeleteOutlined />}
-              title="Excluir"
+              icon={<EditOutlined />}
+              onClick={() => navigate(`/budgets/${record.id}/edit`)}
+              title="Editar"
             />
-          </Popconfirm>
+          )}
+          {canDelete('budgets') && (
+            <Popconfirm
+              title="Tem certeza que deseja excluir?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Sim"
+              cancelText="Não"
+            >
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                title="Excluir"
+              />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -205,13 +313,15 @@ const Budgets = () => {
           </Space>
         }
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/budgets/new')}
-          >
-            Novo Orçamento
-          </Button>
+          canCreate('budgets') && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/budgets/new')}
+            >
+              Novo Orçamento
+            </Button>
+          )
         }
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
@@ -258,6 +368,39 @@ const Budgets = () => {
           </Col>
         </Row>
 
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          <Col>
+            <Space>
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={handleExportCSV}
+                title="Exportar CSV"
+                style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+              >
+                Exportar CSV
+              </Button>
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={handleExportPDF}
+                title="Gerar PDF da Lista"
+                style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+              >
+                Gerar PDF
+              </Button>
+              {canCreate('budgets') && (
+                <Button
+                  icon={<UploadOutlined />}
+                  onClick={() => setUploadModalVisible(true)}
+                  title="Importar CSV"
+                  style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}
+                >
+                  Importar CSV
+                </Button>
+              )}
+            </Space>
+          </Col>
+        </Row>
+
         <Table
           columns={columns}
           dataSource={budgets}
@@ -268,6 +411,42 @@ const Budgets = () => {
           scroll={{ x: 1000 }}
         />
       </Card>
+
+      <Modal
+        title="Importar Orçamentos via CSV"
+        open={uploadModalVisible}
+        onCancel={() => setUploadModalVisible(false)}
+        footer={null}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <p><strong>Formato do CSV:</strong></p>
+          <p>O arquivo deve conter as seguintes colunas (sem cabeçalho):</p>
+          <ol>
+            <li>ID do Paciente (número)</li>
+            <li>Descrição do Orçamento</li>
+            <li>Valor Total (número decimal, ex: 1500.50)</li>
+            <li>Status (pending/approved/rejected/expired)</li>
+            <li>Observações (opcional)</li>
+          </ol>
+          <p><strong>Exemplo:</strong></p>
+          <code>1,"Tratamento de canal",1500.50,pending,"Inclui coroa"</code>
+        </div>
+
+        <Upload
+          accept=".csv"
+          beforeUpload={handleImportCSV}
+          showUploadList={false}
+        >
+          <Button
+            icon={<UploadOutlined />}
+            loading={uploading}
+            block
+            type="primary"
+          >
+            {uploading ? 'Importando...' : 'Selecionar arquivo CSV'}
+          </Button>
+        </Upload>
+      </Modal>
     </div>
   );
 };

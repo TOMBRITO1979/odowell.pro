@@ -210,7 +210,7 @@ const Prescriptions = () => {
             icon={<FilePdfOutlined />}
             onClick={() => handleDownloadPDF(record.id)}
             title="Gerar PDF"
-            style={{ color: '#1890ff' }}
+            style={{ color: '#ef4444' }}
           />
           <Popconfirm
             title="Tem certeza que deseja excluir?"

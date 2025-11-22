@@ -3,7 +3,8 @@ import { Card, Row, Col, Statistic, Table, Tag } from 'antd';
 import {
   UserOutlined,
   CalendarOutlined,
-  DollarOutlined,
+  FileTextOutlined,
+  CheckSquareOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import { reportsAPI, appointmentsAPI } from '../services/api';
@@ -88,10 +89,10 @@ const Dashboard = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Faturamento Mensal"
-              value={stats.revenue_month || 0}
-              prefix={<DollarOutlined />}
-              precision={2}
+              title="Orçamentos Pendentes"
+              value={stats.pending_budgets || 0}
+              prefix={<FileTextOutlined />}
+              valueStyle={{ color: stats.pending_budgets > 0 ? '#faad14' : undefined }}
               loading={loading}
             />
           </Card>
@@ -99,10 +100,10 @@ const Dashboard = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Estoque Baixo"
-              value={stats.low_stock_count || 0}
-              prefix={<WarningOutlined />}
-              valueStyle={{ color: stats.low_stock_count > 0 ? '#cf1322' : undefined }}
+              title="Tarefas Pendentes"
+              value={stats.pending_tasks || 0}
+              prefix={<CheckSquareOutlined />}
+              valueStyle={{ color: stats.pending_tasks > 0 ? '#1890ff' : undefined }}
               loading={loading}
             />
           </Card>

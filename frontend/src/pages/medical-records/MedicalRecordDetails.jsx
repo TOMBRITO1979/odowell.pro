@@ -19,12 +19,14 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { medicalRecordsAPI } from '../../services/api';
+import { usePermission } from '../../contexts/AuthContext';
 
 const MedicalRecordDetails = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { canEdit, canDelete } = usePermission();
 
   const recordTypes = [
     { value: 'anamnesis', label: 'Anamnese', color: 'blue' },
@@ -124,23 +126,27 @@ const MedicalRecordDetails = () => {
             >
               Baixar PDF
             </Button>
-            <Button
-              type="primary"
-              icon={<EditOutlined />}
-              onClick={() => navigate(`/medical-records/${id}/edit`)}
-            >
-              Editar
-            </Button>
-            <Popconfirm
-              title="Tem certeza que deseja excluir este prontuário?"
-              onConfirm={handleDelete}
-              okText="Sim"
-              cancelText="Não"
-            >
-              <Button danger icon={<DeleteOutlined />}>
-                Excluir
+            {canEdit('medical_records') && (
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => navigate(`/medical-records/${id}/edit`)}
+              >
+                Editar
               </Button>
-            </Popconfirm>
+            )}
+            {canDelete('medical_records') && (
+              <Popconfirm
+                title="Tem certeza que deseja excluir este prontuário?"
+                onConfirm={handleDelete}
+                okText="Sim"
+                cancelText="Não"
+              >
+                <Button danger icon={<DeleteOutlined />}>
+                  Excluir
+                </Button>
+              </Popconfirm>
+            )}
           </Space>
         }
       >

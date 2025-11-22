@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Avatar, Dropdown, Typography } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Layout, Menu, Avatar, Dropdown, Typography, Badge, Drawer, Button } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
@@ -14,17 +14,60 @@ import {
   LogoutOutlined,
   SettingOutlined,
   FormOutlined,
+  CheckSquareOutlined,
+  MenuOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
+import { tasksAPI } from '../../services/api';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, tenant, logout } = useAuth();
   const { canView, isAdmin } = usePermission();
+
+  // Handle window resize for mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile && mobileMenuVisible) {
+        setMobileMenuVisible(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [mobileMenuVisible]);
+
+  useEffect(() => {
+    if (canView('tasks')) {
+      loadPendingTasksCount();
+      // Reload count every 2 minutes
+      const interval = setInterval(loadPendingTasksCount, 120000);
+      return () => clearInterval(interval);
+    }
+  }, [canView]);
+
+  const loadPendingTasksCount = async () => {
+    try {
+      const response = await tasksAPI.getPendingCount();
+      setPendingTasksCount(response.data.count || 0);
+    } catch (error) {
+      console.error('Erro ao carregar tarefas pendentes:', error);
+    }
+  };
 
   // Filter menu items based on permissions
   const allMenuItems = [
@@ -39,6 +82,16 @@ const DashboardLayout = () => {
       icon: <CalendarOutlined />,
       label: 'Agenda',
       permission: 'appointments',
+    },
+    {
+      key: '/tasks',
+      icon: <CheckSquareOutlined />,
+      label: (
+        <Badge count={pendingTasksCount} offset={[10, 0]} size="small">
+          Tarefas
+        </Badge>
+      ),
+      permission: 'tasks',
     },
     {
       key: '/patients',
@@ -106,16 +159,24 @@ const DashboardLayout = () => {
 
   // Filter items based on permissions
   const menuItems = allMenuItems.filter(item => {
+    // Admin-only items
     if (item.adminOnly) return isAdmin;
-    if (!item.permission) return true; // Dashboard always visible
+
+    // Items with children - filter children first, then show parent only if any child is accessible
     if (item.children) {
-      // Filter children and keep parent if any child is accessible
       item.children = item.children.filter(child => {
         return child.permission ? canView(child.permission) : true;
       });
       return item.children.length > 0;
     }
-    return canView(item.permission);
+
+    // Items with permission - check if user can view
+    if (item.permission) {
+      return canView(item.permission);
+    }
+
+    // Items without permission and without children are always visible (none currently)
+    return true;
   });
 
   const handleUserMenuClick = ({ key }) => {
@@ -154,68 +215,155 @@ const DashboardLayout = () => {
   const handleMenuClick = ({ key }) => {
     if (!key.startsWith('/')) return;
     navigate(key);
+    if (isMobile) {
+      setMobileMenuVisible(false);
+    }
   };
+
+  const siderStyle = {
+    overflow: 'auto',
+    height: '100vh',
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.08)',
+  };
+
+  const logoStyle = {
+    height: 64,
+    margin: 16,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: collapsed ? 18 : 20,
+    fontWeight: 700,
+    color: '#16a34a',
+    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    transition: 'all 0.3s',
+  };
+
+  const headerStyle = {
+    padding: '0 24px',
+    background: '#fff',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+    zIndex: 100,
+    position: 'sticky',
+    top: 0,
+  };
+
+  const contentStyle = {
+    margin: '24px 16px',
+    padding: 24,
+    background: 'transparent',
+    minHeight: 280,
+  };
+
+  // Sidebar content
+  const sidebarContent = (
+    <>
+      <div style={logoStyle}>
+        {collapsed ? '🦷' : '🦷 Dr. Crwell'}
+      </div>
+      <Menu
+        theme="light"
+        mode="inline"
+        selectedKeys={[location.pathname]}
+        defaultOpenKeys={['financial', 'inventory']}
+        items={menuItems}
+        onClick={handleMenuClick}
+        style={{
+          borderRight: 'none',
+        }}
+      />
+    </>
+  );
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        theme="light"
-        style={{
-          overflow: 'auto',
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          bottom: 0,
-        }}
-      >
-        <div style={{
-          height: 64,
-          margin: 16,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: collapsed ? 16 : 20,
-          fontWeight: 'bold',
-          color: '#1890ff'
-        }}>
-          {collapsed ? 'DC' : 'Dr. Crwell'}
-        </div>
-        <Menu
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <Sider
+          collapsible
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
           theme="light"
-          mode="inline"
-          defaultSelectedKeys={['/']}
-          selectedKeys={[window.location.pathname]}
-          items={menuItems}
-          onClick={handleMenuClick}
-        />
-      </Sider>
+          breakpoint="lg"
+          trigger={null}
+          style={siderStyle}
+          width={240}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+              {sidebarContent}
+            </div>
+            <div
+              style={{
+                height: 48,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderTop: '1px solid #f0f0f0',
+                cursor: 'pointer',
+                transition: 'all 0.3s',
+                backgroundColor: '#fff',
+              }}
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              {collapsed ? <MenuUnfoldOutlined style={{ fontSize: 16, color: '#16a34a' }} /> : <MenuFoldOutlined style={{ fontSize: 16, color: '#16a34a' }} />}
+            </div>
+          </div>
+        </Sider>
+      )}
 
-      <Layout style={{ marginLeft: collapsed ? 80 : 200, transition: 'all 0.2s' }}>
-        <Header style={{
-          padding: '0 24px',
-          background: '#fff',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: '1px solid #f0f0f0'
-        }}>
-          <div>
-            <Text strong>{tenant?.name || 'Dr. Crwell'}</Text>
+      {/* Mobile Drawer */}
+      {isMobile && (
+        <Drawer
+          placement="left"
+          onClose={() => setMobileMenuVisible(false)}
+          open={mobileMenuVisible}
+          bodyStyle={{ padding: 0 }}
+          width={240}
+        >
+          {sidebarContent}
+        </Drawer>
+      )}
+
+      <Layout style={{ marginLeft: isMobile ? 0 : (collapsed ? 80 : 240), transition: 'all 0.3s' }}>
+        <Header style={headerStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {isMobile && (
+              <Button
+                type="text"
+                icon={<MenuOutlined />}
+                onClick={() => setMobileMenuVisible(true)}
+                style={{ fontSize: 18 }}
+              />
+            )}
+            <Text strong style={{ fontSize: isMobile ? 14 : 16 }}>
+              {tenant?.name || 'Dr. Crwell'}
+            </Text>
           </div>
 
           <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight">
-            <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <Avatar icon={<UserOutlined />} style={{ marginRight: 8 }} />
-              <Text>{user?.name}</Text>
+            <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 8 }}>
+              <Avatar
+                icon={<UserOutlined />}
+                src={user?.profile_picture ? `${API_URL}/${user.profile_picture}` : null}
+                style={{ backgroundColor: '#16a34a' }}
+                size={isMobile ? 32 : 40}
+              />
+              {!isMobile && <Text>{user?.name}</Text>}
             </div>
           </Dropdown>
         </Header>
 
-        <Content style={{ margin: '24px 16px', padding: 24, background: '#fff', minHeight: 280 }}>
+        <Content style={contentStyle}>
           <Outlet />
         </Content>
       </Layout>

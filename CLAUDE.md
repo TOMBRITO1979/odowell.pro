@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Dr. Crwell is a multitenant SaaS system for dental clinic management, built with Go (backend) and React (frontend), designed to run on Docker Swarm.
+Dr. Crwell is a multitenant SaaS dental clinic management system with Go backend, React frontend, and Docker Swarm deployment. Features full RBAC (Role-Based Access Control) for granular user permissions.
 
 ## Common Development Commands
 
@@ -34,9 +34,6 @@ cd backend
 # Run locally (requires PostgreSQL running)
 go run cmd/api/main.go
 
-# Run tests (when implemented)
-go test ./...
-
 # Format code
 go fmt ./...
 
@@ -52,198 +49,187 @@ cd frontend
 # Install dependencies
 npm install
 
-# Run dev server
+# Run dev server (port 5173)
 npm run dev
 
 # Build for production
 npm run build
-
-# Preview production build
-npm run preview
 ```
 
 ## Architecture
 
-### Backend (Go + Gin)
+### Multitenant Strategy: Schema-per-Tenant
 
-- **Entry Point**: `cmd/api/main.go`
-- **Structure**:
-  - `internal/handlers/`: HTTP request handlers (controllers)
-  - `internal/models/`: Database models (GORM)
-  - `internal/middleware/`: Auth (JWT) and tenant isolation
-  - `internal/database/`: Database connection and schema management
-  - `internal/services/`: Business logic (if complex)
+**Critical concept**: Each tenant gets an isolated PostgreSQL schema (`tenant_X`).
 
-### Multitenant Architecture
+- **Public schema**: Contains `tenants`, `users`, `modules`, `permissions`, `user_permissions` tables
+- **Tenant schemas** (e.g., `tenant_1`, `tenant_2`): All business data isolated per clinic
+  - `patients`, `appointments`, `medical_records`, `prescriptions`, `exams`
+  - `budgets`, `payments`, `products`, `suppliers`, `stock_movements`
+  - `campaigns`, `campaign_recipients`, `attachments`, `tasks`, `settings`
 
-- **Strategy**: Schema per tenant in PostgreSQL
-- **Public Schema**: Contains `tenants` and `users` tables
-- **Tenant Schemas**: Each tenant gets `tenant_X` schema with all app tables
-- **Isolation**: Middleware sets schema context based on JWT token
-- **Schema Switch**: `SET search_path TO tenant_X` per request
+**Schema switching**: Middleware executes `SET search_path TO tenant_X` per request based on JWT `tenant_id`.
 
-### Frontend (React + Vite)
+### Backend Structure (Go + Gin)
 
-- **Entry Point**: `src/main.jsx`
-- **Structure**:
-  - `src/pages/`: Page components (one per route)
-  - `src/components/`: Reusable UI components
-  - `src/services/api.js`: Axios API client with interceptors
-  - `src/contexts/`: React Context (Auth, etc.)
-- **UI Library**: Ant Design
-- **Routing**: React Router v6
-- **State**: React Context + hooks (no Redux)
+- **Entry point**: `cmd/api/main.go` - Route registration and server setup
+- **Handlers** (`internal/handlers/`): HTTP controllers for each resource
+- **Models** (`internal/models/`): GORM database models
+- **Middleware** (`internal/middleware/`):
+  - `AuthMiddleware()`: JWT validation, extracts `user_id`, `tenant_id`, `user_role`
+  - `TenantMiddleware()`: Sets database schema to `tenant_X`
+  - `PermissionMiddleware(module, action)`: Enforces RBAC permissions
+- **Database** (`internal/database/`): Connection, auto-migration, schema management
 
-## Database Schema
+### Frontend Structure (React + Vite)
 
-### Public Schema Tables
+- **Entry point**: `src/main.jsx`
+- **Pages** (`src/pages/`): One component per route
+- **Components** (`src/components/`): Reusable UI (Ant Design based)
+- **Contexts** (`src/contexts/AuthContext.jsx`): Auth state, permissions, user data
+- **Hooks**: `usePermission()` exported from AuthContext for permission checks
+- **API Client** (`src/services/api.js`): Axios instance with JWT interceptor
 
-- `tenants`: Clinic/tenant metadata
-- `users`: System users (linked to tenant_id)
+## RBAC (Role-Based Access Control)
 
-### Tenant Schema Tables (in each `tenant_X` schema)
+### How RBAC Works
 
-- `patients`: Patient records
-- `appointments`: Scheduled appointments
-- `medical_records`: Clinical records, odontogram
-- `budgets`: Treatment quotes
-- `payments`: Financial transactions
-- `products`: Inventory items
-- `suppliers`: Product suppliers
-- `stock_movements`: Inventory movements
-- `campaigns`: Marketing campaigns
-- `campaign_recipients`: Campaign recipients
-- `attachments`: Patient files (photos, exams)
+**Two-layer security**: Frontend (UX) + Backend (enforcement)
 
-## Key Implementation Details
+1. **Frontend layer**: Uses `usePermission()` hook to hide/disable UI elements
+   ```jsx
+   const { canDelete, canEdit, canCreate } = usePermission();
 
-### Authentication Flow
+   {canDelete('patients') && <Button onClick={handleDelete}>Delete</Button>}
+   ```
 
-1. User logs in via `/api/auth/login`
-2. Backend validates credentials, returns JWT with `tenant_id`
-3. Frontend stores JWT in localStorage
-4. Subsequent requests include JWT in `Authorization: Bearer` header
-5. Auth middleware extracts `tenant_id` from JWT
-6. Tenant middleware sets database schema to `tenant_X`
+2. **Backend layer**: `PermissionMiddleware` validates every protected route
+   ```go
+   patients.DELETE("/:id",
+     middleware.PermissionMiddleware("patients", "delete"),
+     handlers.DeletePatient
+   )
+   ```
 
-### Adding New Endpoints
+### Permission Flow
 
-1. Define model in `internal/models/` (if new entity)
-2. Create handler in `internal/handlers/`
-3. Register route in `cmd/api/main.go`
-4. Add API call in `frontend/src/services/api.js`
-5. Create page/component in `frontend/src/pages/`
+1. User logs in → JWT includes `permissions` object (all user permissions)
+2. Frontend decodes JWT, stores permissions in AuthContext
+3. UI conditionally renders based on `canView()`, `canCreate()`, `canEdit()`, `canDelete()`
+4. API requests hit backend → `PermissionMiddleware` queries `user_permissions` table
+5. If no permission → 403 Forbidden; if admin role → bypass (superuser)
 
-### Docker Build Process
+### RBAC Tables (in public schema)
 
-Backend uses multi-stage build:
-1. Build stage: Go 1.21-alpine, compiles binary
-2. Runtime stage: Alpine, only binary (~15MB image)
+- `modules`: Available system modules (patients, appointments, budgets, etc.)
+- `permissions`: Actions per module (view, create, edit, delete)
+- `user_permissions`: Junction table linking users to permissions
 
-Frontend uses multi-stage build:
-1. Build stage: Node 18, runs `npm run build`
-2. Runtime stage: Nginx, serves static files
+**Admin bypass**: Users with `role = 'admin'` skip all permission checks (line 47 in `middleware/permission.go`).
 
-## Important Files
+### Adding RBAC to New Endpoints
 
-- `.env`: Production configuration (NOT in git)
-- `.env.example`: Template for configuration
-- `docker-stack.yml`: Swarm stack definition
-- `Makefile`: Build and deploy commands
-- `deploy.sh`: Automated deployment script
+1. Register route with `PermissionMiddleware(module, action)` in `cmd/api/main.go`
+2. Use `usePermission()` hook in frontend to conditionally render UI
+3. Module code must match between frontend/backend (e.g., `"patients"`, `"budgets"`)
+
+## Adding New Features
+
+### Backend
+
+1. Create model in `internal/models/` (e.g., `task.go`)
+2. Add handler in `internal/handlers/` (e.g., `task.go`)
+3. Register routes in `cmd/api/main.go`:
+   ```go
+   tasks := tenanted.Group("/tasks")
+   tasks.POST("", middleware.PermissionMiddleware("tasks", "create"), handlers.CreateTask)
+   tasks.GET("", middleware.PermissionMiddleware("tasks", "view"), handlers.GetTasks)
+   // etc.
+   ```
+4. If new module: Add entry to `modules` table in public schema
+
+### Frontend
+
+1. Create API methods in `src/services/api.js`
+2. Create page component in `src/pages/` (e.g., `src/pages/tasks/Tasks.jsx`)
+3. Add route in `src/App.jsx`
+4. Use `usePermission()` to guard UI elements
+5. Add menu item in `src/components/layouts/DashboardLayout.jsx` (guarded by `canView()`)
+
+## Authentication & JWT
+
+**Login flow**:
+1. POST `/api/auth/login` with `{email, password}`
+2. Backend validates credentials, generates JWT with claims:
+   - `user_id`, `tenant_id`, `email`, `role`, `permissions` (full permission map)
+3. Frontend stores JWT in localStorage, decodes permissions into AuthContext
+4. All subsequent requests include `Authorization: Bearer <token>` header
+5. JWT expires after 24 hours
+
+**Profile picture upload**:
+- Users can upload profile pictures (JPEG/PNG, max 5MB)
+- Endpoint: `POST /api/auth/profile/picture`
+- Files stored in `/root/uploads/profile-pictures/` with unique names
+- Served via `/uploads` static route
+- Old pictures automatically deleted on new upload
+- Avatar displays profile picture in header and profile page
+
+**Middleware chain for protected routes**:
+```
+Request → AuthMiddleware → TenantMiddleware → PermissionMiddleware → Handler
+```
 
 ## Configuration
 
-All configuration via environment variables (12-factor app):
+**Environment variables** (see `.env.example`):
 
-**Backend**:
-- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- `JWT_SECRET`: MUST be changed for production
-- `PORT`: API server port (default: 8080)
-- `CORS_ORIGINS`: Allowed frontend origins
+Backend:
+- `DB_*`: PostgreSQL connection
+- `JWT_SECRET`: MUST be changed for production (256+ bits)
+- `CORS_ORIGINS`: Comma-separated allowed origins
+- `AWS_*`: S3-compatible storage for attachments (optional)
 
-**Frontend**:
+Frontend:
 - `VITE_API_URL`: Backend API base URL
 
-## Deployment Architecture
+## Deployment
 
 - **Orchestrator**: Docker Swarm
-- **Network**: `network_public` (external, shared with Traefik)
-- **Reverse Proxy**: Traefik (handles SSL/TLS via Let's Encrypt)
+- **Network**: `network_public` (external, shared with Traefik reverse proxy)
+- **Traefik**: Handles SSL/TLS via Let's Encrypt, routing to backend/frontend
 - **Services**:
-  - `drcrwell_postgres`: PostgreSQL 15
-  - `drcrwell_backend`: Go API (1+ replicas)
-  - `drcrwell_frontend`: Nginx + React SPA (1+ replicas)
+  - `drcrwell_postgres`: PostgreSQL 15 (1 replica, manager node)
+  - `drcrwell_backend`: Go API (configurable replicas via `BACKEND_REPLICAS`)
+  - `drcrwell_frontend`: Nginx + React SPA (configurable via `FRONTEND_REPLICAS`)
+
+**Deployment labels** in `docker-stack.yml` configure Traefik routing via `FRONTEND_URL` and `BACKEND_URL`.
 
 ## Troubleshooting
 
-### Backend won't start
-- Check logs: `make logs-backend`
-- Verify DB connection env vars
-- Ensure PostgreSQL is running and accessible
-- Check JWT_SECRET is set
+**Backend won't start**:
+- `make logs-backend` to check errors
+- Verify `DB_*` env vars and PostgreSQL connectivity
+- Ensure `JWT_SECRET` is set
 
-### Frontend shows blank page
-- Check browser console for errors
-- Verify `VITE_API_URL` is correct
-- Check CORS settings in backend
+**Permission errors (403 Forbidden)**:
+- Check user has `user_permissions` entries for module/action
+- Verify module `code` matches between frontend/backend
+- Confirm `modules` table has entry for the module (and `active = true`)
+- Admin users bypass all checks (verify `role = 'admin'`)
 
-### Database migration errors
-- Manually connect: `docker exec -it <postgres-container> psql -U drcrwell_user -d drcrwell_db`
-- Check schemas: `\dn`
-- Verify tables: `\dt public.*` or `\dt tenant_1.*`
+**Database schema issues**:
+```bash
+docker exec -it <postgres-container> psql -U drcrwell_user -d drcrwell_db
+\dn                    # List schemas
+\dt public.*           # List public tables
+\dt tenant_1.*         # List tenant schema tables
+```
 
-## Testing
+## Docker Build
 
-To test the system end-to-end:
+Both backend and frontend use multi-stage builds:
 
-1. Access frontend URL (e.g., https://dr.crwell.pro)
-2. Click "Cadastrar consultório" to create a tenant
-3. Fill in clinic and admin info
-4. Login with created credentials
-5. Test CRUD operations:
-   - Create a patient
-   - Create an appointment
-   - View dashboard statistics
+**Backend**: `golang:1.21-alpine` (build) → `alpine:latest` (runtime, ~15MB)
+**Frontend**: `node:18` (build with Vite) → `nginx:alpine` (serve static files)
 
-## Security Considerations
-
-- All passwords are bcrypt hashed (cost 14)
-- JWT tokens expire after 24 hours
-- Database credentials should be strong and unique
-- HTTPS is mandatory in production (handled by Traefik)
-- Each tenant's data is isolated in separate schemas
-- SQL injection is prevented via GORM prepared statements
-
-## Performance
-
-- Go backend: ~10-20MB RAM per instance
-- Scales horizontally via Docker Swarm replicas
-- Database connection pooling via GORM
-- Frontend: Static files served by Nginx (fast)
-- API responses are typically < 100ms
-
-## Code Style
-
-**Go**: Follow standard Go conventions
-- Use `gofmt` for formatting
-- Error handling: always check and handle errors
-- Naming: camelCase for private, PascalCase for exported
-
-**JavaScript/React**:
-- ES6+ features
-- Functional components + hooks (no class components)
-- Destructuring where appropriate
-- Async/await for promises
-
-## Future Enhancements
-
-Areas to expand (not yet implemented in full):
-- WhatsApp Business API integration for campaigns
-- Email sending service integration
-- Advanced reporting with chart visualizations
-- Role-based access control (RBAC) within tenants
-- Audit logging
-- File storage in S3-compatible service
-- Automated backups
-- Health check endpoints with metrics
+Images are tagged as `${DOCKER_USERNAME}/drcrwell-backend:latest` and `${DOCKER_USERNAME}/drcrwell-frontend:latest`.
