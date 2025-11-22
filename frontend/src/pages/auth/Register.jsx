@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Form, Input, Button, Card, Typography, message, Select } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, MailOutlined, MedicineBoxOutlined } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { Title } = Typography;
@@ -30,11 +30,12 @@ const Register = () => {
       justifyContent: 'center',
       alignItems: 'center',
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'
     }}>
       <Card style={{ width: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={2} style={{ color: '#1890ff' }}>Criar Conta</Title>
+          <MedicineBoxOutlined style={{ fontSize: 48, color: '#16a34a', marginBottom: 16 }} />
+          <Title level={2} style={{ color: '#16a34a', marginTop: 0 }}>Criar Conta</Title>
         </div>
 
         <Form name="register" onFinish={onFinish} size="large">
