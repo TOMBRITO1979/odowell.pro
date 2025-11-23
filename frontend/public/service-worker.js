@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drcrwell-v1';
+const CACHE_NAME = 'drcrwell-v2-mobile';
 const urlsToCache = [
   '/',
   '/index.html',
