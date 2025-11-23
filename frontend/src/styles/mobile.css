@@ -1,13 +1,43 @@
 /* Dr. Crwell - Mobile Responsive Styles */
+/* CRITICAL: These styles MUST override Ant Design defaults */
+
+/* Force correct viewport behavior */
+html {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+}
+
+body {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+  position: relative !important;
+}
+
+#root {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+}
+
+/* Prevent horizontal scroll globally */
+* {
+  max-width: 100% !important;
+}
 
 /* ===== Mobile-First Media Queries ===== */
 
 /* Tablets and below (768px) */
 @media (max-width: 768px) {
+  /* Force no horizontal scroll */
+  html, body, #root, .ant-app, .ant-layout {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
   /* Container adjustments */
   .ant-layout-content {
     padding: 12px !important;
     margin: 12px 8px !important;
+    overflow-x: hidden !important;
   }
 
   /* Card spacing */

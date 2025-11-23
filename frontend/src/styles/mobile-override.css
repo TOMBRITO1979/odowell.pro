@@ -1,0 +1,168 @@
+/* Mobile Override - MAXIMUM PRIORITY */
+/* This file loads LAST to ensure mobile styles are applied */
+
+@media screen and (max-width: 768px) {
+  /* FORCE: No horizontal scroll */
+  html, body, #root,
+  .ant-app, .ant-layout,
+  .ant-layout-content,
+  .ant-card, .ant-table-wrapper,
+  div, section, main {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  /* FORCE: Tables responsive */
+  .ant-table-wrapper,
+  .ant-table,
+  .ant-table-container {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .ant-table {
+    min-width: 600px !important;
+  }
+
+  /* FORCE: Tabs scrollable */
+  .ant-tabs-nav-wrap {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    white-space: nowrap !important;
+  }
+
+  .ant-tabs-nav-list {
+    flex-wrap: nowrap !important;
+    display: flex !important;
+  }
+
+  .ant-tabs-tab {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  /* FORCE: Cards full width */
+  .ant-card {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* FORCE: Forms full width */
+  .ant-form,
+  .ant-form-item,
+  .ant-input,
+  .ant-select,
+  .ant-picker {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* FORCE: Modals fit screen */
+  .ant-modal {
+    margin: 8px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  /* FORCE: Buttons responsive */
+  .ant-btn-group {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* FORCE: Space components responsive */
+  .ant-space {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+
+  .ant-space-item {
+    max-width: 100% !important;
+  }
+
+  /* FORCE: Remove fixed widths */
+  [style*="width: 400px"],
+  [style*="width: 500px"],
+  [style*="width: 600px"],
+  [style*="width: 800px"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* FORCE: Content padding */
+  .ant-layout-content {
+    padding: 8px !important;
+    margin: 0 !important;
+  }
+
+  /* FORCE: Drawer full width */
+  .ant-drawer-content-wrapper {
+    width: 85vw !important;
+    max-width: 85vw !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  /* FORCE: Even smaller screens */
+  .ant-layout-content {
+    padding: 4px !important;
+  }
+
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 4px 2px !important;
+    font-size: 11px !important;
+  }
+
+  /* FORCE: Buttons smaller */
+  .ant-btn {
+    height: 32px !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+
+  /* FORCE: Inputs touch-friendly */
+  .ant-input,
+  .ant-select-selector,
+  .ant-picker {
+    height: 40px !important;
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+
+  /* FORCE: Typography smaller */
+  h1, .ant-typography h1 { font-size: 20px !important; }
+  h2, .ant-typography h2 { font-size: 18px !important; }
+  h3, .ant-typography h3 { font-size: 16px !important; }
+  h4, .ant-typography h4 { font-size: 14px !important; }
+
+  /* FORCE: Statistic cards smaller */
+  .ant-statistic-content {
+    font-size: 16px !important;
+  }
+
+  .ant-statistic-title {
+    font-size: 12px !important;
+  }
+}
+
+/* Hide scrollbar but keep functionality */
+@media screen and (max-width: 768px) {
+  .ant-tabs-nav-wrap::-webkit-scrollbar,
+  .ant-table-wrapper::-webkit-scrollbar {
+    height: 4px !important;
+  }
+
+  .ant-tabs-nav-wrap::-webkit-scrollbar-thumb,
+  .ant-table-wrapper::-webkit-scrollbar-thumb {
+    background: #d9d9d9 !important;
+    border-radius: 4px !important;
+  }
+}
