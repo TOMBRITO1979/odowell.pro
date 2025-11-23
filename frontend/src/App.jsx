@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, Spin } from 'antd';
 import { useAuth } from './contexts/AuthContext';
 import ptBR from 'antd/locale/pt_BR';
+import InstallPWA from './components/InstallPWA';
 
 // Auth pages
 import Login from './pages/auth/Login';
@@ -62,9 +63,11 @@ const PrivateRoute = ({ children }) => {
 
 function App() {
   return (
-    <ConfigProvider
-      locale={ptBR}
-      theme={{
+    <>
+      <InstallPWA />
+      <ConfigProvider
+        locale={ptBR}
+        theme={{
         token: {
           colorPrimary: '#16a34a',
           colorSuccess: '#52c41a',
@@ -195,7 +198,8 @@ function App() {
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
-    </ConfigProvider>
+      </ConfigProvider>
+    </>
   );
 }
 
