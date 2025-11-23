@@ -118,7 +118,7 @@ const InstallPWA = () => {
         {/* Texto */}
         <div style={{ flex: 1, color: 'white' }}>
           <Text strong style={{ color: 'white', display: 'block', fontSize: 15 }}>
-            Instalar Dr. Crwell
+            Instalar Odowell
           </Text>
           <Text style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: 13 }}>
             Acesso rápido e funciona offline
