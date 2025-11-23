@@ -182,35 +182,52 @@ const Appointments = () => {
       <Card
         title="Agendamentos"
         extra={
-          <Space>
-            <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}>
-              Exportar CSV
+          <Space className="appointments-actions" wrap>
+            <Button
+              icon={<FileExcelOutlined />}
+              onClick={handleExportCSV}
+              style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+              className="mobile-compact-btn"
+            >
+              <span className="desktop-text">Exportar CSV</span>
+              <span className="mobile-text">CSV</span>
             </Button>
-            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}>
-              Gerar PDF
+            <Button
+              icon={<FilePdfOutlined />}
+              onClick={handleExportPDF}
+              style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+              className="mobile-compact-btn"
+            >
+              <span className="desktop-text">Gerar PDF</span>
+              <span className="mobile-text">PDF</span>
             </Button>
             {canCreate('appointments') && (
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => navigate('/appointments/new')}
+                className="mobile-compact-btn"
               >
-                Novo Agendamento
+                <span className="desktop-text">Novo Agendamento</span>
+                <span className="mobile-text">Novo</span>
               </Button>
             )}
           </Space>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={data}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            ...pagination,
-            onChange: (page) => setPagination({ ...pagination, current: page }),
-          }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={data}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              ...pagination,
+              onChange: (page) => setPagination({ ...pagination, current: page }),
+            }}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
     </div>
   );

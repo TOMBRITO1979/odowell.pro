@@ -208,26 +208,61 @@ const Patients = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1>Pacientes</h1>
-        <Space>
-          <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} title="Exportar todos os pacientes para CSV" style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}>
-            Exportar CSV
-          </Button>
-          <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} title="Gerar PDF da página atual" style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}>
-            Gerar PDF
-          </Button>
-          {canCreate('patients') && (
-            <Button icon={<UploadOutlined />} onClick={() => setUploadModalVisible(true)} title="Importar pacientes via CSV" style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}>
-              Importar CSV
+      <div style={{ marginBottom: 16 }}>
+        <h1 style={{ marginBottom: 12 }}>Pacientes</h1>
+
+        {/* Row 1: Export buttons */}
+        <div className="patients-actions-row">
+          <Space className="patients-export-buttons" wrap>
+            <Button
+              icon={<FileExcelOutlined />}
+              onClick={handleExportCSV}
+              title="Exportar todos os pacientes para CSV"
+              style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+              className="mobile-compact-btn patients-action-btn"
+            >
+              <span className="desktop-text">Exportar CSV</span>
+              <span className="mobile-text">CSV</span>
             </Button>
-          )}
-          {canCreate('patients') && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/patients/new')}>
+            <Button
+              icon={<FilePdfOutlined />}
+              onClick={handleExportPDF}
+              title="Gerar PDF da página atual"
+              style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+              className="mobile-compact-btn patients-action-btn"
+            >
+              <span className="desktop-text">Gerar PDF</span>
+              <span className="mobile-text">PDF</span>
+            </Button>
+            {canCreate('patients') && (
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => setUploadModalVisible(true)}
+                title="Importar pacientes via CSV"
+                style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}
+                className="mobile-compact-btn patients-action-btn"
+              >
+                <span className="desktop-text">Importar CSV</span>
+                <span className="mobile-text">Import</span>
+              </Button>
+            )}
+          </Space>
+        </div>
+
+        {/* Row 2: New patient button */}
+        {canCreate('patients') && (
+          <div style={{ marginTop: 8 }}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/patients/new')}
+              className="patients-new-btn"
+              block
+            >
               Novo Paciente
             </Button>
-          )}
-        </Space>
+          </div>
+        )}
       </div>
 
       <Input
@@ -237,14 +272,17 @@ const Patients = () => {
         style={{ marginBottom: 16, maxWidth: 400 }}
       />
 
-      <Table
-        columns={columns}
-        dataSource={patients}
-        rowKey="id"
-        loading={loading}
-        pagination={pagination}
-        onChange={(newPagination) => setPagination(newPagination)}
-      />
+      <div style={{ overflowX: 'auto' }}>
+        <Table
+          columns={columns}
+          dataSource={patients}
+          rowKey="id"
+          loading={loading}
+          pagination={pagination}
+          onChange={(newPagination) => setPagination(newPagination)}
+          scroll={{ x: 'max-content' }}
+        />
+      </div>
 
       <Modal
         title="Importar Pacientes via CSV"

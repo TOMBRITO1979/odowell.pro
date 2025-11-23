@@ -328,3 +328,69 @@ body {
     justify-content: center;
   }
 }
+
+/* ===== Page-Specific Mobile Responsiveness ===== */
+
+/* Mobile compact buttons - hide desktop text, show mobile text */
+@media (max-width: 768px) {
+  .mobile-compact-btn .desktop-text {
+    display: none !important;
+  }
+
+  .mobile-compact-btn .mobile-text {
+    display: inline !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-compact-btn .desktop-text {
+    display: inline !important;
+  }
+
+  .mobile-compact-btn .mobile-text {
+    display: none !important;
+  }
+}
+
+/* Appointments page - buttons in same line on mobile */
+@media (max-width: 768px) {
+  .appointments-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+  }
+
+  .appointments-actions .ant-btn {
+    flex: 1 !important;
+    min-width: 0 !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* Patients page - specific layout */
+@media (max-width: 768px) {
+  .patients-export-buttons {
+    display: flex !important;
+    width: 100% !important;
+    gap: 4px !important;
+  }
+
+  .patients-action-btn {
+    flex: 1 !important;
+    min-width: 0 !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+
+  .patients-new-btn {
+    width: 100% !important;
+    margin-top: 8px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .patients-new-btn {
+    max-width: 200px !important;
+  }
+}

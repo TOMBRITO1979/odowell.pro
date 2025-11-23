@@ -171,11 +171,18 @@ const Tasks = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
         <h1>Tarefas</h1>
         {canCreate('tasks') && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/tasks/new')}>
-            Nova Tarefa
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/tasks/new')}
+            className="mobile-compact-btn"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            <span className="desktop-text">Nova Tarefa</span>
+            <span className="mobile-text">Nova</span>
           </Button>
         )}
       </div>
@@ -185,7 +192,7 @@ const Tasks = () => {
           placeholder="Buscar por título ou descrição"
           prefix={<SearchOutlined />}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ width: 300 }}
+          style={{ width: 300, maxWidth: '100%' }}
         />
         <Select
           placeholder="Status"
@@ -213,14 +220,17 @@ const Tasks = () => {
         </Select>
       </Space>
 
-      <Table
-        columns={columns}
-        dataSource={tasks}
-        rowKey="id"
-        loading={loading}
-        pagination={pagination}
-        onChange={(newPagination) => setPagination(newPagination)}
-      />
+      <div style={{ overflowX: 'auto' }}>
+        <Table
+          columns={columns}
+          dataSource={tasks}
+          rowKey="id"
+          loading={loading}
+          pagination={pagination}
+          onChange={(newPagination) => setPagination(newPagination)}
+          scroll={{ x: 'max-content' }}
+        />
+      </div>
     </div>
   );
 };
