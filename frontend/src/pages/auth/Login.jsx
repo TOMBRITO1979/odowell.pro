@@ -34,7 +34,19 @@ const Login = () => {
     }}>
       <Card style={{ width: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <MedicineBoxOutlined style={{ fontSize: 48, color: '#16a34a', marginBottom: 16 }} />
+          <div style={{
+            width: 80,
+            height: 80,
+            margin: '0 auto 16px',
+            background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+            borderRadius: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)',
+          }}>
+            <span style={{ fontSize: 48, filter: 'brightness(0) invert(1)' }}>🦷</span>
+          </div>
           <Title level={2} style={{ color: '#16a34a', marginTop: 0 }}>Dr. Crwell</Title>
           <Typography.Text type="secondary">Gestão Odontológica</Typography.Text>
         </div>

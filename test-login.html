@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dr. Crwell - Test Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #16a34a;
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #16a34a;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #15803d;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        pre {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦷 Dr. Crwell Login Test</h1>
+        <form id="loginForm">
+            <input type="email" id="email" placeholder="Email" value="admin@teste.com" required>
+            <input type="password" id="password" placeholder="Senha" value="admin123" required>
+            <button type="submit">Testar Login</button>
+        </form>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://drapi.crwell.pro/api';
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+
+            resultDiv.style.display = 'none';
+            resultDiv.className = 'result';
+
+            try {
+                console.log('Tentando login em:', API_URL + '/auth/login');
+
+                const response = await fetch(API_URL + '/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                console.log('Status:', response.status);
+                console.log('Headers:', [...response.headers.entries()]);
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Login Bem-sucedido!</h3>
+                        <p><strong>Usuário:</strong> ${data.user.name}</p>
+                        <p><strong>Email:</strong> ${data.user.email}</p>
+                        <p><strong>Role:</strong> ${data.user.role}</p>
+                        <p><strong>Tenant:</strong> ${data.tenant.name}</p>
+                        <p><strong>Token:</strong></p>
+                        <pre>${data.token.substring(0, 50)}...</pre>
+                        <p style="color: #059669; font-weight: bold;">✓ Backend está funcionando</p>
+                        <p style="color: #059669; font-weight: bold;">✓ CORS está configurado corretamente</p>
+                        <p style="color: #059669; font-weight: bold;">✓ Credenciais estão corretas</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Erro no Login</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Erro de Conexão</h3>
+                    <p><strong>Erro:</strong> ${error.message}</p>
+                    <p>Possíveis causas:</p>
+                    <ul>
+                        <li>Problema de rede</li>
+                        <li>Backend fora do ar</li>
+                        <li>Problema de CORS (verifique o console)</li>
+                    </ul>
+                    <p><strong>Detalhes no console do navegador (F12)</strong></p>
+                `;
+            }
+
+            resultDiv.style.display = 'block';
+        });
+
+        // Log initial info
+        console.log('API URL:', API_URL);
+        console.log('Test page loaded');
+    </script>
+</body>
+</html>

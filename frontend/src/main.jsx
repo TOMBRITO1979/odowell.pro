@@ -6,6 +6,7 @@ import ptBR from 'antd/locale/pt_BR'
 import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import './index.css'
+import './styles/mobile.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -14,7 +15,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         locale={ptBR}
         theme={{
           token: {
-            colorPrimary: '#1890ff',
+            colorPrimary: '#16a34a',
+            colorLink: '#16a34a',
             borderRadius: 6,
           },
         }}
