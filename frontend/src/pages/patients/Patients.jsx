@@ -211,45 +211,43 @@ const Patients = () => {
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ marginBottom: 12 }}>Pacientes</h1>
 
-        {/* Row 1: Export buttons */}
-        <div className="patients-actions-row">
-          <Space className="patients-export-buttons" wrap>
+        {/* Row 1: Export buttons - 3 buttons same size */}
+        <div className="patients-export-row">
+          <Button
+            icon={<FileExcelOutlined />}
+            onClick={handleExportCSV}
+            title="Exportar todos os pacientes para CSV"
+            style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+            className="patients-export-btn"
+          >
+            <span className="btn-text-desktop">Exportar CSV</span>
+            <span className="btn-text-mobile">CSV</span>
+          </Button>
+          <Button
+            icon={<FilePdfOutlined />}
+            onClick={handleExportPDF}
+            title="Gerar PDF da página atual"
+            style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+            className="patients-export-btn"
+          >
+            <span className="btn-text-desktop">Gerar PDF</span>
+            <span className="btn-text-mobile">PDF</span>
+          </Button>
+          {canCreate('patients') && (
             <Button
-              icon={<FileExcelOutlined />}
-              onClick={handleExportCSV}
-              title="Exportar todos os pacientes para CSV"
-              style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
-              className="mobile-compact-btn patients-action-btn"
+              icon={<UploadOutlined />}
+              onClick={() => setUploadModalVisible(true)}
+              title="Importar pacientes via CSV"
+              style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}
+              className="patients-export-btn"
             >
-              <span className="desktop-text">Exportar CSV</span>
-              <span className="mobile-text">CSV</span>
+              <span className="btn-text-desktop">Importar CSV</span>
+              <span className="btn-text-mobile">Importar</span>
             </Button>
-            <Button
-              icon={<FilePdfOutlined />}
-              onClick={handleExportPDF}
-              title="Gerar PDF da página atual"
-              style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
-              className="mobile-compact-btn patients-action-btn"
-            >
-              <span className="desktop-text">Gerar PDF</span>
-              <span className="mobile-text">PDF</span>
-            </Button>
-            {canCreate('patients') && (
-              <Button
-                icon={<UploadOutlined />}
-                onClick={() => setUploadModalVisible(true)}
-                title="Importar pacientes via CSV"
-                style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}
-                className="mobile-compact-btn patients-action-btn"
-              >
-                <span className="desktop-text">Importar CSV</span>
-                <span className="mobile-text">Import</span>
-              </Button>
-            )}
-          </Space>
+          )}
         </div>
 
-        {/* Row 2: New patient button */}
+        {/* Row 2: New patient button - full width */}
         {canCreate('patients') && (
           <div style={{ marginTop: 8 }}>
             <Button

@@ -178,11 +178,9 @@ const Tasks = () => {
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/tasks/new')}
-            className="mobile-compact-btn"
-            style={{ whiteSpace: 'nowrap' }}
+            size="small"
           >
-            <span className="desktop-text">Nova Tarefa</span>
-            <span className="mobile-text">Nova</span>
+            Nova Tarefa
           </Button>
         )}
       </div>

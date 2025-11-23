@@ -182,37 +182,37 @@ const Appointments = () => {
       <Card
         title="Agendamentos"
         extra={
-          <Space className="appointments-actions" wrap>
+          <div className="appointments-button-group">
             <Button
               icon={<FileExcelOutlined />}
               onClick={handleExportCSV}
               style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
-              className="mobile-compact-btn"
+              className="appointments-btn"
             >
-              <span className="desktop-text">Exportar CSV</span>
-              <span className="mobile-text">CSV</span>
+              <span className="btn-text-desktop">Exportar CSV</span>
+              <span className="btn-text-mobile">CSV</span>
             </Button>
             <Button
               icon={<FilePdfOutlined />}
               onClick={handleExportPDF}
               style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
-              className="mobile-compact-btn"
+              className="appointments-btn"
             >
-              <span className="desktop-text">Gerar PDF</span>
-              <span className="mobile-text">PDF</span>
+              <span className="btn-text-desktop">Gerar PDF</span>
+              <span className="btn-text-mobile">PDF</span>
             </Button>
             {canCreate('appointments') && (
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => navigate('/appointments/new')}
-                className="mobile-compact-btn"
+                className="appointments-btn"
               >
-                <span className="desktop-text">Novo Agendamento</span>
-                <span className="mobile-text">Novo</span>
+                <span className="btn-text-desktop">Novo Agendamento</span>
+                <span className="btn-text-mobile">Novo</span>
               </Button>
             )}
-          </Space>
+          </div>
         }
       >
         <div style={{ overflowX: 'auto' }}>
