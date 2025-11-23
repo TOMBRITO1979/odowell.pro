@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import { medicalRecordsAPI, patientsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import Odontogram from '../../components/Odontogram';
 
 const { TextArea } = Input;
 
@@ -265,6 +266,15 @@ const MedicalRecordForm = () => {
                   </Form.Item>
                 </Col>
               </Row>
+            </Tabs.TabPane>
+
+            <Tabs.TabPane tab="Odontograma" key="6">
+              <Form.Item
+                name="odontogram"
+                label=""
+              >
+                <Odontogram />
+              </Form.Item>
             </Tabs.TabPane>
           </Tabs>
 

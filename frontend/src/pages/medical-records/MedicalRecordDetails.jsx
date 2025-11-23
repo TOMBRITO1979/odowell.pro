@@ -20,6 +20,7 @@ import {
 import dayjs from 'dayjs';
 import { medicalRecordsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import Odontogram from '../../components/Odontogram';
 
 const MedicalRecordDetails = () => {
   const navigate = useNavigate();
@@ -218,11 +219,13 @@ const MedicalRecordDetails = () => {
           )}
 
           {record.odontogram && (
-            <Descriptions.Item label="Odontograma" span={2}>
-              <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
-                {JSON.stringify(JSON.parse(record.odontogram), null, 2)}
-              </pre>
-            </Descriptions.Item>
+            <>
+              {/* Força uma nova linha completa */}
+              <Descriptions.Item label="" span={2} style={{ height: 0, padding: 0, margin: 0, lineHeight: 0 }} />
+              <Descriptions.Item label="Odontograma" span={2} contentStyle={{ padding: 0, display: 'flex', justifyContent: 'center' }}>
+                <Odontogram value={record.odontogram} readOnly={true} />
+              </Descriptions.Item>
+            </>
           )}
 
           {record.notes && (

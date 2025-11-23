@@ -18,6 +18,7 @@ import {
   MenuOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI } from '../../services/api';
@@ -81,6 +82,12 @@ const DashboardLayout = () => {
       key: '/appointments',
       icon: <CalendarOutlined />,
       label: 'Agenda',
+      permission: 'appointments',
+    },
+    {
+      key: '/waiting-list',
+      icon: <ClockCircleOutlined />,
+      label: 'Lista de Espera',
       permission: 'appointments',
     },
     {

@@ -233,6 +233,29 @@ func main() {
 			tasks.DELETE("/:id", middleware.PermissionMiddleware("tasks", "delete"), handlers.DeleteTask)
 		}
 
+		// Waiting List CRUD
+		waitingList := tenanted.Group("/waiting-list")
+		{
+			waitingList.POST("", middleware.PermissionMiddleware("appointments", "create"), handlers.CreateWaitingListEntry)
+			waitingList.GET("", middleware.PermissionMiddleware("appointments", "view"), handlers.GetWaitingList)
+			waitingList.GET("/stats", middleware.PermissionMiddleware("appointments", "view"), handlers.GetWaitingListStats)
+			waitingList.GET("/:id", middleware.PermissionMiddleware("appointments", "view"), handlers.GetWaitingListEntry)
+			waitingList.PUT("/:id", middleware.PermissionMiddleware("appointments", "edit"), handlers.UpdateWaitingListEntry)
+			waitingList.POST("/:id/contact", middleware.PermissionMiddleware("appointments", "edit"), handlers.ContactWaitingListEntry)
+			waitingList.POST("/:id/schedule", middleware.PermissionMiddleware("appointments", "edit"), handlers.ScheduleWaitingListEntry)
+			waitingList.DELETE("/:id", middleware.PermissionMiddleware("appointments", "delete"), handlers.DeleteWaitingListEntry)
+		}
+
+		// Treatment Protocols CRUD
+		protocols := tenanted.Group("/treatment-protocols")
+		{
+			protocols.POST("", middleware.PermissionMiddleware("clinical_records", "create"), handlers.CreateTreatmentProtocol)
+			protocols.GET("", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GetTreatmentProtocols)
+			protocols.GET("/:id", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GetTreatmentProtocol)
+			protocols.PUT("/:id", middleware.PermissionMiddleware("clinical_records", "edit"), handlers.UpdateTreatmentProtocol)
+			protocols.DELETE("/:id", middleware.PermissionMiddleware("clinical_records", "delete"), handlers.DeleteTreatmentProtocol)
+		}
+
 		// Tenant Settings
 		tenanted.GET("/settings", middleware.PermissionMiddleware("settings", "view"), handlers.GetTenantSettings)
 		tenanted.PUT("/settings", middleware.PermissionMiddleware("settings", "edit"), handlers.UpdateTenantSettings)

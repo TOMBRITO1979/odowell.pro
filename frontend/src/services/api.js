@@ -248,3 +248,15 @@ export const tasksAPI = {
   delete: (id) => api.delete(`/tasks/${id}`),
   getPendingCount: () => api.get('/tasks/pending-count'),
 };
+
+// Waiting List API
+export const waitingListAPI = {
+  getAll: (params) => api.get('/waiting-list', { params }),
+  getOne: (id) => api.get(`/waiting-list/${id}`),
+  create: (data) => api.post('/waiting-list', data),
+  update: (id, data) => api.put(`/waiting-list/${id}`, data),
+  delete: (id) => api.delete(`/waiting-list/${id}`),
+  contact: (id) => api.post(`/waiting-list/${id}/contact`),
+  schedule: (id, appointmentId) => api.post(`/waiting-list/${id}/schedule`, { appointment_id: appointmentId }),
+  getStats: () => api.get('/waiting-list/stats'),
+};

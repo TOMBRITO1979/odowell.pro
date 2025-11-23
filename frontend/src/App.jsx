@@ -46,6 +46,8 @@ import Users from './pages/users/Users';
 import Tasks from './pages/tasks/Tasks';
 import TaskForm from './pages/tasks/TaskForm';
 import TaskDetails from './pages/tasks/TaskDetails';
+import WaitingList from './pages/waiting-list/WaitingList';
+import WaitingListForm from './pages/waiting-list/WaitingListForm';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -187,6 +189,11 @@ function App() {
         <Route path="tasks/new" element={<TaskForm />} />
         <Route path="tasks/:id" element={<TaskDetails />} />
         <Route path="tasks/:id/edit" element={<TaskForm />} />
+
+        {/* Waiting List */}
+        <Route path="waiting-list" element={<WaitingList />} />
+        <Route path="waiting-list/new" element={<WaitingListForm />} />
+        <Route path="waiting-list/:id/edit" element={<WaitingListForm />} />
 
         {/* Reports */}
         <Route path="reports" element={<Reports />} />
