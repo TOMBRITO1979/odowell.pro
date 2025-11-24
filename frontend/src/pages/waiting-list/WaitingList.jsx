@@ -27,6 +27,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors, statusColors, brandColors, spacing, shadows } from '../../theme/designSystem';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -124,9 +125,13 @@ const WaitingList = () => {
       title: 'Prioridade',
       dataIndex: 'priority',
       key: 'priority',
-      width: 100,
+      width: 130,
       render: (priority) => (
-        <Tag color={priority === 'urgent' ? 'red' : 'default'} icon={priority === 'urgent' ? <ExclamationCircleOutlined /> : null}>
+        <Tag
+          color={priority === 'urgent' ? statusColors.error : statusColors.success}
+          icon={priority === 'urgent' ? <ExclamationCircleOutlined /> : null}
+          style={{ margin: 0, whiteSpace: 'nowrap' }}
+        >
           {priority === 'urgent' ? 'Urgente' : 'Normal'}
         </Tag>
       )
@@ -160,20 +165,16 @@ const WaitingList = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      align: 'center',
       render: (status) => {
-        const colors = {
-          waiting: 'blue',
-          contacted: 'orange',
-          scheduled: 'green',
-          cancelled: 'red'
+        const statusMap = {
+          waiting: { color: statusColors.pending, label: 'Aguardando' },
+          contacted: { color: statusColors.inProgress, label: 'Contatado' },
+          scheduled: { color: statusColors.success, label: 'Agendado' },
+          cancelled: { color: statusColors.cancelled, label: 'Cancelado' }
         };
-        const labels = {
-          waiting: 'Aguardando',
-          contacted: 'Contatado',
-          scheduled: 'Agendado',
-          cancelled: 'Cancelado'
-        };
-        return <Tag color={colors[status]}>{labels[status]}</Tag>;
+        const config = statusMap[status] || { color: statusColors.pending, label: status };
+        return <Tag color={config.color}>{config.label}</Tag>;
       }
     },
     {
@@ -194,6 +195,7 @@ const WaitingList = () => {
                 type="link"
                 icon={<PhoneOutlined />}
                 onClick={() => handleContact(record.id)}
+                style={{ color: actionColors.approve }}
               />
             </Tooltip>
           )}
@@ -203,6 +205,7 @@ const WaitingList = () => {
                 type="link"
                 icon={<CalendarOutlined />}
                 onClick={() => navigate(`/appointments/new?waiting_list_id=${record.id}&patient_id=${record.patient_id}`)}
+                style={{ color: actionColors.create }}
               />
             </Tooltip>
           )}
@@ -212,6 +215,7 @@ const WaitingList = () => {
                 type="link"
                 icon={<EditOutlined />}
                 onClick={() => navigate(`/waiting-list/${record.id}/edit`)}
+                style={{ color: actionColors.edit }}
               />
             </Tooltip>
           )}
@@ -222,7 +226,11 @@ const WaitingList = () => {
               okText="Sim"
               cancelText="Não"
             >
-              <Button type="link" danger icon={<DeleteOutlined />} />
+              <Button
+                type="link"
+                icon={<DeleteOutlined />}
+                style={{ color: actionColors.delete }}
+              />
             </Popconfirm>
           )}
         </Space>
@@ -235,47 +243,47 @@ const WaitingList = () => {
       <h1>Lista de Espera</h1>
 
       {/* Statistics */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
+      <Row gutter={[spacing.md, spacing.md]} style={{ marginBottom: spacing.lg }}>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ boxShadow: shadows.small }}>
             <Statistic
               title="Aguardando"
               value={stats.total_waiting || 0}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: statusColors.pending }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ boxShadow: shadows.small }}>
             <Statistic
               title="Urgentes"
               value={stats.total_urgent || 0}
-              valueStyle={{ color: '#ff4d4f' }}
+              valueStyle={{ color: statusColors.error }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ boxShadow: shadows.small }}>
             <Statistic
               title="Contatados"
               value={stats.total_contacted || 0}
-              valueStyle={{ color: '#faad14' }}
+              valueStyle={{ color: statusColors.inProgress }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ boxShadow: shadows.small }}>
             <Statistic
               title="Agendados"
               value={stats.total_scheduled || 0}
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: statusColors.success }}
             />
           </Card>
         </Col>
       </Row>
 
       {/* Filters and Actions */}
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spacing.md, boxShadow: shadows.small }}>
         <Space wrap style={{ width: '100%', justifyContent: 'space-between' }}>
           <Space wrap>
             <Input
@@ -313,9 +321,13 @@ const WaitingList = () => {
 
           {canCreate('appointments') && (
             <Button
-              type="primary"
               icon={<PlusOutlined />}
               onClick={() => navigate('/waiting-list/new')}
+              style={{
+                backgroundColor: actionColors.create,
+                borderColor: actionColors.create,
+                color: '#fff'
+              }}
             >
               Adicionar à Lista
             </Button>
@@ -324,7 +336,7 @@ const WaitingList = () => {
       </Card>
 
       {/* Table */}
-      <Card>
+      <Card style={{ boxShadow: shadows.small }}>
         <Table
           columns={columns}
           dataSource={entries}

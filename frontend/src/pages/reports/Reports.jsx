@@ -20,9 +20,12 @@ import {
   FileTextOutlined,
   FilePdfOutlined,
   FileExcelOutlined,
+  FundOutlined,
+  AlertOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { reportsAPI } from '../../services/api';
+import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const { RangePicker } = DatePicker;
 
@@ -269,6 +272,136 @@ const Reports = () => {
     }
   };
 
+  const handleBudgetConversionReport = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (dateRange && dateRange[0] && dateRange[1]) {
+        params.start_date = dateRange[0].format('YYYY-MM-DD');
+        params.end_date = dateRange[1].format('YYYY-MM-DD');
+      }
+
+      const response = await reportsAPI.getBudgetConversion(params);
+      const data = response.data;
+      setCurrentReportType('budget-conversion');
+
+      setModalTitle('Taxa de Conversão de Orçamentos');
+      setModalContent(
+        <div>
+          <Descriptions bordered column={2}>
+            <Descriptions.Item label="Total de Orçamentos" span={2}>
+              {data.total_budgets || 0}
+            </Descriptions.Item>
+            <Descriptions.Item label="Orçamentos Aprovados">
+              {data.approved_budgets || 0}
+            </Descriptions.Item>
+            <Descriptions.Item label="Taxa de Conversão">
+              <span style={{ color: '#52c41a', fontWeight: 'bold', fontSize: '16px' }}>
+                {data.conversion_rate?.toFixed(2) || 0}%
+              </span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Valor Total Aprovado" span={2}>
+              {formatCurrency(data.total_approved || 0)}
+            </Descriptions.Item>
+          </Descriptions>
+          {data.by_status && data.by_status.length > 0 && (
+            <>
+              <h4 style={{ marginTop: 16 }}>Distribuição por Status</h4>
+              <Table
+                dataSource={data.by_status}
+                columns={[
+                  { title: 'Status', dataIndex: 'status', key: 'status' },
+                  { title: 'Quantidade', dataIndex: 'count', key: 'count' },
+                  { title: 'Percentual', dataIndex: 'percentage', key: 'percentage', render: (v) => `${v}%` },
+                  { title: 'Valor Total', dataIndex: 'total_amount', key: 'total_amount', render: formatCurrency },
+                ]}
+                rowKey="status"
+                pagination={false}
+              />
+            </>
+          )}
+        </div>
+      );
+      setModalVisible(true);
+    } catch (error) {
+      message.error('Erro ao carregar relatório de conversão');
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOverduePaymentsReport = async () => {
+    setLoading(true);
+    try {
+      const response = await reportsAPI.getOverduePayments();
+      const data = response.data;
+      setCurrentReportType('overdue-payments');
+
+      setModalTitle('Controle de Inadimplência');
+      setModalContent(
+        <div>
+          <Descriptions bordered column={2}>
+            <Descriptions.Item label="Total em Atraso" span={2}>
+              <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '16px' }}>
+                {formatCurrency(data.total_overdue || 0)}
+              </span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Quantidade de Pagamentos Atrasados" span={2}>
+              {data.overdue_count || 0}
+            </Descriptions.Item>
+          </Descriptions>
+
+          {data.overdue_patients && data.overdue_patients.length > 0 && (
+            <>
+              <h4 style={{ marginTop: 16 }}>Pacientes Inadimplentes</h4>
+              <Table
+                dataSource={data.overdue_patients}
+                columns={[
+                  { title: 'Paciente', dataIndex: 'patient_name', key: 'patient_name' },
+                  { title: 'Qtd. Atrasados', dataIndex: 'overdue_count', key: 'overdue_count' },
+                  { title: 'Total em Atraso', dataIndex: 'total_overdue', key: 'total_overdue', render: formatCurrency },
+                  { title: 'Atraso Mais Antigo', dataIndex: 'oldest_due_date', key: 'oldest_due_date' },
+                ]}
+                rowKey="patient_id"
+                pagination={{ pageSize: 10 }}
+              />
+            </>
+          )}
+
+          {data.overdue_by_age && data.overdue_by_age.length > 0 && (
+            <>
+              <h4 style={{ marginTop: 16 }}>Por Tempo de Atraso</h4>
+              <Table
+                dataSource={data.overdue_by_age}
+                columns={[
+                  { title: 'Período', dataIndex: 'age_range', key: 'age_range' },
+                  { title: 'Quantidade', dataIndex: 'count', key: 'count' },
+                  { title: 'Valor Total', dataIndex: 'total', key: 'total', render: formatCurrency },
+                ]}
+                rowKey="age_range"
+                pagination={false}
+              />
+            </>
+          )}
+
+          {(!data.overdue_patients || data.overdue_patients.length === 0) && (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#52c41a' }}>
+              <h3>✓ Nenhum pagamento em atraso!</h3>
+              <p>Todos os pagamentos estão em dia.</p>
+            </div>
+          )}
+        </div>
+      );
+      setModalVisible(true);
+    } catch (error) {
+      message.error('Erro ao carregar relatório de inadimplência');
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div>
       <Card
@@ -286,46 +419,47 @@ const Reports = () => {
             value={dateRange}
           />
         }
+        style={{ boxShadow: shadows.small }}
       >
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col xs={24} sm={12} md={6}>
-            <Card>
+            <Card hoverable style={{ boxShadow: shadows.small }}>
               <Statistic
                 title="Total de Pacientes"
                 value={dashboard.total_patients}
                 prefix={<UserOutlined />}
-                valueStyle={{ color: '#3f8600' }}
+                valueStyle={{ color: statusColors.success }}
               />
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card>
+            <Card hoverable style={{ boxShadow: shadows.small }}>
               <Statistic
                 title="Agendamentos"
                 value={dashboard.total_appointments}
                 prefix={<CalendarOutlined />}
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: statusColors.inProgress }}
               />
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card>
+            <Card hoverable style={{ boxShadow: shadows.small }}>
               <Statistic
                 title="Receita Total"
                 value={dashboard.total_revenue}
                 prefix={<DollarOutlined />}
-                valueStyle={{ color: '#52c41a' }}
+                valueStyle={{ color: statusColors.success }}
                 formatter={(value) => formatCurrency(value)}
               />
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card>
+            <Card hoverable style={{ boxShadow: shadows.small }}>
               <Statistic
                 title="A Receber"
                 value={dashboard.pending_payments}
                 prefix={<FileTextOutlined />}
-                valueStyle={{ color: '#faad14' }}
+                valueStyle={{ color: statusColors.pending }}
                 formatter={(value) => formatCurrency(value)}
               />
             </Card>
@@ -334,34 +468,67 @@ const Reports = () => {
 
         <Row gutter={16}>
           <Col span={24}>
-            <Card title="Relatórios Disponíveis" loading={loading}>
-              <Space direction="vertical" style={{ width: '100%' }}>
+            <Card title="Relatórios Disponíveis" loading={loading} style={{ boxShadow: shadows.small }}>
+              <Space wrap style={{ width: '100%', justifyContent: 'center' }}>
                 <Button
-                  type="primary"
-                  block
                   icon={<BarChartOutlined />}
                   onClick={handleRevenueReport}
                   loading={loading}
+                  style={{
+                    backgroundColor: actionColors.create,
+                    borderColor: actionColors.create,
+                    color: '#fff'
+                  }}
                 >
                   Relatório de Receitas
                 </Button>
                 <Button
-                  type="primary"
-                  block
                   icon={<CalendarOutlined />}
                   onClick={handleAttendanceReport}
                   loading={loading}
+                  style={{
+                    backgroundColor: actionColors.edit,
+                    borderColor: actionColors.edit,
+                    color: '#fff'
+                  }}
                 >
                   Relatório de Atendimentos
                 </Button>
                 <Button
-                  type="primary"
-                  block
                   icon={<FileTextOutlined />}
                   onClick={handleProceduresReport}
                   loading={loading}
+                  style={{
+                    backgroundColor: actionColors.view,
+                    borderColor: actionColors.view,
+                    color: '#fff'
+                  }}
                 >
                   Relatório de Procedimentos
+                </Button>
+                <Button
+                  icon={<FundOutlined />}
+                  onClick={handleBudgetConversionReport}
+                  loading={loading}
+                  style={{
+                    backgroundColor: actionColors.approve,
+                    borderColor: actionColors.approve,
+                    color: '#fff'
+                  }}
+                >
+                  Taxa de Conversão de Orçamentos
+                </Button>
+                <Button
+                  icon={<AlertOutlined />}
+                  onClick={handleOverduePaymentsReport}
+                  loading={loading}
+                  style={{
+                    backgroundColor: actionColors.delete,
+                    borderColor: actionColors.delete,
+                    color: '#fff'
+                  }}
+                >
+                  Controle de Inadimplência
                 </Button>
               </Space>
             </Card>
@@ -378,7 +545,7 @@ const Reports = () => {
             key="excel"
             icon={<FileExcelOutlined />}
             onClick={handleDownloadExcel}
-            style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+            style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
           >
             Baixar Excel
           </Button>,
@@ -386,7 +553,7 @@ const Reports = () => {
             key="pdf"
             icon={<FilePdfOutlined />}
             onClick={handleDownloadPDF}
-            style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+            style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
           >
             Baixar PDF
           </Button>,

@@ -8,6 +8,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { reportsAPI, appointmentsAPI } from '../services/api';
+import { statusColors, brandColors, spacing, shadows } from '../theme/designSystem';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({});
@@ -50,73 +51,105 @@ const Dashboard = () => {
       dataIndex: 'status',
       key: 'status',
       render: (status) => {
-        const colors = {
-          scheduled: 'blue',
-          confirmed: 'green',
-          completed: 'success',
-          cancelled: 'red',
+        const statusMap = {
+          scheduled: { color: statusColors.pending, text: 'Agendado' },
+          confirmed: { color: statusColors.approved, text: 'Confirmado' },
+          completed: { color: statusColors.success, text: 'Concluído' },
+          cancelled: { color: statusColors.cancelled, text: 'Cancelado' },
         };
-        return <Tag color={colors[status]}>{status}</Tag>;
+        const statusInfo = statusMap[status] || { color: statusColors.pending, text: status };
+        return <Tag color={statusInfo.color}>{statusInfo.text}</Tag>;
       },
     },
   ];
 
   return (
     <div>
-      <h1 style={{ marginBottom: 24 }}>Dashboard</h1>
+      <h1 style={{ marginBottom: spacing.lg }}>Dashboard</h1>
 
-      <Row gutter={[16, 16]}>
+      <Row gutter={[spacing.md, spacing.md]}>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card
+            hoverable
+            style={{
+              boxShadow: shadows.small,
+              transition: 'all 0.3s ease',
+            }}
+          >
             <Statistic
               title="Total de Pacientes"
               value={stats.total_patients || 0}
-              prefix={<UserOutlined />}
+              prefix={<UserOutlined style={{ color: brandColors.primary }} />}
               loading={loading}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card
+            hoverable
+            style={{
+              boxShadow: shadows.small,
+              transition: 'all 0.3s ease',
+            }}
+          >
             <Statistic
               title="Consultas Hoje"
               value={stats.appointments_today || 0}
-              prefix={<CalendarOutlined />}
+              prefix={<CalendarOutlined style={{ color: brandColors.primary }} />}
               loading={loading}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card
+            hoverable
+            style={{
+              boxShadow: shadows.small,
+              transition: 'all 0.3s ease',
+            }}
+          >
             <Statistic
               title="Orçamentos Pendentes"
               value={stats.pending_budgets || 0}
-              prefix={<FileTextOutlined />}
-              valueStyle={{ color: stats.pending_budgets > 0 ? '#faad14' : undefined }}
+              prefix={<FileTextOutlined style={{ color: statusColors.pending }} />}
+              valueStyle={{ color: stats.pending_budgets > 0 ? statusColors.pending : undefined }}
               loading={loading}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card
+            hoverable
+            style={{
+              boxShadow: shadows.small,
+              transition: 'all 0.3s ease',
+            }}
+          >
             <Statistic
               title="Tarefas Pendentes"
               value={stats.pending_tasks || 0}
-              prefix={<CheckSquareOutlined />}
-              valueStyle={{ color: stats.pending_tasks > 0 ? '#1890ff' : undefined }}
+              prefix={<CheckSquareOutlined style={{ color: statusColors.inProgress }} />}
+              valueStyle={{ color: stats.pending_tasks > 0 ? statusColors.inProgress : undefined }}
               loading={loading}
             />
           </Card>
         </Col>
       </Row>
 
-      <Card title="Próximos Agendamentos" style={{ marginTop: 24 }}>
+      <Card
+        title="Próximos Agendamentos"
+        style={{
+          marginTop: spacing.lg,
+          boxShadow: shadows.small,
+        }}
+      >
         <Table
           columns={columns}
           dataSource={appointments}
           rowKey="id"
           pagination={false}
           loading={loading}
+          scroll={{ x: 600 }}
         />
       </Card>
     </div>

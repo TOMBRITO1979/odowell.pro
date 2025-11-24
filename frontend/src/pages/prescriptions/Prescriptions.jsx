@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { prescriptionsAPI, patientsAPI } from '../../services/api';
+import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const Prescriptions = () => {
   const navigate = useNavigate();
@@ -45,16 +46,16 @@ const Prescriptions = () => {
   });
 
   const prescriptionTypes = [
-    { value: 'prescription', label: 'Receita', color: 'blue' },
-    { value: 'medical_report', label: 'Laudo Médico', color: 'green' },
-    { value: 'certificate', label: 'Atestado', color: 'orange' },
-    { value: 'referral', label: 'Encaminhamento', color: 'purple' },
+    { value: 'prescription', label: 'Receita', color: statusColors.inProgress },
+    { value: 'medical_report', label: 'Laudo Médico', color: statusColors.success },
+    { value: 'certificate', label: 'Atestado', color: statusColors.pending },
+    { value: 'referral', label: 'Encaminhamento', color: '#a855f7' },
   ];
 
   const statusOptions = [
-    { value: 'draft', label: 'Rascunho', color: 'default' },
-    { value: 'issued', label: 'Emitido', color: 'success' },
-    { value: 'cancelled', label: 'Cancelado', color: 'error' },
+    { value: 'draft', label: 'Rascunho', color: statusColors.cancelled },
+    { value: 'issued', label: 'Emitido', color: statusColors.success },
+    { value: 'cancelled', label: 'Cancelado', color: statusColors.error },
   ];
 
   useEffect(() => {
@@ -196,6 +197,7 @@ const Prescriptions = () => {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/prescriptions/${record.id}`)}
             title="Visualizar"
+            style={{ color: actionColors.view }}
           />
           {record.status === 'draft' && (
             <Button
@@ -203,6 +205,7 @@ const Prescriptions = () => {
               icon={<EditOutlined />}
               onClick={() => navigate(`/prescriptions/${record.id}/edit`)}
               title="Editar"
+              style={{ color: actionColors.edit }}
             />
           )}
           <Button
@@ -210,7 +213,7 @@ const Prescriptions = () => {
             icon={<FilePdfOutlined />}
             onClick={() => handleDownloadPDF(record.id)}
             title="Gerar PDF"
-            style={{ color: '#ef4444' }}
+            style={{ color: actionColors.exportPDF }}
           />
           <Popconfirm
             title="Tem certeza que deseja excluir?"
@@ -220,9 +223,9 @@ const Prescriptions = () => {
           >
             <Button
               type="text"
-              danger
               icon={<DeleteOutlined />}
               title="Excluir"
+              style={{ color: actionColors.delete }}
             />
           </Popconfirm>
         </Space>
@@ -241,13 +244,18 @@ const Prescriptions = () => {
         }
         extra={
           <Button
-            type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/prescriptions/new')}
+            style={{
+              backgroundColor: actionColors.create,
+              borderColor: actionColors.create,
+              color: '#fff'
+            }}
           >
             Nova Receita
           </Button>
         }
+        style={{ boxShadow: shadows.small }}
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={6}>

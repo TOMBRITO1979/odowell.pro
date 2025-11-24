@@ -4,6 +4,7 @@ import { Table, Button, message, Tag, Space, Popconfirm, Card } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { appointmentsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors, statusColors, spacing, shadows, buttonSizes } from '../../theme/designSystem';
 import dayjs from 'dayjs';
 
 const Appointments = () => {
@@ -85,14 +86,14 @@ const Appointments = () => {
 
   const getStatusTag = (status) => {
     const statusConfig = {
-      scheduled: { color: 'blue', text: 'Agendado' },
-      confirmed: { color: 'green', text: 'Confirmado' },
-      in_progress: { color: 'orange', text: 'Em Atendimento' },
-      completed: { color: 'success', text: 'Concluído' },
-      cancelled: { color: 'red', text: 'Cancelado' },
-      no_show: { color: 'default', text: 'Faltou' },
+      scheduled: { color: statusColors.pending, text: 'Agendado' },
+      confirmed: { color: statusColors.approved, text: 'Confirmado' },
+      in_progress: { color: statusColors.inProgress, text: 'Em Atendimento' },
+      completed: { color: statusColors.success, text: 'Concluído' },
+      cancelled: { color: statusColors.cancelled, text: 'Cancelado' },
+      no_show: { color: statusColors.error, text: 'Faltou' },
     };
-    const config = statusConfig[status] || { color: 'default', text: status };
+    const config = statusConfig[status] || { color: statusColors.pending, text: status };
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
@@ -148,6 +149,7 @@ const Appointments = () => {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/appointments/${record.id}`)}
             title="Visualizar"
+            style={{ color: actionColors.view }}
           />
           {canEdit('appointments') && (
             <Button
@@ -155,6 +157,7 @@ const Appointments = () => {
               icon={<EditOutlined />}
               onClick={() => navigate(`/appointments/${record.id}/edit`)}
               title="Editar"
+              style={{ color: actionColors.edit }}
             />
           )}
           {canDelete('appointments') && (
@@ -166,9 +169,9 @@ const Appointments = () => {
             >
               <Button
                 type="text"
-                danger
                 icon={<DeleteOutlined />}
                 title="Deletar"
+                style={{ color: actionColors.delete }}
               />
             </Popconfirm>
           )}
@@ -181,12 +184,19 @@ const Appointments = () => {
     <div>
       <Card
         title="Agendamentos"
+        style={{
+          boxShadow: shadows.small,
+        }}
         extra={
           <div className="appointments-button-group">
             <Button
               icon={<FileExcelOutlined />}
               onClick={handleExportCSV}
-              style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+              style={{
+                backgroundColor: actionColors.exportExcel,
+                borderColor: actionColors.exportExcel,
+                color: '#fff'
+              }}
               className="appointments-btn"
             >
               <span className="btn-text-desktop">Exportar CSV</span>
@@ -195,7 +205,11 @@ const Appointments = () => {
             <Button
               icon={<FilePdfOutlined />}
               onClick={handleExportPDF}
-              style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+              style={{
+                backgroundColor: actionColors.exportPDF,
+                borderColor: actionColors.exportPDF,
+                color: '#fff'
+              }}
               className="appointments-btn"
             >
               <span className="btn-text-desktop">Gerar PDF</span>
@@ -203,9 +217,13 @@ const Appointments = () => {
             </Button>
             {canCreate('appointments') && (
               <Button
-                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => navigate('/appointments/new')}
+                style={{
+                  backgroundColor: actionColors.create,
+                  borderColor: actionColors.create,
+                  color: '#fff'
+                }}
                 className="appointments-btn"
               >
                 <span className="btn-text-desktop">Novo Agendamento</span>

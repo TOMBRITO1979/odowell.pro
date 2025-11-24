@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { medicalRecordsAPI, patientsAPI } from '../../services/api';
+import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const { RangePicker } = DatePicker;
 
@@ -161,12 +162,14 @@ const MedicalRecords = () => {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/medical-records/${record.id}/view`)}
             title="Visualizar"
+            style={{ color: actionColors.view }}
           />
           <Button
             type="text"
             icon={<EditOutlined />}
             onClick={() => navigate(`/medical-records/${record.id}/edit`)}
             title="Editar"
+            style={{ color: actionColors.edit }}
           />
           <Popconfirm
             title="Tem certeza que deseja excluir?"
@@ -176,9 +179,9 @@ const MedicalRecords = () => {
           >
             <Button
               type="text"
-              danger
               icon={<DeleteOutlined />}
               title="Excluir"
+              style={{ color: actionColors.delete }}
             />
           </Popconfirm>
         </Space>
@@ -197,13 +200,18 @@ const MedicalRecords = () => {
         }
         extra={
           <Button
-            type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/medical-records/new')}
+            style={{
+              backgroundColor: actionColors.create,
+              borderColor: actionColors.create,
+              color: '#fff'
+            }}
           >
             Novo Prontuário
           </Button>
         }
+        style={{ boxShadow: shadows.small }}
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={6}>

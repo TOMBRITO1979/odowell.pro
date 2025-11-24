@@ -4,6 +4,7 @@ import { Table, Button, Input, Space, Popconfirm, message, Tag, Upload, Modal } 
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, FileExcelOutlined, FilePdfOutlined, UploadOutlined } from '@ant-design/icons';
 import { patientsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors, statusColors, spacing } from '../../theme/designSystem';
 import dayjs from 'dayjs';
 
 const Patients = () => {
@@ -169,7 +170,7 @@ const Patients = () => {
       dataIndex: 'active',
       key: 'active',
       render: (active) => (
-        <Tag color={active ? 'green' : 'red'}>
+        <Tag color={active ? statusColors.success : statusColors.cancelled}>
           {active ? 'Ativo' : 'Inativo'}
         </Tag>
       ),
@@ -183,12 +184,14 @@ const Patients = () => {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/patients/${record.id}`)}
             size="small"
+            style={{ color: actionColors.view }}
           />
           {canEdit('patients') && (
             <Button
               icon={<EditOutlined />}
               onClick={() => navigate(`/patients/${record.id}/edit`)}
               size="small"
+              style={{ color: actionColors.edit }}
             />
           )}
           {canDelete('patients') && (
@@ -198,7 +201,11 @@ const Patients = () => {
               okText="Sim"
               cancelText="Não"
             >
-              <Button icon={<DeleteOutlined />} danger size="small" />
+              <Button
+                icon={<DeleteOutlined />}
+                size="small"
+                style={{ color: actionColors.delete }}
+              />
             </Popconfirm>
           )}
         </Space>
@@ -211,13 +218,17 @@ const Patients = () => {
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ marginBottom: 12 }}>Pacientes</h1>
 
-        {/* Row 1: Export buttons - 3 buttons same size */}
+        {/* All 4 buttons in same row */}
         <div className="patients-export-row">
           <Button
             icon={<FileExcelOutlined />}
             onClick={handleExportCSV}
             title="Exportar todos os pacientes para CSV"
-            style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+            style={{
+              backgroundColor: actionColors.exportExcel,
+              borderColor: actionColors.exportExcel,
+              color: '#fff'
+            }}
             className="patients-export-btn"
           >
             <span className="btn-text-desktop">Exportar CSV</span>
@@ -227,7 +238,11 @@ const Patients = () => {
             icon={<FilePdfOutlined />}
             onClick={handleExportPDF}
             title="Gerar PDF da página atual"
-            style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+            style={{
+              backgroundColor: actionColors.exportPDF,
+              borderColor: actionColors.exportPDF,
+              color: '#fff'
+            }}
             className="patients-export-btn"
           >
             <span className="btn-text-desktop">Gerar PDF</span>
@@ -238,29 +253,33 @@ const Patients = () => {
               icon={<UploadOutlined />}
               onClick={() => setUploadModalVisible(true)}
               title="Importar pacientes via CSV"
-              style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}
+              style={{
+                backgroundColor: actionColors.import,
+                borderColor: actionColors.import,
+                color: '#fff'
+              }}
               className="patients-export-btn"
             >
               <span className="btn-text-desktop">Importar CSV</span>
               <span className="btn-text-mobile">Importar</span>
             </Button>
           )}
-        </div>
-
-        {/* Row 2: New patient button - full width */}
-        {canCreate('patients') && (
-          <div style={{ marginTop: 8 }}>
+          {canCreate('patients') && (
             <Button
-              type="primary"
               icon={<PlusOutlined />}
               onClick={() => navigate('/patients/new')}
-              className="patients-new-btn"
-              block
+              style={{
+                backgroundColor: actionColors.create,
+                borderColor: actionColors.create,
+                color: '#fff'
+              }}
+              className="patients-export-btn"
             >
-              Novo Paciente
+              <span className="btn-text-desktop">Novo Paciente</span>
+              <span className="btn-text-mobile">Novo</span>
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <Input

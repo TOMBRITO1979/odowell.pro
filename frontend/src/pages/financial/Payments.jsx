@@ -31,8 +31,9 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { paymentsAPI, patientsAPI } from '../../services/api';
+import { paymentsAPI, patientsAPI, budgetsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const { RangePicker } = DatePicker;
 
@@ -66,15 +67,16 @@ const Payments = () => {
   });
 
   const paymentTypes = [
-    { value: 'income', label: 'Receita', color: 'success' },
-    { value: 'expense', label: 'Despesa', color: 'error' },
+    { value: 'income', label: 'Receita', color: statusColors.success },
+    { value: 'expense', label: 'Despesa', color: statusColors.error },
   ];
 
   const statusOptions = [
-    { value: 'pending', label: 'Pendente', color: 'warning' },
-    { value: 'paid', label: 'Pago', color: 'success' },
-    { value: 'overdue', label: 'Atrasado', color: 'error' },
-    { value: 'cancelled', label: 'Cancelado', color: 'default' },
+    { value: 'pending', label: 'Pendente', color: statusColors.pending },
+    { value: 'paid', label: 'Pago', color: statusColors.success },
+    { value: 'overdue', label: 'Atrasado', color: statusColors.error },
+    { value: 'cancelled', label: 'Cancelado', color: statusColors.cancelled },
+    { value: 'refunded', label: 'Estornado', color: '#a855f7' },
   ];
 
   const paymentMethods = [
@@ -142,6 +144,42 @@ const Payments = () => {
     } catch (error) {
       message.error('Erro ao excluir pagamento');
     }
+  };
+
+  const handleRefundPayment = async (id) => {
+    Modal.confirm({
+      title: 'Estornar Pagamento',
+      content: (
+        <div>
+          <p>Tem certeza que deseja estornar este pagamento?</p>
+          <Input.TextArea
+            id="refund-reason"
+            placeholder="Motivo do estorno (obrigatório)"
+            rows={3}
+          />
+        </div>
+      ),
+      okText: 'Estornar',
+      cancelText: 'Cancelar',
+      onOk: async () => {
+        const reason = document.getElementById('refund-reason').value;
+        if (!reason || reason.trim() === '') {
+          message.error('Por favor, informe o motivo do estorno');
+          return Promise.reject();
+        }
+
+        try {
+          await paymentsAPI.refund(id, reason);
+          message.success('Pagamento estornado com sucesso');
+          fetchPayments();
+          fetchStatistics();
+        } catch (error) {
+          message.error('Erro ao estornar pagamento');
+          console.error('Refund error:', error);
+          return Promise.reject();
+        }
+      }
+    });
   };
 
   const handleDownloadPDF = async () => {
@@ -276,6 +314,20 @@ const Payments = () => {
 
   const columns = [
     {
+      title: 'Tipo',
+      key: 'type',
+      width: 100,
+      render: (_, record) => {
+        if (record.type === 'income') {
+          return <Tag color={statusColors.success}>Receita</Tag>;
+        }
+        if (record.type === 'expense') {
+          return <Tag color={statusColors.error}>Despesa</Tag>;
+        }
+        return <Tag color={statusColors.cancelled}>-</Tag>;
+      },
+    },
+    {
       title: 'Data',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -296,20 +348,13 @@ const Payments = () => {
       ellipsis: true,
     },
     {
-      title: 'Tipo',
-      dataIndex: 'type',
-      key: 'type',
-      width: 100,
-      render: (type) => getTypeTag(type),
-    },
-    {
       title: 'Valor',
       dataIndex: 'amount',
       key: 'amount',
       width: 130,
-      render: (value, record) => {
-        const color = record.type === 'income' ? '#52c41a' : '#ff4d4f';
-        return <span style={{ color, fontWeight: 'bold' }}>{formatCurrency(value)}</span>;
+      render: (amount, record) => {
+        const color = record.type === 'income' ? statusColors.success : (record.type === 'expense' ? statusColors.error : statusColors.inProgress);
+        return <span style={{ color, fontWeight: 'bold' }}>{formatCurrency(amount)}</span>;
       },
       sorter: true,
     },
@@ -319,6 +364,7 @@ const Payments = () => {
       key: 'payment_method',
       width: 140,
       render: (method) => {
+        if (!method) return '-';
         const methodObj = paymentMethods.find((m) => m.value === method);
         return methodObj ? methodObj.label : method;
       },
@@ -340,7 +386,7 @@ const Payments = () => {
     {
       title: 'Ações',
       key: 'actions',
-      width: 120,
+      width: 150,
       fixed: 'right',
       render: (_, record) => (
         <Space>
@@ -350,7 +396,18 @@ const Payments = () => {
               icon={<EditOutlined />}
               onClick={() => navigate(`/payments/${record.id}/edit`)}
               title="Editar"
+              style={{ color: actionColors.edit }}
             />
+          )}
+          {canEdit('payments') && record.status === 'paid' && (
+            <Button
+              type="text"
+              onClick={() => handleRefundPayment(record.id)}
+              title="Estornar"
+              style={{ color: statusColors.error }}
+            >
+              Estornar
+            </Button>
           )}
           {canDelete('payments') && (
             <Popconfirm
@@ -361,9 +418,9 @@ const Payments = () => {
             >
               <Button
                 type="text"
-                danger
                 icon={<DeleteOutlined />}
                 title="Excluir"
+                style={{ color: actionColors.delete }}
               />
             </Popconfirm>
           )}
@@ -376,47 +433,47 @@ const Payments = () => {
     <div>
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ boxShadow: shadows.small }}>
             <Statistic
               title="Receitas"
               value={statistics.income}
               precision={2}
-              valueStyle={{ color: '#3f8600' }}
+              valueStyle={{ color: statusColors.success }}
               prefix={<ArrowUpOutlined />}
               suffix="R$"
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ boxShadow: shadows.small }}>
             <Statistic
               title="Despesas"
               value={statistics.expenses}
               precision={2}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: statusColors.error }}
               prefix={<ArrowDownOutlined />}
               suffix="R$"
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ boxShadow: shadows.small }}>
             <Statistic
               title="Saldo"
               value={statistics.balance}
               precision={2}
-              valueStyle={{ color: statistics.balance >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: statistics.balance >= 0 ? statusColors.success : statusColors.error }}
               prefix="R$"
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ boxShadow: shadows.small }}>
             <Statistic
               title="A Receber"
               value={statistics.pending}
               precision={2}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: statusColors.inProgress }}
               prefix="R$"
             />
           </Card>
@@ -435,7 +492,7 @@ const Payments = () => {
             <Button
               icon={<FilePdfOutlined />}
               onClick={handleDownloadPDF}
-              style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+              style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
             >
               Baixar PDF
             </Button>
@@ -443,7 +500,7 @@ const Payments = () => {
               icon={<FileExcelOutlined />}
               onClick={handleExportCSV}
               title="Exportar CSV"
-              style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+              style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
             >
               Exportar CSV
             </Button>
@@ -452,22 +509,23 @@ const Payments = () => {
                 icon={<UploadOutlined />}
                 onClick={() => setUploadModalVisible(true)}
                 title="Importar CSV"
-                style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}
+                style={{ backgroundColor: actionColors.import, borderColor: actionColors.import, color: '#fff' }}
               >
                 Importar CSV
               </Button>
             )}
             {canCreate('payments') && (
               <Button
-                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => navigate('/payments/new')}
+                style={{ backgroundColor: actionColors.create, borderColor: actionColors.create, color: '#fff' }}
               >
                 Novo Pagamento
               </Button>
             )}
           </Space>
         }
+        style={{ boxShadow: shadows.small }}
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={6}>
@@ -535,7 +593,7 @@ const Payments = () => {
           loading={loading}
           pagination={pagination}
           onChange={handleTableChange}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1600 }}
         />
       </Card>
 

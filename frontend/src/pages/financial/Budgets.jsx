@@ -30,6 +30,7 @@ import {
 import dayjs from 'dayjs';
 import { budgetsAPI, patientsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const Budgets = () => {
   const navigate = useNavigate();
@@ -53,10 +54,11 @@ const Budgets = () => {
   });
 
   const statusOptions = [
-    { value: 'pending', label: 'Pendente', color: 'warning' },
-    { value: 'approved', label: 'Aprovado', color: 'success' },
-    { value: 'rejected', label: 'Rejeitado', color: 'error' },
-    { value: 'expired', label: 'Expirado', color: 'default' },
+    { value: 'pending', label: 'Pendente', color: statusColors.pending },
+    { value: 'approved', label: 'Aprovado', color: statusColors.approved },
+    { value: 'rejected', label: 'Rejeitado', color: statusColors.error },
+    { value: 'expired', label: 'Expirado', color: statusColors.cancelled },
+    { value: 'cancelled', label: 'Cancelado', color: statusColors.cancelled },
   ];
 
   useEffect(() => {
@@ -83,7 +85,16 @@ const Budgets = () => {
       };
 
       const response = await budgetsAPI.getAll(params);
-      setBudgets(response.data.budgets || []);
+      let fetchedBudgets = response.data.budgets || [];
+
+      // Filter out approved budgets unless specifically filtered for them
+      // Approved budgets should appear in Payments tab instead
+      // Cancelled budgets are shown here to track what was cancelled
+      if (!filters.status || (filters.status !== 'approved' && filters.status !== 'cancelled')) {
+        fetchedBudgets = fetchedBudgets.filter(budget => budget.status !== 'approved');
+      }
+
+      setBudgets(fetchedBudgets);
       setPagination({
         ...pagination,
         total: response.data.total || 0,
@@ -244,9 +255,35 @@ const Budgets = () => {
       title: 'Valor Total',
       dataIndex: 'total_value',
       key: 'total_value',
-      width: 140,
+      width: 130,
       render: (value) => formatCurrency(value),
       sorter: true,
+    },
+    {
+      title: 'Valor Pago',
+      key: 'paid',
+      width: 130,
+      render: (_, record) => {
+        // Sum all paid payments for this budget
+        const paidAmount = (record.payments || [])
+          .filter(p => p.status === 'paid')
+          .reduce((sum, p) => sum + p.amount, 0);
+        return <span style={{ color: '#52c41a', fontWeight: 'bold' }}>{formatCurrency(paidAmount)}</span>;
+      },
+    },
+    {
+      title: 'Valor Devido',
+      key: 'due',
+      width: 130,
+      render: (_, record) => {
+        // Calculate remaining amount
+        const paidAmount = (record.payments || [])
+          .filter(p => p.status === 'paid')
+          .reduce((sum, p) => sum + p.amount, 0);
+        const dueAmount = record.total_value - paidAmount;
+        const color = dueAmount > 0 ? '#ff4d4f' : '#52c41a';
+        return <span style={{ color, fontWeight: 'bold' }}>{formatCurrency(dueAmount)}</span>;
+      },
     },
     {
       title: 'Status',
@@ -274,6 +311,7 @@ const Budgets = () => {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/budgets/${record.id}/view`)}
             title="Visualizar"
+            style={{ color: actionColors.view }}
           />
           {canEdit('budgets') && (
             <Button
@@ -281,6 +319,7 @@ const Budgets = () => {
               icon={<EditOutlined />}
               onClick={() => navigate(`/budgets/${record.id}/edit`)}
               title="Editar"
+              style={{ color: actionColors.edit }}
             />
           )}
           {canDelete('budgets') && (
@@ -292,9 +331,9 @@ const Budgets = () => {
             >
               <Button
                 type="text"
-                danger
                 icon={<DeleteOutlined />}
                 title="Excluir"
+                style={{ color: actionColors.delete }}
               />
             </Popconfirm>
           )}
@@ -315,14 +354,19 @@ const Budgets = () => {
         extra={
           canCreate('budgets') && (
             <Button
-              type="primary"
               icon={<PlusOutlined />}
               onClick={() => navigate('/budgets/new')}
+              style={{
+                backgroundColor: actionColors.create,
+                borderColor: actionColors.create,
+                color: '#fff'
+              }}
             >
               Novo Orçamento
             </Button>
           )
         }
+        style={{ boxShadow: shadows.small }}
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={8}>
@@ -375,7 +419,7 @@ const Budgets = () => {
                 icon={<FileExcelOutlined />}
                 onClick={handleExportCSV}
                 title="Exportar CSV"
-                style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}
+                style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
               >
                 Exportar CSV
               </Button>
@@ -383,7 +427,7 @@ const Budgets = () => {
                 icon={<FilePdfOutlined />}
                 onClick={handleExportPDF}
                 title="Gerar PDF da Lista"
-                style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+                style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
               >
                 Gerar PDF
               </Button>
@@ -392,7 +436,7 @@ const Budgets = () => {
                   icon={<UploadOutlined />}
                   onClick={() => setUploadModalVisible(true)}
                   title="Importar CSV"
-                  style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}
+                  style={{ backgroundColor: actionColors.import, borderColor: actionColors.import, color: '#fff' }}
                 >
                   Importar CSV
                 </Button>
@@ -408,7 +452,7 @@ const Budgets = () => {
           loading={loading}
           pagination={pagination}
           onChange={handleTableChange}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1300 }}
         />
       </Card>
 
