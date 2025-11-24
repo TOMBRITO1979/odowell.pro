@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drcrwell-v2-mobile';
+const CACHE_NAME = 'drcrwell-v3-mobile';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -36,6 +36,9 @@ self.addEventListener('fetch', (event) => {
 
   // Skip API requests (let them go to network)
   if (event.request.url.includes('/api/')) return;
+
+  // Skip chrome-extension requests
+  if (event.request.url.startsWith('chrome-extension://')) return;
 
   event.respondWith(
     caches.match(event.request)
