@@ -254,8 +254,8 @@ const Patients = () => {
               onClick={() => setUploadModalVisible(true)}
               title="Importar pacientes via CSV"
               style={{
-                backgroundColor: actionColors.import,
-                borderColor: actionColors.import,
+                backgroundColor: actionColors.view,
+                borderColor: actionColors.view,
                 color: '#fff'
               }}
               className="patients-export-btn"

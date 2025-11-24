@@ -509,7 +509,7 @@ const Payments = () => {
                 icon={<UploadOutlined />}
                 onClick={() => setUploadModalVisible(true)}
                 title="Importar CSV"
-                style={{ backgroundColor: actionColors.import, borderColor: actionColors.import, color: '#fff' }}
+                style={{ backgroundColor: actionColors.view, borderColor: actionColors.view, color: '#fff' }}
               >
                 Importar CSV
               </Button>

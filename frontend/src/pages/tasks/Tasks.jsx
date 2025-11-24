@@ -4,6 +4,7 @@ import { Table, Button, Input, Space, Popconfirm, message, Tag, Select } from 'a
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import { tasksAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const { Option } = Select;
 
@@ -143,15 +144,21 @@ const Tasks = () => {
       render: (_, record) => (
         <Space>
           <Button
+            type="text"
             icon={<EyeOutlined />}
             onClick={() => navigate(`/tasks/${record.id}`)}
             size="small"
+            style={{ color: actionColors.view }}
+            title="Visualizar"
           />
           {canEdit('tasks') && (
             <Button
+              type="text"
               icon={<EditOutlined />}
               onClick={() => navigate(`/tasks/${record.id}/edit`)}
               size="small"
+              style={{ color: actionColors.edit }}
+              title="Editar"
             />
           )}
           {canDelete('tasks') && (
@@ -161,7 +168,13 @@ const Tasks = () => {
               okText="Sim"
               cancelText="Não"
             >
-              <Button icon={<DeleteOutlined />} danger size="small" />
+              <Button
+                type="text"
+                icon={<DeleteOutlined />}
+                size="small"
+                style={{ color: actionColors.delete }}
+                title="Excluir"
+              />
             </Popconfirm>
           )}
         </Space>
@@ -175,10 +188,14 @@ const Tasks = () => {
         <h1>Tarefas</h1>
         {canCreate('tasks') && (
           <Button
-            type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/tasks/new')}
             size="small"
+            style={{
+              backgroundColor: actionColors.create,
+              borderColor: actionColors.create,
+              color: '#fff'
+            }}
           >
             Nova Tarefa
           </Button>

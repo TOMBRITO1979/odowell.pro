@@ -25,6 +25,7 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import { examsAPI, patientsAPI } from '../../services/api';
+import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
@@ -196,18 +197,21 @@ const Exams = () => {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/exams/${record.id}`)}
             title="Visualizar"
+            style={{ color: actionColors.view }}
           />
           <Button
             type="text"
             icon={<EditOutlined />}
             onClick={() => navigate(`/exams/${record.id}/edit`)}
             title="Editar"
+            style={{ color: actionColors.edit }}
           />
           <Button
             type="text"
             icon={<DownloadOutlined />}
             onClick={() => handleDownload(record)}
             title="Download"
+            style={{ color: actionColors.exportPDF }}
           />
           <Popconfirm
             title="Tem certeza que deseja deletar este exame?"
@@ -217,9 +221,9 @@ const Exams = () => {
           >
             <Button
               type="text"
-              danger
               icon={<DeleteOutlined />}
               title="Deletar"
+              style={{ color: actionColors.delete }}
             />
           </Popconfirm>
         </Space>
@@ -265,10 +269,14 @@ const Exams = () => {
               ))}
             </Select>
             <Button
-              type="primary"
               icon={<PlusOutlined />}
               onClick={() => setModalVisible(true)}
               disabled={!selectedPatient}
+              style={{
+                backgroundColor: actionColors.create,
+                borderColor: actionColors.create,
+                color: '#fff'
+              }}
             >
               Novo Exame
             </Button>

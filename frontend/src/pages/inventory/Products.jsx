@@ -30,6 +30,7 @@ import {
 import dayjs from 'dayjs';
 import { productsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -290,6 +291,7 @@ const Products = () => {
               icon={<EditOutlined />}
               onClick={() => navigate(`/products/${record.id}/edit`)}
               title="Editar"
+              style={{ color: actionColors.edit }}
             />
           )}
           {canDelete('products') && (
@@ -301,9 +303,9 @@ const Products = () => {
             >
               <Button
                 type="text"
-                danger
                 icon={<DeleteOutlined />}
                 title="Excluir"
+                style={{ color: actionColors.delete }}
               />
             </Popconfirm>
           )}
@@ -323,22 +325,50 @@ const Products = () => {
         }
         extra={
           <Space>
-            <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}>
+            <Button
+              icon={<FileExcelOutlined />}
+              onClick={handleExportCSV}
+              style={{
+                backgroundColor: actionColors.exportExcel,
+                borderColor: actionColors.exportExcel,
+                color: '#fff'
+              }}
+            >
               Exportar CSV
             </Button>
-            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}>
+            <Button
+              icon={<FilePdfOutlined />}
+              onClick={handleExportPDF}
+              style={{
+                backgroundColor: actionColors.exportPDF,
+                borderColor: actionColors.exportPDF,
+                color: '#fff'
+              }}
+            >
               Gerar PDF
             </Button>
             {canCreate('products') && (
-              <Button icon={<UploadOutlined />} onClick={() => setUploadModalVisible(true)} style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#fff' }}>
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => setUploadModalVisible(true)}
+                style={{
+                  backgroundColor: actionColors.view,
+                  borderColor: actionColors.view,
+                  color: '#fff'
+                }}
+              >
                 Importar CSV
               </Button>
             )}
             {canCreate('products') && (
               <Button
-                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => navigate('/products/new')}
+                style={{
+                  backgroundColor: actionColors.create,
+                  borderColor: actionColors.create,
+                  color: '#fff'
+                }}
               >
                 Novo Produto
               </Button>

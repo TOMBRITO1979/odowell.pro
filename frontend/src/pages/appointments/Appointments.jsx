@@ -222,7 +222,10 @@ const Appointments = () => {
                 style={{
                   backgroundColor: actionColors.create,
                   borderColor: actionColors.create,
-                  color: '#fff'
+                  color: '#fff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
                 className="appointments-btn"
               >
