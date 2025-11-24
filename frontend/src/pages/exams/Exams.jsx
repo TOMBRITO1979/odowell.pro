@@ -258,9 +258,10 @@ const Exams = () => {
                 setSelectedPatient(value);
                 setPagination({ ...pagination, current: 1 });
               }}
-              filterOption={(input, option) =>
-                option.children.toLowerCase().includes(input.toLowerCase())
-              }
+              filterOption={(input, option) => {
+                const children = String(option.children || '');
+                return children.toLowerCase().includes(input.toLowerCase());
+              }}
             >
               {patients.map((patient) => (
                 <Option key={patient.id} value={patient.id}>
