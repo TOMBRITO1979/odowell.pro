@@ -194,6 +194,7 @@ func main() {
 		{
 			reports.GET("/dashboard", middleware.PermissionMiddleware("reports", "view"), handlers.GetDashboard)
 			reports.GET("/dashboard/advanced", middleware.PermissionMiddleware("reports", "view"), handlers.GetAdvancedDashboard)
+			reports.GET("/dashboard/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateDashboardPDF)
 			reports.GET("/revenue", middleware.PermissionMiddleware("reports", "view"), handlers.GetRevenueReport)
 			reports.GET("/procedures", middleware.PermissionMiddleware("reports", "view"), handlers.GetProceduresReport)
 			reports.GET("/attendance", middleware.PermissionMiddleware("reports", "view"), handlers.GetAttendanceReport)

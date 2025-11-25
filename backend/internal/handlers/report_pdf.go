@@ -583,3 +583,201 @@ func GenerateOverduePaymentsPDF(c *gin.Context) {
 		return
 	}
 }
+
+func GenerateDashboardPDF(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
+
+	// Get tenant info for header
+	var tenant models.Tenant
+	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
+		return
+	}
+
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	// KPIs - Appointments
+	appointmentsQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments")
+	if startDate != "" {
+		appointmentsQuery = appointmentsQuery.Where("DATE(start_time) >= ?", startDate)
+	}
+	if endDate != "" {
+		appointmentsQuery = appointmentsQuery.Where("DATE(start_time) <= ?", endDate)
+	}
+
+	var totalAppointments, completedCount, cancelledCount, noShowsCount, reschedulesCount int64
+	appointmentsQuery.Count(&totalAppointments)
+	appointmentsQuery.Where("status = ?", "completed").Count(&completedCount)
+	appointmentsQuery.Where("status = ?", "cancelled").Count(&cancelledCount)
+	appointmentsQuery.Where("status = ?", "no_show").Count(&noShowsCount)
+
+	// Count reschedules
+	db.Session(&gorm.Session{NewDB: true}).Table("appointments").
+		Where("rescheduled_from IS NOT NULL").Count(&reschedulesCount)
+
+	// Attendance Rate
+	var attendanceRate float64
+	if totalAppointments > 0 {
+		attendanceRate = (float64(completedCount) / float64(totalAppointments)) * 100
+	}
+
+	// Patients
+	var totalPatients, newPatients int64
+	db.Session(&gorm.Session{NewDB: true}).Table("patients").Where("active = ?", true).Count(&totalPatients)
+
+	newPatientsQuery := db.Session(&gorm.Session{NewDB: true}).Table("patients")
+	if startDate != "" {
+		newPatientsQuery = newPatientsQuery.Where("DATE(created_at) >= ?", startDate)
+	}
+	if endDate != "" {
+		newPatientsQuery = newPatientsQuery.Where("DATE(created_at) <= ?", endDate)
+	}
+	newPatientsQuery.Count(&newPatients)
+
+	// Budget Status
+	type BudgetStatus struct {
+		Status string `json:"status"`
+		Count  int64  `json:"count"`
+	}
+	var budgetStatus []BudgetStatus
+	budgetQuery := db.Session(&gorm.Session{NewDB: true}).Table("budgets")
+	if startDate != "" {
+		budgetQuery = budgetQuery.Where("DATE(created_at) >= ?", startDate)
+	}
+	if endDate != "" {
+		budgetQuery = budgetQuery.Where("DATE(created_at) <= ?", endDate)
+	}
+	budgetQuery.Select("status, COUNT(*) as count").Group("status").Scan(&budgetStatus)
+
+	// Create PDF
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(15, 15, 15)
+	pdf.SetAutoPageBreak(true, 15)
+	pdf.AddPage()
+	tr := pdf.UnicodeTranslatorFromDescriptor("cp1252")
+
+	// Header
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(0, 10, tr(tenant.Name))
+	pdf.Ln(8)
+
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(0, 5, tr(tenant.Address+", "+tenant.City+" - "+tenant.State))
+	pdf.Ln(5)
+	pdf.Cell(0, 5, tr("Tel: "+tenant.Phone))
+	pdf.Ln(10)
+
+	// Title
+	pdf.SetFont("Arial", "B", 14)
+	pdf.Cell(0, 8, tr("Dashboard Executivo"))
+	pdf.Ln(10)
+
+	// Period
+	pdf.SetFont("Arial", "", 10)
+	periodText := "Periodo: "
+	if startDate != "" && endDate != "" {
+		periodText += startDate + " a " + endDate
+	} else {
+		periodText += "Ultimos 30 dias"
+	}
+	pdf.Cell(0, 6, periodText)
+	pdf.Ln(10)
+
+	// KPIs Section
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(0, 7, tr("Indicadores Principais"))
+	pdf.Ln(8)
+
+	pdf.SetFillColor(240, 240, 240)
+	pdf.SetFont("Arial", "B", 10)
+	pdf.CellFormat(120, 7, tr("Indicador"), "1", 0, "L", true, 0, "")
+	pdf.CellFormat(60, 7, tr("Valor"), "1", 0, "C", true, 0, "")
+	pdf.Ln(-1)
+
+	pdf.SetFont("Arial", "", 10)
+	indicators := []struct {
+		label string
+		value string
+	}{
+		{"Total de Consultas", fmt.Sprintf("%d", totalAppointments)},
+		{"Consultas Concluidas", fmt.Sprintf("%d", completedCount)},
+		{"Consultas Canceladas", fmt.Sprintf("%d", cancelledCount)},
+		{"Faltas (No-Show)", fmt.Sprintf("%d", noShowsCount)},
+		{"Remarcacoes", fmt.Sprintf("%d", reschedulesCount)},
+		{"Taxa de Comparecimento", fmt.Sprintf("%.2f%%", attendanceRate)},
+	}
+
+	for _, ind := range indicators {
+		pdf.CellFormat(120, 6, tr(ind.label), "1", 0, "L", false, 0, "")
+		pdf.CellFormat(60, 6, ind.value, "1", 0, "C", false, 0, "")
+		pdf.Ln(-1)
+	}
+	pdf.Ln(8)
+
+	// Patients Section
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(0, 7, tr("Pacientes"))
+	pdf.Ln(8)
+
+	pdf.SetFillColor(240, 240, 240)
+	pdf.SetFont("Arial", "B", 10)
+	pdf.CellFormat(120, 7, tr("Metrica"), "1", 0, "L", true, 0, "")
+	pdf.CellFormat(60, 7, tr("Valor"), "1", 0, "C", true, 0, "")
+	pdf.Ln(-1)
+
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(120, 6, tr("Total de Pacientes Ativos"), "1", 0, "L", false, 0, "")
+	pdf.CellFormat(60, 6, fmt.Sprintf("%d", totalPatients), "1", 0, "C", false, 0, "")
+	pdf.Ln(-1)
+	pdf.CellFormat(120, 6, tr("Novos Pacientes no Periodo"), "1", 0, "L", false, 0, "")
+	pdf.CellFormat(60, 6, fmt.Sprintf("%d", newPatients), "1", 0, "C", false, 0, "")
+	pdf.Ln(-1)
+	pdf.Ln(8)
+
+	// Budget Status Section
+	if len(budgetStatus) > 0 {
+		pdf.SetFont("Arial", "B", 12)
+		pdf.Cell(0, 7, tr("Orcamentos por Status"))
+		pdf.Ln(8)
+
+		pdf.SetFillColor(240, 240, 240)
+		pdf.SetFont("Arial", "B", 10)
+		pdf.CellFormat(120, 7, tr("Status"), "1", 0, "L", true, 0, "")
+		pdf.CellFormat(60, 7, tr("Quantidade"), "1", 0, "C", true, 0, "")
+		pdf.Ln(-1)
+
+		pdf.SetFont("Arial", "", 10)
+		statusTranslations := map[string]string{
+			"approved":  "Aprovado",
+			"cancelled": "Cancelado",
+			"pending":   "Pendente",
+			"rejected":  "Rejeitado",
+		}
+
+		for _, bs := range budgetStatus {
+			translatedStatus := statusTranslations[bs.Status]
+			if translatedStatus == "" {
+				translatedStatus = bs.Status
+			}
+			pdf.CellFormat(120, 6, tr(translatedStatus), "1", 0, "L", false, 0, "")
+			pdf.CellFormat(60, 6, fmt.Sprintf("%d", bs.Count), "1", 0, "C", false, 0, "")
+			pdf.Ln(-1)
+		}
+	}
+
+	// Footer
+	pdf.Ln(10)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.Cell(0, 5, fmt.Sprintf("Gerado em: %s", time.Now().Format("02/01/2006 15:04")))
+
+	// Output PDF
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", "attachment; filename=dashboard_executivo.pdf")
+
+	if err := pdf.Output(c.Writer); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+		return
+	}
+}
