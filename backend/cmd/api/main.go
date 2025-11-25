@@ -193,6 +193,7 @@ func main() {
 		reports := tenanted.Group("/reports")
 		{
 			reports.GET("/dashboard", middleware.PermissionMiddleware("reports", "view"), handlers.GetDashboard)
+			reports.GET("/dashboard/advanced", middleware.PermissionMiddleware("reports", "view"), handlers.GetAdvancedDashboard)
 			reports.GET("/revenue", middleware.PermissionMiddleware("reports", "view"), handlers.GetRevenueReport)
 			reports.GET("/procedures", middleware.PermissionMiddleware("reports", "view"), handlers.GetProceduresReport)
 			reports.GET("/attendance", middleware.PermissionMiddleware("reports", "view"), handlers.GetAttendanceReport)
