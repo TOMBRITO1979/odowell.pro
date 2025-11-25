@@ -44,5 +44,8 @@ type MedicalRecord struct {
 	// Evolution
 	Evolution     string `gorm:"type:text" json:"evolution"`
 
+	// Allergies
+	Arlegis       string `gorm:"type:text" json:"arlegis"`
+
 	Notes         string `gorm:"type:text" json:"notes"`
 }
