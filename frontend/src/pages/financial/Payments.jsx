@@ -390,6 +390,13 @@ const Payments = () => {
       fixed: 'right',
       render: (_, record) => (
         <Space>
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/payments/${record.id}`)}
+            title="Visualizar"
+            style={{ color: actionColors.view }}
+          />
           {canEdit('payments') && (
             <Button
               type="text"
