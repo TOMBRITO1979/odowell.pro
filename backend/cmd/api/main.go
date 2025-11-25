@@ -124,7 +124,9 @@ func main() {
 			budgets.GET("/:id", middleware.PermissionMiddleware("budgets", "view"), handlers.GetBudget)
 			budgets.PUT("/:id", middleware.PermissionMiddleware("budgets", "edit"), handlers.UpdateBudget)
 			budgets.DELETE("/:id", middleware.PermissionMiddleware("budgets", "delete"), handlers.DeleteBudget)
+			budgets.POST("/:id/cancel", middleware.PermissionMiddleware("budgets", "edit"), handlers.CancelBudget)
 			budgets.GET("/:id/pdf", middleware.PermissionMiddleware("budgets", "view"), handlers.GenerateBudgetPDF)
+			budgets.GET("/:id/payments-pdf", middleware.PermissionMiddleware("budgets", "view"), handlers.GenerateBudgetPaymentsPDF)
 			budgets.GET("/:id/payment/:payment_id/receipt", middleware.PermissionMiddleware("budgets", "view"), handlers.GeneratePaymentReceipt)
 			// Export/Import
 			budgets.GET("/export/csv", middleware.PermissionMiddleware("budgets", "view"), handlers.ExportBudgetsCSV)
@@ -140,6 +142,8 @@ func main() {
 			payments.GET("/:id", middleware.PermissionMiddleware("payments", "view"), handlers.GetPayment)
 			payments.PUT("/:id", middleware.PermissionMiddleware("payments", "edit"), handlers.UpdatePayment)
 			payments.DELETE("/:id", middleware.PermissionMiddleware("payments", "delete"), handlers.DeletePayment)
+			payments.POST("/:id/refund", middleware.PermissionMiddleware("payments", "edit"), handlers.RefundPayment)
+			payments.GET("/cashflow", middleware.PermissionMiddleware("payments", "view"), handlers.GetCashFlow)
 			payments.GET("/pdf/export", middleware.PermissionMiddleware("payments", "view"), handlers.GeneratePaymentsPDF)
 			// Export/Import
 			payments.GET("/export/csv", middleware.PermissionMiddleware("payments", "view"), handlers.ExportPaymentsCSV)
@@ -192,12 +196,18 @@ func main() {
 			reports.GET("/revenue", middleware.PermissionMiddleware("reports", "view"), handlers.GetRevenueReport)
 			reports.GET("/procedures", middleware.PermissionMiddleware("reports", "view"), handlers.GetProceduresReport)
 			reports.GET("/attendance", middleware.PermissionMiddleware("reports", "view"), handlers.GetAttendanceReport)
+			reports.GET("/budget-conversion", middleware.PermissionMiddleware("reports", "view"), handlers.GetBudgetConversionReport)
+			reports.GET("/overdue-payments", middleware.PermissionMiddleware("reports", "view"), handlers.GetOverduePaymentsReport)
 			reports.GET("/revenue/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateRevenuePDF)
 			reports.GET("/attendance/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateAttendancePDF)
 			reports.GET("/procedures/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateProceduresPDF)
+			reports.GET("/budget-conversion/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateBudgetConversionPDF)
+			reports.GET("/overdue-payments/pdf", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateOverduePaymentsPDF)
 			reports.GET("/revenue/excel", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateRevenueExcel)
 			reports.GET("/attendance/excel", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateAttendanceExcel)
 			reports.GET("/procedures/excel", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateProceduresExcel)
+			reports.GET("/budget-conversion/excel", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateBudgetConversionExcel)
+			reports.GET("/overdue-payments/excel", middleware.PermissionMiddleware("reports", "view"), handlers.GenerateOverduePaymentsExcel)
 		}
 
 		// Campaigns CRUD
@@ -254,6 +264,29 @@ func main() {
 			protocols.GET("/:id", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GetTreatmentProtocol)
 			protocols.PUT("/:id", middleware.PermissionMiddleware("clinical_records", "edit"), handlers.UpdateTreatmentProtocol)
 			protocols.DELETE("/:id", middleware.PermissionMiddleware("clinical_records", "delete"), handlers.DeleteTreatmentProtocol)
+		}
+
+		// Consent Templates CRUD
+		consentTemplates := tenanted.Group("/consent-templates")
+		{
+			consentTemplates.POST("", middleware.PermissionMiddleware("clinical_records", "create"), handlers.CreateConsentTemplate)
+			consentTemplates.GET("", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GetConsentTemplates)
+			consentTemplates.GET("/types", handlers.GetConsentTypes)
+			consentTemplates.GET("/:id", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GetConsentTemplate)
+			consentTemplates.GET("/:id/pdf", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GenerateTemplatePDF)
+			consentTemplates.PUT("/:id", middleware.PermissionMiddleware("clinical_records", "edit"), handlers.UpdateConsentTemplate)
+			consentTemplates.DELETE("/:id", middleware.PermissionMiddleware("clinical_records", "delete"), handlers.DeleteConsentTemplate)
+		}
+
+		// Patient Consents
+		consents := tenanted.Group("/consents")
+		{
+			consents.POST("", middleware.PermissionMiddleware("clinical_records", "create"), handlers.CreatePatientConsent)
+			consents.GET("/patients/:patient_id", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GetPatientConsents)
+			consents.GET("/:id", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GetConsent)
+			consents.GET("/:id/pdf", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GenerateConsentPDF)
+			consents.PATCH("/:id/status", middleware.PermissionMiddleware("clinical_records", "edit"), handlers.UpdateConsentStatus)
+			consents.DELETE("/:id", middleware.PermissionMiddleware("clinical_records", "delete"), handlers.DeleteConsent)
 		}
 
 		// Tenant Settings

@@ -382,3 +382,204 @@ func GenerateProceduresPDF(c *gin.Context) {
 		return
 	}
 }
+
+func GenerateBudgetConversionPDF(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
+
+	// Get tenant info for header
+	var tenant models.Tenant
+	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
+		return
+	}
+
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	query := db.Session(&gorm.Session{NewDB: true}).Table("budgets")
+
+	if startDate != "" {
+		query = query.Where("DATE(created_at) >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("DATE(created_at) <= ?", endDate)
+	}
+
+	var totalBudgets int64
+	query.Count(&totalBudgets)
+
+	var approvedBudgets int64
+	db.Session(&gorm.Session{NewDB: true}).Table("budgets").Where("status = ?", "approved").Count(&approvedBudgets)
+
+	var conversionRate float64
+	if totalBudgets > 0 {
+		conversionRate = (float64(approvedBudgets) / float64(totalBudgets)) * 100
+	}
+
+	var totalApproved float64
+	db.Session(&gorm.Session{NewDB: true}).Table("budgets").Where("status = ?", "approved").
+		Select("COALESCE(SUM(total_amount), 0)").Scan(&totalApproved)
+
+	// Create PDF
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(15, 15, 15)
+	pdf.SetAutoPageBreak(true, 15)
+	pdf.AddPage()
+	tr := pdf.UnicodeTranslatorFromDescriptor("cp1252")
+
+	// Header
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(0, 10, tr(tenant.Name))
+	pdf.Ln(8)
+
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(0, 5, tr(tenant.Address+", "+tenant.City+" - "+tenant.State))
+	pdf.Ln(5)
+	pdf.Cell(0, 5, tr("Tel: "+tenant.Phone))
+	pdf.Ln(10)
+
+	// Title
+	pdf.SetFont("Arial", "B", 14)
+	pdf.Cell(0, 8, tr("Taxa de Conversao de Orcamentos"))
+	pdf.Ln(10)
+
+	// Period
+	pdf.SetFont("Arial", "", 10)
+	periodText := "Periodo: "
+	if startDate != "" && endDate != "" {
+		periodText += startDate + " a " + endDate
+	} else {
+		periodText += "Todos os registros"
+	}
+	pdf.Cell(0, 6, periodText)
+	pdf.Ln(12)
+
+	// Statistics table
+	pdf.SetFillColor(220, 220, 220)
+	pdf.SetFont("Arial", "B", 10)
+	pdf.CellFormat(120, 8, tr("Indicador"), "1", 0, "L", true, 0, "")
+	pdf.CellFormat(60, 8, tr("Valor"), "1", 0, "C", true, 0, "")
+	pdf.Ln(-1)
+
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(120, 7, tr("Total de Orcamentos"), "1", 0, "L", false, 0, "")
+	pdf.CellFormat(60, 7, fmt.Sprintf("%d", totalBudgets), "1", 0, "C", false, 0, "")
+	pdf.Ln(-1)
+
+	pdf.CellFormat(120, 7, tr("Orcamentos Aprovados"), "1", 0, "L", false, 0, "")
+	pdf.CellFormat(60, 7, fmt.Sprintf("%d", approvedBudgets), "1", 0, "C", false, 0, "")
+	pdf.Ln(-1)
+
+	pdf.SetFillColor(144, 238, 144)
+	pdf.SetFont("Arial", "B", 10)
+	pdf.CellFormat(120, 7, tr("Taxa de Conversao"), "1", 0, "L", true, 0, "")
+	pdf.CellFormat(60, 7, fmt.Sprintf("%.2f%%", conversionRate), "1", 0, "C", true, 0, "")
+	pdf.Ln(-1)
+
+	pdf.SetFillColor(220, 220, 220)
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(120, 7, tr("Valor Total Aprovado"), "1", 0, "L", false, 0, "")
+	pdf.CellFormat(60, 7, fmt.Sprintf("R$ %.2f", totalApproved), "1", 0, "C", false, 0, "")
+	pdf.Ln(-1)
+
+	// Footer
+	pdf.Ln(10)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.Cell(0, 5, fmt.Sprintf("Gerado em: %s", time.Now().Format("02/01/2006 15:04")))
+
+	// Output PDF
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", "attachment; filename=conversao_orcamentos.pdf")
+
+	if err := pdf.Output(c.Writer); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+		return
+	}
+}
+
+func GenerateOverduePaymentsPDF(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
+
+	// Get tenant info for header
+	var tenant models.Tenant
+	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
+		return
+	}
+
+	var totalOverdue float64
+	db.Session(&gorm.Session{NewDB: true}).Table("payments").
+		Where("status = ? AND type = ? AND due_date < CURRENT_DATE", "pending", "expense").
+		Select("COALESCE(SUM(amount), 0)").Scan(&totalOverdue)
+
+	var overdueCount int64
+	db.Session(&gorm.Session{NewDB: true}).Table("payments").
+		Where("status = ? AND type = ? AND due_date < CURRENT_DATE", "pending", "expense").
+		Count(&overdueCount)
+
+	// Create PDF
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(15, 15, 15)
+	pdf.SetAutoPageBreak(true, 15)
+	pdf.AddPage()
+	tr := pdf.UnicodeTranslatorFromDescriptor("cp1252")
+
+	// Header
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(0, 10, tr(tenant.Name))
+	pdf.Ln(8)
+
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(0, 5, tr(tenant.Address+", "+tenant.City+" - "+tenant.State))
+	pdf.Ln(5)
+	pdf.Cell(0, 5, tr("Tel: "+tenant.Phone))
+	pdf.Ln(10)
+
+	// Title
+	pdf.SetFont("Arial", "B", 14)
+	pdf.Cell(0, 8, tr("Controle de Inadimplencia"))
+	pdf.Ln(10)
+
+	pdf.SetFont("Arial", "", 10)
+	pdf.Cell(0, 6, fmt.Sprintf("Gerado em: %s", time.Now().Format("02/01/2006")))
+	pdf.Ln(12)
+
+	// Statistics table
+	pdf.SetFillColor(255, 200, 200)
+	pdf.SetFont("Arial", "B", 11)
+	pdf.CellFormat(120, 8, tr("Total em Atraso"), "1", 0, "L", true, 0, "")
+	pdf.SetFont("Arial", "B", 12)
+	pdf.CellFormat(60, 8, fmt.Sprintf("R$ %.2f", totalOverdue), "1", 0, "R", true, 0, "")
+	pdf.Ln(-1)
+
+	pdf.SetFillColor(220, 220, 220)
+	pdf.SetFont("Arial", "B", 10)
+	pdf.CellFormat(120, 7, tr("Quantidade de Pagamentos Atrasados"), "1", 0, "L", true, 0, "")
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(60, 7, fmt.Sprintf("%d", overdueCount), "1", 0, "C", false, 0, "")
+	pdf.Ln(-1)
+
+	if overdueCount == 0 {
+		pdf.Ln(10)
+		pdf.SetFont("Arial", "BI", 11)
+		pdf.SetTextColor(0, 150, 0)
+		pdf.Cell(0, 7, tr("Parabens! Nenhum pagamento em atraso."))
+		pdf.SetTextColor(0, 0, 0)
+	}
+
+	// Footer
+	pdf.Ln(15)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.Cell(0, 5, fmt.Sprintf("Relatorio gerado em: %s", time.Now().Format("02/01/2006 15:04")))
+
+	// Output PDF
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", "attachment; filename=inadimplencia.pdf")
+
+	if err := pdf.Output(c.Writer); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+		return
+	}
+}

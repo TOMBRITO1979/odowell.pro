@@ -468,3 +468,265 @@ func GenerateProceduresExcel(c *gin.Context) {
 		return
 	}
 }
+
+func GenerateBudgetConversionExcel(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
+
+	// Get tenant info for header
+	var tenant models.Tenant
+	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
+		return
+	}
+
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	query := db.Session(&gorm.Session{NewDB: true}).Table("budgets")
+
+	if startDate != "" {
+		query = query.Where("DATE(created_at) >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("DATE(created_at) <= ?", endDate)
+	}
+
+	var totalBudgets int64
+	query.Count(&totalBudgets)
+
+	var approvedBudgets int64
+	db.Session(&gorm.Session{NewDB: true}).Table("budgets").Where("status = ?", "approved").Count(&approvedBudgets)
+
+	var conversionRate float64
+	if totalBudgets > 0 {
+		conversionRate = (float64(approvedBudgets) / float64(totalBudgets)) * 100
+	}
+
+	var totalApproved float64
+	db.Session(&gorm.Session{NewDB: true}).Table("budgets").Where("status = ?", "approved").
+		Select("COALESCE(SUM(total_amount), 0)").Scan(&totalApproved)
+
+	// Create Excel file
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheet := "Relatório"
+	f.SetSheetName("Sheet1", sheet)
+
+	// Styles
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Size: 14},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+	})
+
+	titleStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Size: 12},
+		Alignment: &excelize.Alignment{Horizontal: "left", Vertical: "center"},
+	})
+
+	tableHeaderStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Bold: true},
+		Fill: excelize.Fill{Type: "pattern", Color: []string{"#90EE90"}, Pattern: 1},
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+
+	cellStyle, _ := f.NewStyle(&excelize.Style{
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+
+	// Set column widths
+	f.SetColWidth(sheet, "A", "A", 40)
+	f.SetColWidth(sheet, "B", "B", 20)
+
+	row := 1
+
+	// Clinic info
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), tenant.Name)
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), headerStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), tenant.Address+", "+tenant.City+" - "+tenant.State)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Tel: "+tenant.Phone)
+	row += 2
+
+	// Title
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Taxa de Conversão de Orçamentos")
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), headerStyle)
+	row++
+
+	// Period
+	periodText := "Período: "
+	if startDate != "" && endDate != "" {
+		periodText += startDate + " a " + endDate
+	} else {
+		periodText += "Todos os registros"
+	}
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), periodText)
+	row += 2
+
+	// Statistics
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Indicador")
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), "Valor")
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), tableHeaderStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Total de Orçamentos")
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), totalBudgets)
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), cellStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Orçamentos Aprovados")
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), approvedBudgets)
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), cellStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Taxa de Conversão (%)")
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), fmt.Sprintf("%.2f%%", conversionRate))
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), cellStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Valor Total Aprovado")
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), totalApproved)
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), cellStyle)
+	row++
+
+	// Footer
+	row += 2
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Gerado em: "+time.Now().Format("02/01/2006 15:04"))
+
+	// Output Excel
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=conversao_orcamentos.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel"})
+		return
+	}
+}
+
+func GenerateOverduePaymentsExcel(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
+
+	// Get tenant info for header
+	var tenant models.Tenant
+	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
+		return
+	}
+
+	var totalOverdue float64
+	db.Session(&gorm.Session{NewDB: true}).Table("payments").
+		Where("status = ? AND type = ? AND due_date < CURRENT_DATE", "pending", "expense").
+		Select("COALESCE(SUM(amount), 0)").Scan(&totalOverdue)
+
+	var overdueCount int64
+	db.Session(&gorm.Session{NewDB: true}).Table("payments").
+		Where("status = ? AND type = ? AND due_date < CURRENT_DATE", "pending", "expense").
+		Count(&overdueCount)
+
+	// Create Excel file
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheet := "Relatório"
+	f.SetSheetName("Sheet1", sheet)
+
+	// Styles
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Size: 14},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+	})
+
+	tableHeaderStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Bold: true},
+		Fill: excelize.Fill{Type: "pattern", Color: []string{"#FFB6C6"}, Pattern: 1},
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+
+	cellStyle, _ := f.NewStyle(&excelize.Style{
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+
+	// Set column widths
+	f.SetColWidth(sheet, "A", "A", 40)
+	f.SetColWidth(sheet, "B", "B", 20)
+
+	row := 1
+
+	// Clinic info
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), tenant.Name)
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), headerStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), tenant.Address+", "+tenant.City+" - "+tenant.State)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Tel: "+tenant.Phone)
+	row += 2
+
+	// Title
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Controle de Inadimplência")
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), headerStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Gerado em: "+time.Now().Format("02/01/2006"))
+	row += 2
+
+	// Statistics
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Indicador")
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), "Valor")
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), tableHeaderStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Total em Atraso")
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), totalOverdue)
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), cellStyle)
+	row++
+
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Quantidade de Pagamentos Atrasados")
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), overdueCount)
+	f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), cellStyle)
+	row++
+
+	if overdueCount == 0 {
+		row += 2
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Parabéns! Nenhum pagamento em atraso.")
+	}
+
+	// Footer
+	row += 2
+	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), "Relatório gerado em: "+time.Now().Format("02/01/2006 15:04"))
+
+	// Output Excel
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=inadimplencia.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel"})
+		return
+	}
+}
