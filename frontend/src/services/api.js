@@ -95,7 +95,9 @@ export const budgetsAPI = {
   create: (data) => api.post('/budgets', data),
   update: (id, data) => api.put(`/budgets/${id}`, data),
   delete: (id) => api.delete(`/budgets/${id}`),
+  cancel: (id) => api.post(`/budgets/${id}/cancel`),
   downloadPDF: (id) => api.get(`/budgets/${id}/pdf`, { responseType: 'blob' }),
+  downloadPaymentsPDF: (id) => api.get(`/budgets/${id}/payments-pdf`, { responseType: 'blob' }),
   exportCSV: (params) => api.get(`/budgets/export/csv?${params}`, { responseType: 'blob' }),
   exportPDF: (params) => api.get(`/budgets/export/pdf?${params}`, { responseType: 'blob' }),
   importCSV: (formData) => api.post('/budgets/import/csv', formData, {
@@ -110,6 +112,7 @@ export const paymentsAPI = {
   create: (data) => api.post('/payments', data),
   update: (id, data) => api.put(`/payments/${id}`, data),
   delete: (id) => api.delete(`/payments/${id}`),
+  refund: (id, reason) => api.post(`/payments/${id}/refund`, { reason }),
   getCashFlow: (params) => api.get('/payments/cashflow', { params }),
   downloadPDF: (params) => api.get('/payments/pdf/export', { params, responseType: 'blob' }),
   downloadReceipt: (budgetId, paymentId) => api.get(`/budgets/${budgetId}/payment/${paymentId}/receipt`, { responseType: 'blob' }),
@@ -169,15 +172,22 @@ export const campaignsAPI = {
 // Reports API
 export const reportsAPI = {
   getDashboard: () => api.get('/reports/dashboard'),
+  getAdvancedDashboard: (params) => api.get('/reports/dashboard/advanced', { params }),
   getRevenue: (params) => api.get('/reports/revenue', { params }),
   getProcedures: () => api.get('/reports/procedures'),
   getAttendance: (params) => api.get('/reports/attendance', { params }),
+  getBudgetConversion: (params) => api.get('/reports/budget-conversion', { params }),
+  getOverduePayments: () => api.get('/reports/overdue-payments'),
   downloadRevenuePDF: (params) => api.get('/reports/revenue/pdf', { params, responseType: 'blob' }),
   downloadAttendancePDF: (params) => api.get('/reports/attendance/pdf', { params, responseType: 'blob' }),
   downloadProceduresPDF: () => api.get('/reports/procedures/pdf', { responseType: 'blob' }),
   downloadRevenueExcel: (params) => api.get('/reports/revenue/excel', { params, responseType: 'blob' }),
   downloadAttendanceExcel: (params) => api.get('/reports/attendance/excel', { params, responseType: 'blob' }),
   downloadProceduresExcel: () => api.get('/reports/procedures/excel', { responseType: 'blob' }),
+  downloadBudgetConversionPDF: (params) => api.get('/reports/budget-conversion/pdf', { params, responseType: 'blob' }),
+  downloadBudgetConversionExcel: (params) => api.get('/reports/budget-conversion/excel', { params, responseType: 'blob' }),
+  downloadOverduePaymentsPDF: () => api.get('/reports/overdue-payments/pdf', { responseType: 'blob' }),
+  downloadOverduePaymentsExcel: () => api.get('/reports/overdue-payments/excel', { responseType: 'blob' }),
 };
 
 // Attachments API
@@ -259,4 +269,25 @@ export const waitingListAPI = {
   contact: (id) => api.post(`/waiting-list/${id}/contact`),
   schedule: (id, appointmentId) => api.post(`/waiting-list/${id}/schedule`, { appointment_id: appointmentId }),
   getStats: () => api.get('/waiting-list/stats'),
+};
+
+// Consent Templates API
+export const consentTemplatesAPI = {
+  getAll: (params) => api.get('/consent-templates', { params }),
+  getOne: (id) => api.get(`/consent-templates/${id}`),
+  create: (data) => api.post('/consent-templates', data),
+  update: (id, data) => api.put(`/consent-templates/${id}`, data),
+  delete: (id) => api.delete(`/consent-templates/${id}`),
+  getTypes: () => api.get('/consent-templates/types'),
+  getPDF: (id) => api.get(`/consent-templates/${id}/pdf`, { responseType: 'blob' }),
+};
+
+// Patient Consents API
+export const consentsAPI = {
+  create: (data) => api.post('/consents', data),
+  getOne: (id) => api.get(`/consents/${id}`),
+  getByPatient: (patientId) => api.get(`/consents/patients/${patientId}`),
+  updateStatus: (id, status) => api.patch(`/consents/${id}/status`, { status }),
+  delete: (id) => api.delete(`/consents/${id}`),
+  getPDF: (id) => api.get(`/consents/${id}/pdf`, { responseType: 'blob' }),
 };
