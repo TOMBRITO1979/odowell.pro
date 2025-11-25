@@ -520,11 +520,6 @@ func GenerateBudgetConversionExcel(c *gin.Context) {
 		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
 	})
 
-	titleStyle, _ := f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Bold: true, Size: 12},
-		Alignment: &excelize.Alignment{Horizontal: "left", Vertical: "center"},
-	})
-
 	tableHeaderStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Bold: true},
 		Fill: excelize.Fill{Type: "pattern", Color: []string{"#90EE90"}, Pattern: 1},
