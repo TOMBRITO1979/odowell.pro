@@ -173,6 +173,7 @@ export const campaignsAPI = {
 export const reportsAPI = {
   getDashboard: () => api.get('/reports/dashboard'),
   getAdvancedDashboard: (params) => api.get('/reports/dashboard/advanced', { params }),
+  downloadDashboardPDF: (params) => api.get('/reports/dashboard/pdf', { params, responseType: 'blob' }),
   getRevenue: (params) => api.get('/reports/revenue', { params }),
   getProcedures: () => api.get('/reports/procedures'),
   getAttendance: (params) => api.get('/reports/attendance', { params }),

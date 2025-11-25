@@ -50,6 +50,17 @@ const { Title, Text } = Typography;
 
 const COLORS = ['#52c41a', '#ff4d4f', '#faad14', '#1890ff', '#722ed1', '#eb2f96'];
 
+// Tradução de status de orçamentos
+const translateStatus = (status) => {
+  const translations = {
+    'approved': 'Aprovado',
+    'cancelled': 'Cancelado',
+    'pending': 'Pendente',
+    'rejected': 'Rejeitado',
+  };
+  return translations[status] || status;
+};
+
 const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState([dayjs().subtract(30, 'days'), dayjs()]);
@@ -125,6 +136,33 @@ const Dashboard = () => {
     message.success('CSV gerado com sucesso!');
   };
 
+  const exportToPDF = async () => {
+    if (!dashboardData) return;
+
+    try {
+      const params = {};
+      if (dateRange && dateRange[0] && dateRange[1]) {
+        params.start_date = dateRange[0].format('YYYY-MM-DD');
+        params.end_date = dateRange[1].format('YYYY-MM-DD');
+      }
+
+      const response = await reportsAPI.downloadDashboardPDF(params);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `dashboard_${dayjs().format('YYYY-MM-DD')}.pdf`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      message.success('PDF gerado com sucesso!');
+    } catch (error) {
+      message.error('Erro ao gerar PDF');
+      console.error('Error:', error);
+    }
+  };
+
   return (
     <div style={{ background: '#f0f2f5', minHeight: '100vh', padding: '24px' }}>
       <Card
@@ -154,6 +192,9 @@ const Dashboard = () => {
               />
               <Button type="primary" icon={<SyncOutlined />} onClick={handleRefresh} loading={loading}>
                 Atualizar
+              </Button>
+              <Button icon={<DownloadOutlined />} onClick={exportToPDF} disabled={!dashboardData}>
+                Exportar PDF
               </Button>
               <Button icon={<DownloadOutlined />} onClick={exportToCSV} disabled={!dashboardData}>
                 Exportar CSV
@@ -337,14 +378,14 @@ const Dashboard = () => {
                           cx="50%"
                           cy="50%"
                           outerRadius={80}
-                          label={(entry) => `${entry.status}: ${entry.count}`}
+                          label={(entry) => `${translateStatus(entry.status)}: ${entry.count}`}
                         >
                           {dashboardData.budget_status.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip />
-                        <Legend />
+                        <Tooltip formatter={(value, name) => [value, translateStatus(name)]} />
+                        <Legend formatter={(value) => translateStatus(value)} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
