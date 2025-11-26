@@ -50,6 +50,14 @@ const { Title, Text } = Typography;
 
 const COLORS = ['#52c41a', '#ff4d4f', '#faad14', '#1890ff', '#722ed1', '#eb2f96'];
 
+// Cores específicas para status de orçamentos (tons foscos/suaves)
+const BUDGET_STATUS_COLORS = {
+  'approved': '#4a8c6f',   // Verde fosco para aprovado
+  'pending': '#c9a227',    // Amarelo fosco para pendente
+  'rejected': '#b45454',   // Vermelho fosco para rejeitado
+  'cancelled': '#8b7355',  // Marrom acinzentado para cancelado
+};
+
 // Tradução de status de orçamentos
 const translateStatus = (status) => {
   const translations = {
@@ -59,6 +67,11 @@ const translateStatus = (status) => {
     'rejected': 'Rejeitado',
   };
   return translations[status] || status;
+};
+
+// Função para obter cor do status do orçamento
+const getBudgetStatusColor = (status) => {
+  return BUDGET_STATUS_COLORS[status] || '#1890ff';
 };
 
 const Dashboard = () => {
@@ -193,10 +206,20 @@ const Dashboard = () => {
               <Button type="primary" icon={<SyncOutlined />} onClick={handleRefresh} loading={loading}>
                 Atualizar
               </Button>
-              <Button icon={<DownloadOutlined />} onClick={exportToPDF} disabled={!dashboardData}>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={exportToPDF}
+                disabled={!dashboardData}
+                style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
+              >
                 Exportar PDF
               </Button>
-              <Button icon={<DownloadOutlined />} onClick={exportToCSV} disabled={!dashboardData}>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={exportToCSV}
+                disabled={!dashboardData}
+                style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
+              >
                 Exportar CSV
               </Button>
             </Space>
@@ -381,7 +404,7 @@ const Dashboard = () => {
                           label={(entry) => `${translateStatus(entry.status)}: ${entry.count}`}
                         >
                           {dashboardData.budget_status.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            <Cell key={`cell-${index}`} fill={getBudgetStatusColor(entry.status)} />
                           ))}
                         </Pie>
                         <Tooltip formatter={(value, name) => [value, translateStatus(name)]} />

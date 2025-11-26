@@ -48,6 +48,9 @@ import TaskForm from './pages/tasks/TaskForm';
 import TaskDetails from './pages/tasks/TaskDetails';
 import WaitingList from './pages/waiting-list/WaitingList';
 import WaitingListForm from './pages/waiting-list/WaitingListForm';
+import ConsentTemplates from './pages/consents/ConsentTemplates';
+import Treatments from './pages/treatments/Treatments';
+import TreatmentDetails from './pages/treatments/TreatmentDetails';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -160,6 +163,8 @@ function App() {
         <Route path="payments" element={<Payments />} />
         <Route path="payments/new" element={<PaymentForm />} />
         <Route path="payments/:id/edit" element={<PaymentForm />} />
+        <Route path="treatments" element={<Treatments />} />
+        <Route path="treatments/:id" element={<TreatmentDetails />} />
 
         {/* Inventory */}
         <Route path="products" element={<Products />} />
@@ -194,6 +199,9 @@ function App() {
         <Route path="waiting-list" element={<WaitingList />} />
         <Route path="waiting-list/new" element={<WaitingListForm />} />
         <Route path="waiting-list/:id/edit" element={<WaitingListForm />} />
+
+        {/* Consent Templates */}
+        <Route path="consent-templates" element={<ConsentTemplates />} />
 
         {/* Reports */}
         <Route path="reports" element={<Reports />} />

@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { stockMovementsAPI, productsAPI } from '../../services/api';
+import { actionColors } from '../../theme/designSystem';
 
 const { TextArea } = Input;
 
@@ -248,10 +249,10 @@ const StockMovements = () => {
         }
         extra={
           <Space>
-            <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: '#fff' }}>
+            <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}>
               Exportar CSV
             </Button>
-            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}>
+            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}>
               Gerar PDF
             </Button>
             <Button

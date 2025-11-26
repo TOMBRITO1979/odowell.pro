@@ -19,7 +19,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { prescriptionsAPI, patientsAPI } from '../../services/api';
+import { prescriptionsAPI, patientsAPI, usersAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { TextArea } = Input;
@@ -31,6 +31,7 @@ const PrescriptionForm = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
+  const [professionals, setProfessionals] = useState([]);
 
   const prescriptionTypes = [
     { value: 'prescription', label: 'Receita' },
@@ -41,6 +42,7 @@ const PrescriptionForm = () => {
 
   useEffect(() => {
     fetchPatients();
+    fetchProfessionals();
     if (id) {
       fetchPrescription();
     }
@@ -55,6 +57,17 @@ const PrescriptionForm = () => {
     }
   };
 
+  const fetchProfessionals = async () => {
+    try {
+      const response = await usersAPI.getAll({ page: 1, page_size: 100 });
+      // Filter only active users who can sign (dentists)
+      const users = response.data.users || [];
+      setProfessionals(users.filter(u => u.active));
+    } catch (error) {
+      console.error('Erro ao carregar profissionais:', error);
+    }
+  };
+
   const fetchPrescription = async () => {
     setLoading(true);
     try {
@@ -64,6 +77,8 @@ const PrescriptionForm = () => {
       form.setFieldsValue({
         ...prescription,
         valid_until: prescription.valid_until ? dayjs(prescription.valid_until) : null,
+        prescription_date: prescription.prescription_date ? dayjs(prescription.prescription_date) : dayjs(),
+        signer_id: prescription.signer_id || null,
       });
     } catch (error) {
       message.error('Erro ao carregar receita');
@@ -78,6 +93,7 @@ const PrescriptionForm = () => {
       const data = {
         ...values,
         valid_until: values.valid_until ? values.valid_until.toISOString() : null,
+        prescription_date: values.prescription_date ? values.prescription_date.toISOString() : null,
       };
 
       if (id) {
@@ -229,6 +245,45 @@ const PrescriptionForm = () => {
               placeholder="Observações internas (não aparecerão no documento impresso)"
             />
           </Form.Item>
+
+          <Divider orientation="left">Assinatura do Documento</Divider>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Data do Documento"
+                name="prescription_date"
+                initialValue={dayjs()}
+              >
+                <DatePicker
+                  style={{ width: '100%' }}
+                  format="DD/MM/YYYY"
+                  placeholder="Selecione a data"
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Profissional Assinante"
+                name="signer_id"
+              >
+                <Select
+                  placeholder="Selecione o profissional que vai assinar"
+                  showSearch
+                  allowClear
+                  filterOption={(input, option) =>
+                    option.children.toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {professionals.map((prof) => (
+                    <Select.Option key={prof.id} value={prof.id}>
+                      {prof.name} {prof.cro ? `(CRO: ${prof.cro})` : ''}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item>
             <Space>

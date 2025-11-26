@@ -199,15 +199,13 @@ const Prescriptions = () => {
             title="Visualizar"
             style={{ color: actionColors.view }}
           />
-          {record.status === 'draft' && (
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={() => navigate(`/prescriptions/${record.id}/edit`)}
-              title="Editar"
-              style={{ color: actionColors.edit }}
-            />
-          )}
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            onClick={() => navigate(`/prescriptions/${record.id}/edit`)}
+            title="Editar"
+            style={{ color: actionColors.edit }}
+          />
           <Button
             type="text"
             icon={<FilePdfOutlined />}

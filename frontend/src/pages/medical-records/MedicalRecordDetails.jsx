@@ -21,6 +21,7 @@ import dayjs from 'dayjs';
 import { medicalRecordsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import Odontogram from '../../components/Odontogram';
+import { actionColors } from '../../theme/designSystem';
 
 const MedicalRecordDetails = () => {
   const navigate = useNavigate();
@@ -120,10 +121,9 @@ const MedicalRecordDetails = () => {
               Voltar
             </Button>
             <Button
-              type="primary"
-              danger
               icon={<FilePdfOutlined />}
               onClick={handleDownloadPDF}
+              style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
             >
               Baixar PDF
             </Button>

@@ -29,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { budgetsAPI, paymentsAPI } from '../../services/api';
+import { actionColors } from '../../theme/designSystem';
 
 const BudgetView = () => {
   const navigate = useNavigate();
@@ -190,6 +191,23 @@ const BudgetView = () => {
     }
   };
 
+  const handleDownloadPaymentsPDF = async () => {
+    try {
+      const response = await budgetsAPI.downloadPaymentsPDF(id);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `orcamento_pagamentos_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      message.success('PDF de gerenciamento de pagamentos baixado com sucesso');
+    } catch (error) {
+      message.error('Erro ao baixar PDF de pagamentos');
+      console.error('Error:', error);
+    }
+  };
+
   const itemColumns = [
     {
       title: 'Descrição',
@@ -243,10 +261,9 @@ const BudgetView = () => {
         extra={
           <Space>
             <Button
-              type="primary"
-              danger
               icon={<FilePdfOutlined />}
               onClick={handleDownloadPDF}
+              style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
             >
               Baixar PDF
             </Button>
@@ -317,7 +334,22 @@ const BudgetView = () => {
           </>
         )}
 
-        <Divider>Gerenciamento de Pagamentos</Divider>
+        <Divider
+          orientation="left"
+          style={{
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color: '#1890ff',
+            marginTop: '32px',
+            marginBottom: '24px',
+            borderColor: '#1890ff'
+          }}
+        >
+          <Space>
+            <DollarOutlined style={{ fontSize: '20px' }} />
+            Gerenciamento de Pagamentos
+          </Space>
+        </Divider>
 
         {budget.status !== 'approved' ? (
           <Card style={{ marginBottom: 16 }}>
@@ -381,6 +413,14 @@ const BudgetView = () => {
                   onClick={handleAddPayment}
                 >
                   Adicionar Pagamento
+                </Button>
+                <Button
+                  size="small"
+                  icon={<FilePdfOutlined />}
+                  onClick={handleDownloadPaymentsPDF}
+                  style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
+                >
+                  Gerar PDF
                 </Button>
               </Space>
             </Divider>

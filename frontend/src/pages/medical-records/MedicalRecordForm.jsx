@@ -168,6 +168,19 @@ const MedicalRecordForm = () => {
               <Row gutter={16}>
                 <Col xs={24}>
                   <Form.Item
+                    name="arlegis"
+                    label="Alergias"
+                  >
+                    <TextArea
+                      rows={2}
+                      placeholder="Informe as alergias do paciente (medicamentos, materiais, látex, etc.)..."
+                      style={{ borderColor: '#ff7875' }}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24}>
+                  <Form.Item
                     name="diagnosis"
                     label="Diagnóstico"
                   >

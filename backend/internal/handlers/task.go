@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -53,8 +54,17 @@ func CreateTask(c *gin.Context) {
 
 	// Parse due date if provided
 	if input.DueDate != nil && *input.DueDate != "" {
-		// Note: Frontend should send ISO format date string
-		// GORM will handle the conversion
+		// Parse ISO format date string (e.g., "2025-11-24T10:30:00Z" or "2025-11-24")
+		parsedDate, err := time.Parse(time.RFC3339, *input.DueDate)
+		if err != nil {
+			// Try parsing date-only format
+			parsedDate, err = time.Parse("2006-01-02", *input.DueDate)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data inválido. Use ISO 8601 (YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ)"})
+				return
+			}
+		}
+		task.DueDate = &parsedDate
 	}
 
 	if err := db.Create(&task).Error; err != nil {
@@ -207,6 +217,26 @@ func UpdateTask(c *gin.Context) {
 		"description": input.Description,
 		"priority":    input.Priority,
 		"status":      input.Status,
+	}
+
+	// Parse and add due date if provided
+	if input.DueDate != nil {
+		if *input.DueDate == "" {
+			// Empty string means clear the due date
+			updates["due_date"] = nil
+		} else {
+			// Parse ISO format date string
+			parsedDate, err := time.Parse(time.RFC3339, *input.DueDate)
+			if err != nil {
+				// Try parsing date-only format
+				parsedDate, err = time.Parse("2006-01-02", *input.DueDate)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data inválido. Use ISO 8601 (YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ)"})
+					return
+				}
+			}
+			updates["due_date"] = parsedDate
+		}
 	}
 
 	if err := db.Model(&models.Task{}).Where("id = ?", id).Updates(updates).Error; err != nil {

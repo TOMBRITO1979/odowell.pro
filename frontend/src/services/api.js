@@ -292,3 +292,22 @@ export const consentsAPI = {
   delete: (id) => api.delete(`/consents/${id}`),
   getPDF: (id) => api.get(`/consents/${id}/pdf`, { responseType: 'blob' }),
 };
+
+// Treatments API (orçamentos aprovados em tratamento)
+export const treatmentsAPI = {
+  getAll: (params) => api.get('/treatments', { params }),
+  getOne: (id) => api.get(`/treatments/${id}`),
+  create: (data) => api.post('/treatments', data),
+  update: (id, data) => api.put(`/treatments/${id}`, data),
+  delete: (id) => api.delete(`/treatments/${id}`),
+};
+
+// Treatment Payments API (pagamentos de tratamentos)
+export const treatmentPaymentsAPI = {
+  getAll: (treatmentId) => api.get(`/treatment-payments/treatment/${treatmentId}`),
+  getOne: (id) => api.get(`/treatment-payments/${id}`),
+  create: (data) => api.post('/treatment-payments', data),
+  update: (id, data) => api.put(`/treatment-payments/${id}`, data),
+  delete: (id) => api.delete(`/treatment-payments/${id}`),
+  downloadReceipt: (id) => api.get(`/treatment-payments/${id}/receipt`, { responseType: 'blob' }),
+};

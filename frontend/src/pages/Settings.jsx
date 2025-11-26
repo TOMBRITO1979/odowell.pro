@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, message, Row, Col, Tabs, TimePicker, Switch } from 'antd';
 import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined } from '@ant-design/icons';
 import { settingsAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
 
 const Settings = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fetchingSettings, setFetchingSettings] = useState(true);
+  const { tenant, updateTenant } = useAuth();
 
   useEffect(() => {
     fetchSettings();
@@ -60,6 +62,15 @@ const Settings = () => {
       };
 
       await settingsAPI.update(settingsData);
+
+      // Update tenant name in context if clinic name changed
+      if (values.clinic_name && values.clinic_name !== tenant?.name) {
+        updateTenant({
+          ...tenant,
+          name: values.clinic_name
+        });
+      }
+
       message.success('Configurações salvas com sucesso');
     } catch (error) {
       message.error('Erro ao salvar configurações');

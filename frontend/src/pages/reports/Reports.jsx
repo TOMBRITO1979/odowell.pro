@@ -522,9 +522,9 @@ const Reports = () => {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: 'Concluídos', value: attendanceData.completed, color: '#52c41a' },
-                          { name: 'Cancelados', value: attendanceData.cancelled, color: '#ff4d4f' },
-                          { name: 'Faltaram', value: attendanceData.no_show, color: '#faad14' },
+                          { name: 'Concluídos', value: attendanceData.completed, color: '#4a8c6f' },
+                          { name: 'Cancelados', value: attendanceData.cancelled, color: '#b45454' },
+                          { name: 'Faltaram', value: attendanceData.no_show, color: '#c9a227' },
                         ]}
                         dataKey="value"
                         nameKey="name"
@@ -534,9 +534,9 @@ const Reports = () => {
                         label
                       >
                         {[
-                          { name: 'Concluídos', value: attendanceData.completed, color: '#52c41a' },
-                          { name: 'Cancelados', value: attendanceData.cancelled, color: '#ff4d4f' },
-                          { name: 'Faltaram', value: attendanceData.no_show, color: '#faad14' },
+                          { name: 'Concluídos', value: attendanceData.completed, color: '#4a8c6f' },
+                          { name: 'Cancelados', value: attendanceData.cancelled, color: '#b45454' },
+                          { name: 'Faltaram', value: attendanceData.no_show, color: '#c9a227' },
                         ].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}

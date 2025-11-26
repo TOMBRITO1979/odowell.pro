@@ -20,6 +20,7 @@ import {
 import dayjs from 'dayjs';
 import { prescriptionsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors } from '../../theme/designSystem';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -111,9 +112,9 @@ const PrescriptionDetails = () => {
               </Button>
             )}
             <Button
-              type="primary"
               icon={<FilePdfOutlined />}
               onClick={handleDownloadPDF}
+              style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
             >
               Gerar PDF
             </Button>

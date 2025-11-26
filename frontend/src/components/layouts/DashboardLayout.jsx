@@ -19,6 +19,7 @@ import {
   MenuUnfoldOutlined,
   MenuFoldOutlined,
   ClockCircleOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI } from '../../services/api';
@@ -125,11 +126,18 @@ const DashboardLayout = () => {
       permission: 'exams',
     },
     {
+      key: '/consent-templates',
+      icon: <FileTextOutlined />,
+      label: 'Termos de Consentimento',
+      permission: 'clinical_records',
+    },
+    {
       key: 'financial',
       icon: <DollarOutlined />,
       label: 'Financeiro',
       children: [
         { key: '/budgets', label: 'Orçamentos', permission: 'budgets' },
+        { key: '/treatments', label: 'Tratamentos', permission: 'budgets' },
         { key: '/payments', label: 'Pagamentos', permission: 'payments' },
       ],
     },
@@ -275,7 +283,7 @@ const DashboardLayout = () => {
   const sidebarContent = (
     <>
       <div style={logoStyle}>
-        {collapsed ? '🦷' : '🦷 Dr. Crwell'}
+        {collapsed ? '🦷' : '🦷 OdoWell'}
       </div>
       <Menu
         theme="light"
@@ -353,7 +361,7 @@ const DashboardLayout = () => {
               />
             )}
             <Text strong style={{ fontSize: isMobile ? 14 : 16 }}>
-              {tenant?.name || 'Dr. Crwell'}
+              {tenant?.name || 'OdoWell'}
             </Text>
           </div>
 

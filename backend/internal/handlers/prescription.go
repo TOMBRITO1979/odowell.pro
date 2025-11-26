@@ -53,6 +53,20 @@ func CreatePrescription(c *gin.Context) {
 	input.DentistName = dentist.Name
 	input.DentistCRO = dentist.CRO
 
+	// If signer is specified, load signer info
+	if input.SignerID != nil && *input.SignerID > 0 {
+		var signer models.User
+		if err := db.Table("public.users").First(&signer, *input.SignerID).Error; err == nil {
+			input.SignerName = signer.Name
+			input.SignerCRO = signer.CRO
+		}
+	} else {
+		// Default: dentist is the signer
+		input.SignerID = &userID
+		input.SignerName = dentist.Name
+		input.SignerCRO = dentist.CRO
+	}
+
 	// Create prescription
 	if err := db.Create(&input).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create prescription"})
@@ -93,7 +107,7 @@ func GetPrescriptions(c *gin.Context) {
 	query.Count(&total)
 
 	var prescriptions []models.Prescription
-	if err := query.Preload("Patient").Preload("Dentist").
+	if err := query.Preload("Patient").Preload("Dentist").Preload("Signer").
 		Offset(offset).Limit(pageSize).Order("created_at DESC").
 		Find(&prescriptions).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch prescriptions"})
@@ -114,7 +128,7 @@ func GetPrescription(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
 	var prescription models.Prescription
-	if err := db.Preload("Patient").Preload("Dentist").
+	if err := db.Preload("Patient").Preload("Dentist").Preload("Signer").
 		First(&prescription, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Prescription not found"})
 		return
@@ -123,20 +137,15 @@ func GetPrescription(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"prescription": prescription})
 }
 
-// UpdatePrescription updates a prescription (only if draft)
+// UpdatePrescription updates a prescription
 func UpdatePrescription(c *gin.Context) {
 	id := c.Param("id")
 	db := c.MustGet("db").(*gorm.DB)
 
-	// Check if prescription exists and is draft
+	// Check if prescription exists using raw SQL
 	var prescription models.Prescription
-	if err := db.First(&prescription, id).Error; err != nil {
+	if err := db.Raw("SELECT * FROM prescriptions WHERE id = ? AND deleted_at IS NULL", id).Scan(&prescription).Error; err != nil || prescription.ID == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Prescription not found"})
-		return
-	}
-
-	if prescription.Status != "draft" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Can only update draft prescriptions"})
 		return
 	}
 
@@ -146,22 +155,34 @@ func UpdatePrescription(c *gin.Context) {
 		return
 	}
 
+	// If signer is specified, load signer info using raw SQL
+	var signerName, signerCRO string
+	if input.SignerID != nil && *input.SignerID > 0 {
+		var signer models.User
+		if err := db.Raw("SELECT * FROM public.users WHERE id = ? AND deleted_at IS NULL", *input.SignerID).Scan(&signer).Error; err == nil && signer.ID > 0 {
+			signerName = signer.Name
+			signerCRO = signer.CRO
+		}
+	}
+
 	// Update using Exec to avoid the duplicate table error
 	result := db.Exec(`
 		UPDATE prescriptions
 		SET patient_id = ?, type = ?, title = ?, medications = ?, content = ?,
-		    diagnosis = ?, valid_until = ?, notes = ?, updated_at = NOW()
+		    diagnosis = ?, valid_until = ?, notes = ?, prescription_date = ?,
+		    signer_id = ?, signer_name = ?, signer_cro = ?, updated_at = NOW()
 		WHERE id = ? AND deleted_at IS NULL
 	`, input.PatientID, input.Type, input.Title, input.Medications, input.Content,
-		input.Diagnosis, input.ValidUntil, input.Notes, id)
+		input.Diagnosis, input.ValidUntil, input.Notes, input.PrescriptionDate,
+		input.SignerID, signerName, signerCRO, id)
 
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update prescription"})
 		return
 	}
 
-	// Load the updated prescription with relationships
-	db.Preload("Patient").Preload("Dentist").First(&prescription, id)
+	// Load the updated prescription with relationships using raw SQL
+	db.Raw("SELECT * FROM prescriptions WHERE id = ? AND deleted_at IS NULL", id).Scan(&prescription)
 
 	c.JSON(http.StatusOK, gin.H{"prescription": prescription})
 }
@@ -330,23 +351,33 @@ func GeneratePrescriptionPDF(c *gin.Context) {
 	pdf.Ln(20)
 	pdf.SetFont("Arial", "", 10)
 
-	// Date
+	// Date - use prescription_date if set, otherwise issued_at, otherwise current date
 	dateStr := time.Now().Format("02/01/2006")
-	if prescription.IssuedAt != nil {
+	if prescription.PrescriptionDate != nil {
+		dateStr = prescription.PrescriptionDate.Format("02/01/2006")
+	} else if prescription.IssuedAt != nil {
 		dateStr = prescription.IssuedAt.Format("02/01/2006")
 	}
 	pdf.Cell(0, 5, dateStr)
 	pdf.Ln(15)
 
-	// Dentist signature line
+	// Signer info - use signer if set, otherwise use dentist
+	signerName := prescription.SignerName
+	signerCRO := prescription.SignerCRO
+	if signerName == "" {
+		signerName = prescription.DentistName
+		signerCRO = prescription.DentistCRO
+	}
+
+	// Signer signature line
 	pdf.SetX(120)
 	pdf.CellFormat(70, 0, "", "T", 1, "C", false, 0, "")
 	pdf.SetX(120)
 	pdf.SetFont("Arial", "B", 10)
-	pdf.CellFormat(70, 5, tr(prescription.DentistName), "", 1, "C", false, 0, "")
+	pdf.CellFormat(70, 5, tr(signerName), "", 1, "C", false, 0, "")
 	pdf.SetX(120)
 	pdf.SetFont("Arial", "", 9)
-	pdf.CellFormat(70, 5, tr(fmt.Sprintf("CRO: %s", prescription.DentistCRO)), "", 1, "C", false, 0, "")
+	pdf.CellFormat(70, 5, tr(fmt.Sprintf("CRO: %s", signerCRO)), "", 1, "C", false, 0, "")
 
 	// Output PDF
 	c.Header("Content-Type", "application/pdf")

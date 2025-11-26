@@ -96,6 +96,11 @@ func UpdateTenantSettings(c *gin.Context) {
 		return
 	}
 
+	// Also update the tenant name to match the clinic name
+	if input.ClinicName != "" {
+		db.Exec("UPDATE public.tenants SET name = ?, updated_at = NOW() WHERE id = ?", input.ClinicName, tenantID)
+	}
+
 	// Return the input data as it was just saved successfully
 	c.JSON(http.StatusOK, gin.H{"settings": input})
 }

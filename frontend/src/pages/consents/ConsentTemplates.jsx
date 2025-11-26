@@ -326,9 +326,9 @@ const ConsentTemplates = () => {
         footer={[
           <Button
             key="pdf"
-            type="primary"
             onClick={() => handleDownloadPDF(previewTemplate?.id)}
             disabled={!previewTemplate}
+            style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
           >
             Gerar PDF
           </Button>,

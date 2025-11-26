@@ -4,6 +4,7 @@ import (
 	"drcrwell/backend/internal/models"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -82,18 +83,24 @@ func UpdateBudget(c *gin.Context) {
 	id := c.Param("id")
 	db := c.MustGet("db").(*gorm.DB)
 
-	// Check if budget exists
-	var count int64
-	if err := db.Model(&models.Budget{}).Where("id = ?", id).Count(&count).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	if count == 0 {
+	// Get current budget to check status change
+	var currentBudget models.Budget
+	if err := db.First(&currentBudget, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Budget not found"})
 		return
 	}
 
-	var input models.Budget
+	var input struct {
+		PatientID         uint       `json:"patient_id"`
+		DentistID         uint       `json:"dentist_id"`
+		Description       string     `json:"description"`
+		TotalValue        float64    `json:"total_value"`
+		Items             *string    `json:"items"`
+		Status            string     `json:"status"`
+		ValidUntil        *time.Time `json:"valid_until"`
+		Notes             string     `json:"notes"`
+		TotalInstallments int        `json:"total_installments"` // For treatment creation
+	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -117,7 +124,33 @@ func UpdateBudget(c *gin.Context) {
 	var budget models.Budget
 	db.Preload("Patient").Preload("Dentist").Preload("Payments").First(&budget, id)
 
-	c.JSON(http.StatusOK, gin.H{"budget": budget})
+	// If status changed to approved, auto-create treatment
+	var treatment *models.Treatment
+	if currentBudget.Status != "approved" && input.Status == "approved" {
+		// Check if treatment already exists
+		var existingTreatment models.Treatment
+		if err := db.Where("budget_id = ?", budget.ID).First(&existingTreatment).Error; err != nil {
+			// Treatment doesn't exist, create it
+			totalInstallments := input.TotalInstallments
+			if totalInstallments <= 0 {
+				totalInstallments = 1
+			}
+
+			newTreatment, err := CreateTreatmentFromBudget(db, &budget, totalInstallments)
+			if err == nil {
+				treatment = newTreatment
+				db.Preload("Patient").Preload("Dentist").First(treatment, treatment.ID)
+			}
+		}
+	}
+
+	response := gin.H{"budget": budget}
+	if treatment != nil {
+		response["treatment"] = treatment
+		response["message"] = "Orçamento aprovado e tratamento criado automaticamente"
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func DeleteBudget(c *gin.Context) {
@@ -293,5 +326,80 @@ func GetCashFlow(c *gin.Context) {
 		"expenses":  expenses,
 		"balance":   income - expenses,
 		"pending":   pending,
+	})
+}
+
+// CancelBudget cancels an approved budget
+func CancelBudget(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	var budget models.Budget
+	if err := db.First(&budget, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Budget not found"})
+		return
+	}
+
+	// Only allow cancellation of approved budgets
+	if budget.Status != "approved" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only approved budgets can be cancelled"})
+		return
+	}
+
+	// Update status to cancelled using raw SQL
+	result := db.Exec("UPDATE budgets SET status = 'cancelled', updated_at = NOW() WHERE id = ? AND deleted_at IS NULL", id)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel budget"})
+		return
+	}
+
+	// Reload budget with updated status
+	db.Preload("Patient").Preload("Dentist").Preload("Payments").First(&budget, id)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Budget cancelled successfully",
+		"budget":  budget,
+	})
+}
+
+// RefundPayment refunds a paid payment
+func RefundPayment(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	var input struct {
+		Reason string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var payment models.Payment
+	if err := db.First(&payment, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+		return
+	}
+
+	// Only allow refund of paid payments
+	if payment.Status != "paid" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only paid payments can be refunded"})
+		return
+	}
+
+	// Update payment status
+	now := time.Now()
+	payment.Status = "refunded"
+	payment.RefundedDate = &now
+	payment.RefundReason = input.Reason
+
+	if err := db.Save(&payment).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refund payment"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Payment refunded successfully",
+		"payment": payment,
 	})
 }

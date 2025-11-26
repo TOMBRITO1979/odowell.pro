@@ -24,6 +24,7 @@ import {
 import { patientsAPI } from '../../services/api';
 import dayjs from 'dayjs';
 import { usePermission } from '../../contexts/AuthContext';
+import PatientConsents from '../../components/consents/PatientConsents';
 
 const PatientDetails = () => {
   const [patient, setPatient] = useState(null);
@@ -232,6 +233,11 @@ const PatientDetails = () => {
             </Descriptions.Item>
           </Descriptions>
         </Card>
+
+        {/* Termos de Consentimento */}
+        <div style={{ marginBottom: 16 }}>
+          <PatientConsents patient={patient} />
+        </div>
 
         {/* Convênio */}
         {(patient.insurance_name || patient.insurance_number) && (

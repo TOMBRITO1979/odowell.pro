@@ -107,6 +107,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
+  const updateTenant = (tenantData) => {
+    setTenant(tenantData);
+    localStorage.setItem('tenant', JSON.stringify(tenantData));
+  };
+
   const value = {
     user,
     tenant,
@@ -117,6 +122,7 @@ export const AuthProvider = ({ children }) => {
     createTenant,
     logout,
     updateUser,
+    updateTenant,
     isAuthenticated: !!user,
   };
 

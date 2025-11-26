@@ -22,13 +22,13 @@ export const actionColors = {
   delete: '#ef4444',        // Vermelho suave - Excluir/Remover
   save: '#10b981',          // Verde esmeralda - Salvar/Confirmar
   cancel: '#6b7280',        // Cinza - Cancelar
-  exportPDF: '#dc2626',     // Vermelho PDF - Exportar PDF
-  exportExcel: '#059669',   // Verde Excel - Exportar Excel/CSV
+  exportPDF: '#b45454',     // Vermelho suave/fosco - Exportar PDF
+  exportExcel: '#4a8c6f',   // Verde suave/fosco - Exportar Excel/CSV
   import: '#0284c7',        // Azul céu - Importar
   print: '#4b5563',         // Cinza escuro - Imprimir
   refund: '#f97316',        // Laranja - Estornar
-  approve: '#10b981',       // Verde - Aprovar
-  reject: '#ef4444',        // Vermelho - Rejeitar
+  approve: '#4a8c6f',       // Verde suave - Aprovar
+  reject: '#b45454',        // Vermelho suave - Rejeitar
 };
 
 // ============================================
@@ -37,12 +37,12 @@ export const actionColors = {
 export const statusColors = {
   pending: '#f59e0b',       // Âmbar - Pendente/Aguardando
   success: '#10b981',       // Verde - Sucesso/Pago/Concluído
-  error: '#ef4444',         // Vermelho - Erro/Atrasado
+  error: '#b45454',         // Vermelho fosco - Erro/Faltou
   cancelled: '#6b7280',     // Cinza - Cancelado
   inProgress: '#3b82f6',    // Azul - Em Progresso
   approved: '#10b981',      // Verde - Aprovado
-  rejected: '#ef4444',      // Vermelho - Rejeitado
-  overdue: '#dc2626',       // Vermelho escuro - Atrasado
+  rejected: '#b45454',      // Vermelho fosco - Rejeitado
+  overdue: '#b45454',       // Vermelho fosco - Atrasado
   refunded: '#9333ea',      // Roxo - Estornado
 };
 

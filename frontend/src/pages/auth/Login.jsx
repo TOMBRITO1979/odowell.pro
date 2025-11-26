@@ -47,7 +47,7 @@ const Login = () => {
           }}>
             <span style={{ fontSize: 48, filter: 'brightness(0) invert(1)' }}>🦷</span>
           </div>
-          <Title level={2} style={{ color: '#16a34a', marginTop: 0 }}>Odowell</Title>
+          <Title level={2} style={{ color: '#16a34a', marginTop: 0 }}>OdoWell</Title>
           <Typography.Text type="secondary">Gestão Odontológica</Typography.Text>
         </div>
 

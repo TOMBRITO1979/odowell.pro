@@ -18,6 +18,13 @@ func main() {
 		log.Fatal("Database connection failed:", err)
 	}
 
+	// Run migrations for all existing tenant schemas
+	// This ensures new tables are created in all tenants on startup
+	if err := database.RunAllMigrations(); err != nil {
+		log.Printf("WARNING: Migration errors occurred: %v", err)
+		// Don't fail startup, just log the warning
+	}
+
 	// Create router
 	r := gin.Default()
 
@@ -289,6 +296,27 @@ func main() {
 			consents.GET("/:id/pdf", middleware.PermissionMiddleware("clinical_records", "view"), handlers.GenerateConsentPDF)
 			consents.PATCH("/:id/status", middleware.PermissionMiddleware("clinical_records", "edit"), handlers.UpdateConsentStatus)
 			consents.DELETE("/:id", middleware.PermissionMiddleware("clinical_records", "delete"), handlers.DeleteConsent)
+		}
+
+		// Treatments CRUD (orçamentos aprovados em tratamento)
+		treatments := tenanted.Group("/treatments")
+		{
+			treatments.POST("", middleware.PermissionMiddleware("budgets", "create"), handlers.CreateTreatment)
+			treatments.GET("", middleware.PermissionMiddleware("budgets", "view"), handlers.GetTreatments)
+			treatments.GET("/:id", middleware.PermissionMiddleware("budgets", "view"), handlers.GetTreatment)
+			treatments.PUT("/:id", middleware.PermissionMiddleware("budgets", "edit"), handlers.UpdateTreatment)
+			treatments.DELETE("/:id", middleware.PermissionMiddleware("budgets", "delete"), handlers.DeleteTreatment)
+		}
+
+		// Treatment Payments (pagamentos de tratamentos)
+		treatmentPayments := tenanted.Group("/treatment-payments")
+		{
+			treatmentPayments.POST("", middleware.PermissionMiddleware("payments", "create"), handlers.CreateTreatmentPayment)
+			treatmentPayments.GET("/treatment/:treatment_id", middleware.PermissionMiddleware("payments", "view"), handlers.GetTreatmentPayments)
+			treatmentPayments.GET("/:id/receipt", middleware.PermissionMiddleware("payments", "view"), handlers.GenerateReceiptPDF)
+			treatmentPayments.GET("/:id", middleware.PermissionMiddleware("payments", "view"), handlers.GetTreatmentPayment)
+			treatmentPayments.PUT("/:id", middleware.PermissionMiddleware("payments", "edit"), handlers.UpdateTreatmentPayment)
+			treatmentPayments.DELETE("/:id", middleware.PermissionMiddleware("payments", "delete"), handlers.DeleteTreatmentPayment)
 		}
 
 		// Tenant Settings

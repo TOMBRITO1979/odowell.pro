@@ -30,8 +30,15 @@ type Prescription struct {
 	Diagnosis   string `gorm:"type:text" json:"diagnosis"`
 
 	// Additional info
-	ValidUntil *time.Time `json:"valid_until"` // Prescription expiration
-	Notes      string     `gorm:"type:text" json:"notes"`
+	ValidUntil       *time.Time `json:"valid_until"` // Prescription expiration
+	Notes            string     `gorm:"type:text" json:"notes"`
+	PrescriptionDate *time.Time `json:"prescription_date"` // Date shown on document
+
+	// Signer info (professional who signs the document)
+	SignerID   *uint  `gorm:"index" json:"signer_id"`
+	Signer     *User  `gorm:"foreignKey:SignerID" json:"signer,omitempty"`
+	SignerName string `json:"signer_name"` // Cached name for document
+	SignerCRO  string `json:"signer_cro"`  // Cached CRO for document
 
 	// Clinic info (cached for document consistency)
 	ClinicName    string `json:"clinic_name"`
