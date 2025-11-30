@@ -361,9 +361,17 @@ body {
 .appointments-btn {
   flex: 1;
   min-width: 0;
+}
+
+.appointments-btn.ant-btn {
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
+  text-align: center !important;
+}
+
+.appointments-btn .ant-btn-icon {
+  margin-inline-end: 6px !important;
 }
 
 @media (max-width: 768px) {
