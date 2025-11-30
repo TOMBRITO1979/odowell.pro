@@ -48,7 +48,43 @@ import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const { RangePicker } = DatePicker;
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+// Cores suaves e foscas (não agridem a vista)
+const COLORS = [
+  '#a7d7a7', // verde suave
+  '#b8d4e8', // azul suave
+  '#d4c4e8', // lilás suave
+  '#f5e0a8', // amarelo suave
+  '#e8c4d4', // rosa suave
+  '#a8d8d8', // teal suave
+  '#e8d0b8', // pêssego suave
+  '#c4c8e8', // indigo suave
+];
+
+// Tradução de métodos de pagamento
+const translatePaymentMethod = (method) => {
+  const translations = {
+    'cash': 'Dinheiro',
+    'credit_card': 'Cartão de Crédito',
+    'debit_card': 'Cartão de Débito',
+    'pix': 'PIX',
+    'bank_transfer': 'Transferência',
+    'check': 'Cheque',
+    'insurance': 'Convênio',
+    'other': 'Outro',
+  };
+  return translations[method] || method;
+};
+
+// Tradução de status de orçamentos
+const translateBudgetStatus = (status) => {
+  const translations = {
+    'approved': 'Aprovado',
+    'cancelled': 'Cancelado',
+    'pending': 'Pendente',
+    'rejected': 'Rejeitado',
+  };
+  return translations[status] || status;
+};
 
 const Reports = () => {
   const [loading, setLoading] = useState(false);
@@ -414,13 +450,14 @@ const Reports = () => {
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label={(entry) => `${entry.payment_method}: ${formatCurrency(entry.total)}`}
+                        label={(entry) => `${translatePaymentMethod(entry.payment_method)}: ${formatCurrency(entry.total)}`}
                       >
                         {(revenueData.by_method || []).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value) => formatCurrency(value)} />
+                      <Tooltip formatter={(value, name) => [formatCurrency(value), translatePaymentMethod(name)]} />
+                      <Legend formatter={(value) => translatePaymentMethod(value)} />
                     </PieChart>
                   </ResponsiveContainer>
                 </Col>
@@ -766,14 +803,14 @@ const Reports = () => {
                           cx="50%"
                           cy="50%"
                           outerRadius={80}
-                          label={(entry) => `${entry.status}: ${entry.count}`}
+                          label={(entry) => `${translateBudgetStatus(entry.status)}: ${entry.count}`}
                         >
                           {budgetConversionData.by_status.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip />
-                        <Legend />
+                        <Tooltip formatter={(value, name) => [value, translateBudgetStatus(name)]} />
+                        <Legend formatter={(value) => translateBudgetStatus(value)} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (

@@ -20,6 +20,7 @@ import {
   MenuFoldOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI } from '../../services/api';
@@ -38,6 +39,9 @@ const DashboardLayout = () => {
   const location = useLocation();
   const { user, tenant, logout } = useAuth();
   const { canView, isAdmin } = usePermission();
+
+  // Check if sidebar should be hidden for this user
+  const hideSidebar = user?.hide_sidebar || false;
 
   // Handle window resize for mobile detection
   useEffect(() => {
@@ -78,6 +82,12 @@ const DashboardLayout = () => {
       icon: <DashboardOutlined />,
       label: 'Dashboard',
       permission: 'dashboard',
+    },
+    {
+      key: '/attendance',
+      icon: <AppstoreOutlined />,
+      label: 'Atendimento',
+      permission: 'appointments',
     },
     {
       key: '/appointments',
@@ -301,8 +311,8 @@ const DashboardLayout = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      {/* Desktop Sidebar */}
-      {!isMobile && (
+      {/* Desktop Sidebar - hidden if hideSidebar is true */}
+      {!isMobile && !hideSidebar && (
         <Sider
           collapsible
           collapsed={collapsed}
@@ -336,8 +346,8 @@ const DashboardLayout = () => {
         </Sider>
       )}
 
-      {/* Mobile Drawer */}
-      {isMobile && (
+      {/* Mobile Drawer - also hidden if hideSidebar is true */}
+      {isMobile && !hideSidebar && (
         <Drawer
           placement="left"
           onClose={() => setMobileMenuVisible(false)}
@@ -349,10 +359,10 @@ const DashboardLayout = () => {
         </Drawer>
       )}
 
-      <Layout style={{ marginLeft: isMobile ? 0 : (collapsed ? 80 : 240), transition: 'all 0.3s' }}>
+      <Layout style={{ marginLeft: (isMobile || hideSidebar) ? 0 : (collapsed ? 80 : 240), transition: 'all 0.3s' }}>
         <Header style={headerStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {isMobile && (
+            {isMobile && !hideSidebar && (
               <Button
                 type="text"
                 icon={<MenuOutlined />}

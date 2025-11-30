@@ -15,19 +15,20 @@ func GetTenantUsers(c *gin.Context) {
 	db := database.GetDB()
 
 	type UserResponse struct {
-		ID       uint   `json:"id"`
-		Name     string `json:"name"`
-		Email    string `json:"email"`
-		Role     string `json:"role"`
-		Active   bool   `json:"active"`
-		Phone    string `json:"phone,omitempty"`
-		CRO      string `json:"cro,omitempty"`
-		Specialty string `json:"specialty,omitempty"`
+		ID          uint   `json:"id"`
+		Name        string `json:"name"`
+		Email       string `json:"email"`
+		Role        string `json:"role"`
+		Active      bool   `json:"active"`
+		Phone       string `json:"phone,omitempty"`
+		CRO         string `json:"cro,omitempty"`
+		Specialty   string `json:"specialty,omitempty"`
+		HideSidebar bool   `json:"hide_sidebar"`
 	}
 
 	var users []UserResponse
 	err := db.Table("public.users").
-		Select("id, name, email, role, active, phone, cro, specialty").
+		Select("id, name, email, role, active, phone, cro, specialty, hide_sidebar").
 		Where("tenant_id = ? AND deleted_at IS NULL", tenantID).
 		Order("name ASC").
 		Find(&users).Error
@@ -61,6 +62,12 @@ func CreateTenantUser(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate password strength
+	if valid, msg := ValidatePassword(req.Password); !valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
 
@@ -179,5 +186,45 @@ func UpdateTenantUser(c *gin.Context) {
 			"role":   user.Role,
 			"active": user.Active,
 		},
+	})
+}
+
+// UpdateUserSidebarRequest represents request to update sidebar preference
+type UpdateUserSidebarRequest struct {
+	HideSidebar bool `json:"hide_sidebar"`
+}
+
+// UpdateUserSidebar updates the hide_sidebar preference for a user
+func UpdateUserSidebar(c *gin.Context) {
+	tenantID, _ := c.Get("tenant_id")
+	userID := c.Param("id")
+
+	var req UpdateUserSidebarRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	db := database.GetDB()
+
+	// Update the user's sidebar preference
+	result := db.Exec(
+		"UPDATE public.users SET hide_sidebar = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?",
+		req.HideSidebar, userID, tenantID,
+	)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update sidebar preference"})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Sidebar preference updated successfully",
+		"hide_sidebar": req.HideSidebar,
 	})
 }

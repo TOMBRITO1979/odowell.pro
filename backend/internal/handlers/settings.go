@@ -8,6 +8,75 @@ import (
 	"gorm.io/gorm"
 )
 
+// ClinicInfo holds the clinic information for PDFs and documents
+type ClinicInfo struct {
+	Name    string
+	Address string
+	Phone   string
+	Email   string
+	CNPJ    string
+}
+
+// GetClinicInfo returns clinic info from settings (preferred) or tenant (fallback)
+func GetClinicInfo(db *gorm.DB, tenantID uint) ClinicInfo {
+	// First try to get from settings
+	var settings models.TenantSettings
+	if err := db.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err == nil {
+		if settings.ClinicName != "" {
+			// Build address
+			address := settings.ClinicAddress
+			if settings.ClinicCity != "" {
+				if address != "" {
+					address += ", "
+				}
+				address += settings.ClinicCity
+			}
+			if settings.ClinicState != "" {
+				address += " - " + settings.ClinicState
+			}
+			if settings.ClinicZip != "" {
+				address += " - CEP: " + settings.ClinicZip
+			}
+
+			return ClinicInfo{
+				Name:    settings.ClinicName,
+				Address: address,
+				Phone:   settings.ClinicPhone,
+				Email:   settings.ClinicEmail,
+				CNPJ:    settings.ClinicCNPJ,
+			}
+		}
+	}
+
+	// Fallback to tenant info
+	var tenant models.Tenant
+	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err == nil {
+		address := tenant.Address
+		if tenant.City != "" {
+			if address != "" {
+				address += ", "
+			}
+			address += tenant.City
+		}
+		if tenant.State != "" {
+			address += " - " + tenant.State
+		}
+		if tenant.ZipCode != "" {
+			address += " - CEP: " + tenant.ZipCode
+		}
+
+		return ClinicInfo{
+			Name:    tenant.Name,
+			Address: address,
+			Phone:   tenant.Phone,
+			Email:   tenant.Email,
+			CNPJ:    "", // Tenant model doesn't have CNPJ
+		}
+	}
+
+	return ClinicInfo{Name: "Clínica"}
+}
+
 func GetTenantSettings(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	tenantID := c.GetUint("tenant_id")

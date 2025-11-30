@@ -42,11 +42,7 @@ const InstallPWA = () => {
     // Espera o usuário responder ao prompt
     const { outcome } = await deferredPrompt.userChoice;
 
-    if (outcome === 'accepted') {
-      console.log('PWA instalado com sucesso');
-    } else {
-      console.log('Usuário recusou a instalação');
-    }
+    // PWA installation outcome handled silently
 
     // Limpa o prompt
     setDeferredPrompt(null);

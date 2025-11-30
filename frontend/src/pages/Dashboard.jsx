@@ -50,6 +50,20 @@ const { Title, Text } = Typography;
 
 const COLORS = ['#52c41a', '#ff4d4f', '#faad14', '#1890ff', '#722ed1', '#eb2f96'];
 
+// Cores suaves e foscas para cada profissional (não agridem a vista)
+const PROFESSIONAL_COLORS = [
+  '#a7d7a7', // verde suave
+  '#b8d4e8', // azul suave
+  '#d4c4e8', // lilás suave
+  '#f5e0a8', // amarelo suave
+  '#e8c4d4', // rosa suave
+  '#a8d8d8', // teal suave
+  '#e8d0b8', // pêssego suave
+  '#c4c8e8', // indigo suave
+  '#b8e0c8', // menta suave
+  '#d4e0a8', // lima suave
+];
+
 // Cores específicas para status de orçamentos (tons foscos/suaves)
 const BUDGET_STATUS_COLORS = {
   'approved': '#4a8c6f',   // Verde fosco para aprovado
@@ -432,7 +446,11 @@ const Dashboard = () => {
                         <YAxis />
                         <Tooltip />
                         <Legend />
-                        <Bar dataKey="count" fill="#52c41a" name="Consultas Realizadas" />
+                        <Bar dataKey="count" name="Consultas Realizadas">
+                          {dashboardData.professional_appointments.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={PROFESSIONAL_COLORS[index % PROFESSIONAL_COLORS.length]} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (

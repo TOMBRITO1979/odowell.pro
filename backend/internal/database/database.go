@@ -1,10 +1,12 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -13,21 +15,46 @@ import (
 )
 
 var DB *gorm.DB
+var healthDB *sql.DB // sql.DB for health checks
+
+// getEnvInt returns an environment variable as int, or default if not set/invalid
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
 
 // Connect establishes connection to PostgreSQL database
 func Connect() error {
+	// Determinar SSL mode baseado no ambiente
+	sslMode := "require" // Padrão seguro para produção
+	if os.Getenv("ENV") == "development" || os.Getenv("DB_SSL_MODE") == "disable" {
+		sslMode = "disable"
+	}
+
 	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=America/Sao_Paulo",
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=America/Sao_Paulo",
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 		os.Getenv("DB_PORT"),
+		sslMode,
 	)
+
+	// Configure logger based on environment
+	logMode := logger.Warn
+	if os.Getenv("ENV") == "development" {
+		logMode = logger.Info
+	}
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger:                 logger.Default.LogMode(logMode),
+		SkipDefaultTransaction: true, // Better performance for read-heavy workloads
 	})
 
 	if err != nil {
@@ -40,18 +67,39 @@ func Connect() error {
 		return fmt.Errorf("failed to get database instance: %v", err)
 	}
 
-	// Connection pool settings
-	sqlDB.SetMaxIdleConns(10)                  // Maximum idle connections
-	sqlDB.SetMaxOpenConns(100)                 // Maximum open connections
-	sqlDB.SetConnMaxLifetime(time.Hour)        // Connection lifetime: 1 hour
+	// Connection pool settings - configurable via environment variables
+	// For horizontal scaling: each replica should use maxOpenConns = totalPgConns / numReplicas
+	maxOpenConns := getEnvInt("DB_MAX_OPEN_CONNS", 50)
+	maxIdleConns := getEnvInt("DB_MAX_IDLE_CONNS", 10)
+	connMaxLifetimeSecs := getEnvInt("DB_CONN_MAX_LIFETIME", 3600)
 
-	log.Println("Database connected successfully with connection pool")
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetimeSecs) * time.Second)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute) // Close idle connections after 5 minutes
+
+	log.Printf("Database connected successfully - Pool: maxOpen=%d, maxIdle=%d, lifetime=%ds",
+		maxOpenConns, maxIdleConns, connMaxLifetimeSecs)
+
+	// Use the same sql.DB from GORM for health checks
+	log.Println("Setting up health check connection...")
+	healthDB = sqlDB // Use the same sqlDB we already have
+	log.Println("Health check connection configured")
+
 	return nil
 }
 
 // GetDB returns the database instance
 func GetDB() *gorm.DB {
 	return DB
+}
+
+// Health checks database connectivity using dedicated connection
+func Health() error {
+	if healthDB == nil {
+		return fmt.Errorf("health check connection not initialized")
+	}
+	return healthDB.Ping()
 }
 
 // SetSchema sets the search path for a specific tenant schema

@@ -9,6 +9,8 @@ import InstallPWA from './components/InstallPWA';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import CreateTenant from './pages/auth/CreateTenant';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 
 // Protected pages
 import DashboardLayout from './components/layouts/DashboardLayout';
@@ -51,6 +53,7 @@ import WaitingListForm from './pages/waiting-list/WaitingListForm';
 import ConsentTemplates from './pages/consents/ConsentTemplates';
 import Treatments from './pages/treatments/Treatments';
 import TreatmentDetails from './pages/treatments/TreatmentDetails';
+import Attendance from './pages/attendance/Attendance';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -120,6 +123,8 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/create-tenant" element={<CreateTenant />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Protected routes */}
       <Route
@@ -147,6 +152,9 @@ function App() {
         <Route path="appointments/new" element={<AppointmentForm />} />
         <Route path="appointments/:id" element={<AppointmentDetails />} />
         <Route path="appointments/:id/edit" element={<AppointmentForm />} />
+
+        {/* Attendance */}
+        <Route path="attendance" element={<Attendance />} />
 
         {/* Medical Records */}
         <Route path="medical-records" element={<MedicalRecords />} />

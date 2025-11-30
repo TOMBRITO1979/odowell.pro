@@ -18,18 +18,26 @@ RUN go mod download && go mod tidy
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o main ./cmd/api
 
-# Final stage - minimal image
-FROM alpine:latest
+# Final stage - minimal image with pinned version
+FROM alpine:3.19
 
-RUN apk --no-cache add ca-certificates tzdata
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates tzdata wget
 
-WORKDIR /root/
+# Create non-root user for security
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
+
+WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /app/main .
 
-# Create uploads directory
-RUN mkdir -p /root/uploads
+# Create uploads directory with proper ownership
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 8080

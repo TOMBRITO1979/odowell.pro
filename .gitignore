@@ -5,6 +5,7 @@
 
 # Backup files
 *.backup-*
+backups/
 
 # Go
 *.exe

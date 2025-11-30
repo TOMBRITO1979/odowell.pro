@@ -2,17 +2,53 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// ValidatePassword checks if password meets security requirements:
+// - Minimum 12 characters
+// - At least 1 uppercase letter
+// - At least 1 lowercase letter
+// - At least 1 number
+// - At least 1 special character
+func ValidatePassword(password string) (bool, string) {
+	if len(password) < 12 {
+		return false, "A senha deve ter no mínimo 12 caracteres"
+	}
+
+	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
+	if !hasUpper {
+		return false, "A senha deve conter pelo menos 1 letra maiúscula"
+	}
+
+	hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
+	if !hasLower {
+		return false, "A senha deve conter pelo menos 1 letra minúscula"
+	}
+
+	hasNumber := regexp.MustCompile(`[0-9]`).MatchString(password)
+	if !hasNumber {
+		return false, "A senha deve conter pelo menos 1 número"
+	}
+
+	hasSpecial := regexp.MustCompile(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~]`).MatchString(password)
+	if !hasSpecial {
+		return false, "A senha deve conter pelo menos 1 caractere especial (!@#$%^&*)"
+	}
+
+	return true, ""
+}
 
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
@@ -48,18 +84,21 @@ func Login(c *gin.Context) {
 
 	// Find user by email
 	if err := db.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		helpers.AuditLogin(c, req.Email, false, map[string]interface{}{"reason": "user_not_found"})
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
 	// Check if user is active
 	if !user.Active {
+		helpers.AuditLogin(c, req.Email, false, map[string]interface{}{"reason": "user_inactive"})
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User account is inactive"})
 		return
 	}
 
 	// Verify password
 	if !user.CheckPassword(req.Password) {
+		helpers.AuditLogin(c, req.Email, false, map[string]interface{}{"reason": "wrong_password"})
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -78,14 +117,22 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Log successful login
+	helpers.AuditLogin(c, req.Email, true, map[string]interface{}{
+		"user_id":   user.ID,
+		"tenant_id": user.TenantID,
+		"role":      user.Role,
+	})
+
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
 		"user": gin.H{
-			"id":        user.ID,
-			"name":      user.Name,
-			"email":     user.Email,
-			"role":      user.Role,
-			"tenant_id": user.TenantID,
+			"id":           user.ID,
+			"name":         user.Name,
+			"email":        user.Email,
+			"role":         user.Role,
+			"tenant_id":    user.TenantID,
+			"hide_sidebar": user.HideSidebar,
 		},
 		"tenant": gin.H{
 			"id":       tenant.ID,
@@ -100,6 +147,12 @@ func Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate password strength
+	if valid, msg := ValidatePassword(req.Password); !valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
 
@@ -174,6 +227,7 @@ func GetMe(c *gin.Context) {
 			"cro":             user.CRO,
 			"specialty":       user.Specialty,
 			"profile_picture": user.ProfilePicture,
+			"hide_sidebar":    user.HideSidebar,
 		},
 		"tenant": gin.H{
 			"id":   tenant.ID,
@@ -250,12 +304,18 @@ func ChangePassword(c *gin.Context) {
 
 	type ChangePasswordRequest struct {
 		CurrentPassword string `json:"current_password" binding:"required"`
-		NewPassword     string `json:"new_password" binding:"required,min=6"`
+		NewPassword     string `json:"new_password" binding:"required"`
 	}
 
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate new password strength
+	if valid, msg := ValidatePassword(req.NewPassword); !valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
 

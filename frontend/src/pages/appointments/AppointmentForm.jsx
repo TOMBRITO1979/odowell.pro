@@ -19,7 +19,7 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { appointmentsAPI, patientsAPI } from '../../services/api';
+import { appointmentsAPI, patientsAPI, usersAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { TextArea } = Input;
@@ -31,6 +31,7 @@ const AppointmentForm = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
+  const [dentists, setDentists] = useState([]);
   const isEditing = !!id;
 
   const statusOptions = [
@@ -40,6 +41,14 @@ const AppointmentForm = () => {
     { value: 'completed', label: 'Concluído' },
     { value: 'cancelled', label: 'Cancelado' },
     { value: 'no_show', label: 'Faltou' },
+  ];
+
+  const roomOptions = [
+    { value: 'Sala 1', label: 'Sala 1' },
+    { value: 'Sala 2', label: 'Sala 2' },
+    { value: 'Sala 3', label: 'Sala 3' },
+    { value: 'Sala 4', label: 'Sala 4' },
+    { value: 'Sala 5', label: 'Sala 5' },
   ];
 
   const procedureOptions = [
@@ -58,6 +67,7 @@ const AppointmentForm = () => {
 
   useEffect(() => {
     fetchPatients();
+    fetchDentists();
     if (isEditing) {
       fetchAppointment();
     }
@@ -72,6 +82,19 @@ const AppointmentForm = () => {
     }
   };
 
+  const fetchDentists = async () => {
+    try {
+      const response = await usersAPI.getAll();
+      // Filtrar apenas dentistas e admins (profissionais que atendem)
+      const professionals = (response.data.users || []).filter(
+        u => u.role === 'dentist' || u.role === 'admin'
+      );
+      setDentists(professionals);
+    } catch (error) {
+      console.error('Error fetching dentists:', error);
+    }
+  };
+
   const fetchAppointment = async () => {
     setLoading(true);
     try {
@@ -80,6 +103,8 @@ const AppointmentForm = () => {
 
       form.setFieldsValue({
         ...appointment,
+        dentist_id: appointment.dentist_id,
+        room: appointment.room,
         date: appointment.start_time ? dayjs(appointment.start_time) : null,
         start_time: appointment.start_time ? dayjs(appointment.start_time) : null,
         end_time: appointment.end_time ? dayjs(appointment.end_time) : null,
@@ -114,11 +139,12 @@ const AppointmentForm = () => {
 
       const data = {
         patient_id: values.patient_id,
-        dentist_id: user.id,
+        dentist_id: values.dentist_id,
         start_time,
         end_time,
         status: values.status || 'scheduled',
         procedure: values.procedure,
+        room: values.room,
         notes: values.notes,
       };
 
@@ -195,6 +221,32 @@ const AppointmentForm = () => {
 
             <Col xs={24} md={12}>
               <Form.Item
+                name="dentist_id"
+                label="Profissional"
+                rules={[
+                  { required: true, message: 'Selecione o profissional' },
+                ]}
+              >
+                <Select
+                  placeholder="Selecione o profissional"
+                  showSearch
+                  filterOption={(input, option) =>
+                    option.children.toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {dentists.map((dentist) => (
+                    <Select.Option key={dentist.id} value={dentist.id}>
+                      {dentist.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
                 name="procedure"
                 label="Procedimento"
                 rules={[
@@ -210,10 +262,43 @@ const AppointmentForm = () => {
                 </Select>
               </Form.Item>
             </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="status"
+                label="Status"
+                rules={[
+                  { required: true, message: 'Selecione o status' },
+                ]}
+              >
+                <Select placeholder="Selecione o status">
+                  {statusOptions.map((status) => (
+                    <Select.Option key={status.value} value={status.value}>
+                      {status.label}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
           </Row>
 
           <Row gutter={16}>
-            <Col xs={24} md={8}>
+            <Col xs={24} md={6}>
+              <Form.Item
+                name="room"
+                label="Sala"
+              >
+                <Select placeholder="Selecione a sala" allowClear>
+                  {roomOptions.map((room) => (
+                    <Select.Option key={room.value} value={room.value}>
+                      {room.label}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={6}>
               <Form.Item
                 name="date"
                 label="Data do Agendamento"
@@ -229,7 +314,7 @@ const AppointmentForm = () => {
               </Form.Item>
             </Col>
 
-            <Col xs={24} md={8}>
+            <Col xs={24} md={6}>
               <Form.Item
                 name="start_time"
                 label="Horário de Início"
@@ -246,7 +331,7 @@ const AppointmentForm = () => {
               </Form.Item>
             </Col>
 
-            <Col xs={24} md={8}>
+            <Col xs={24} md={6}>
               <Form.Item
                 name="end_time"
                 label="Horário de Término"
@@ -260,26 +345,6 @@ const AppointmentForm = () => {
                   minuteStep={15}
                   placeholder="Selecione o horário"
                 />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="status"
-                label="Status"
-                rules={[
-                  { required: true, message: 'Selecione o status' },
-                ]}
-              >
-                <Select placeholder="Selecione o status">
-                  {statusOptions.map((status) => (
-                    <Select.Option key={status.value} value={status.value}>
-                      {status.label}
-                    </Select.Option>
-                  ))}
-                </Select>
               </Form.Item>
             </Col>
           </Row>

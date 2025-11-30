@@ -29,11 +29,16 @@ type Tenant struct {
 	ZipCode    string `json:"zip_code"`
 
 	// Status
-	Active     bool   `gorm:"default:true" json:"active"`
+	Active        bool `gorm:"default:true" json:"active"`
+	EmailVerified bool `gorm:"default:false" json:"email_verified"`
 
 	// Subscription (for future SaaS features)
 	PlanType   string `gorm:"default:'basic'" json:"plan_type"` // basic, professional, premium
 	ExpiresAt  *time.Time `json:"expires_at"`
+
+	// WhatsApp/External API Integration
+	APIKey     string `gorm:"unique" json:"api_key,omitempty"` // API key for external integrations (WhatsApp, AI bots)
+	APIKeyActive bool `gorm:"default:false" json:"api_key_active"` // Whether API key is enabled
 }
 
 // TableName specifies the table name for Tenant model

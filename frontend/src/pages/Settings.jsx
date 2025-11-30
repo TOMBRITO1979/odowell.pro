@@ -1,19 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, message, Row, Col, Tabs, TimePicker, Switch } from 'antd';
-import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, message, Row, Col, Tabs, TimePicker, Switch, Modal, Alert, Typography, Space, Divider, Collapse } from 'antd';
+import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { settingsAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, usePermission } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
+
+const { Text, Paragraph } = Typography;
+const { Panel } = Collapse;
 
 const Settings = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fetchingSettings, setFetchingSettings] = useState(true);
   const { tenant, updateTenant } = useAuth();
+  const { isAdmin } = usePermission();
+
+  // API Key state
+  const [apiKeyStatus, setApiKeyStatus] = useState({ has_key: false, active: false, masked_key: '' });
+  const [newApiKey, setNewApiKey] = useState(null);
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [apiDocs, setApiDocs] = useState(null);
+  const [showDocs, setShowDocs] = useState(false);
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+    if (isAdmin) {
+      fetchApiKeyStatus();
+    }
+  }, [isAdmin]);
 
   const fetchSettings = async () => {
     setFetchingSettings(true);
@@ -44,10 +58,95 @@ const Settings = () => {
 
       form.setFieldsValue(formValues);
     } catch (error) {
-      // Settings may not exist yet, that's ok
-      console.log('Settings not found, using defaults');
+      // Settings may not exist yet, that's ok - use defaults
     } finally {
       setFetchingSettings(false);
+    }
+  };
+
+  const fetchApiKeyStatus = async () => {
+    try {
+      const response = await settingsAPI.getAPIKeyStatus();
+      setApiKeyStatus(response.data);
+    } catch (error) {
+      // Could not fetch API key status - ignore
+    }
+  };
+
+  const handleGenerateApiKey = async () => {
+    Modal.confirm({
+      title: 'Gerar Nova Chave de API',
+      content: apiKeyStatus.has_key
+        ? 'Isso substituirá a chave existente. Todas as integrações que usam a chave atual deixarão de funcionar. Deseja continuar?'
+        : 'Uma nova chave de API será gerada para sua clínica. Você poderá usar esta chave para integrar com WhatsApp e assistentes de IA.',
+      okText: 'Gerar',
+      cancelText: 'Cancelar',
+      onOk: async () => {
+        setApiKeyLoading(true);
+        try {
+          const response = await settingsAPI.generateAPIKey();
+          setNewApiKey(response.data.api_key);
+          setApiKeyStatus({ has_key: true, active: true, masked_key: response.data.api_key.substring(0, 8) + '...' + response.data.api_key.slice(-4) });
+          message.success('Chave de API gerada com sucesso!');
+        } catch (error) {
+          message.error('Erro ao gerar chave de API');
+        } finally {
+          setApiKeyLoading(false);
+        }
+      }
+    });
+  };
+
+  const handleToggleApiKey = async () => {
+    setApiKeyLoading(true);
+    try {
+      await settingsAPI.toggleAPIKey(!apiKeyStatus.active);
+      setApiKeyStatus({ ...apiKeyStatus, active: !apiKeyStatus.active });
+      message.success(apiKeyStatus.active ? 'Chave de API desativada' : 'Chave de API ativada');
+    } catch (error) {
+      message.error('Erro ao alterar status da chave de API');
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
+
+  const handleRevokeApiKey = async () => {
+    Modal.confirm({
+      title: 'Revogar Chave de API',
+      content: 'Isso desativará permanentemente a chave de API. Todas as integrações deixarão de funcionar imediatamente. Esta ação não pode ser desfeita.',
+      okText: 'Revogar',
+      cancelText: 'Cancelar',
+      okType: 'danger',
+      onOk: async () => {
+        setApiKeyLoading(true);
+        try {
+          await settingsAPI.revokeAPIKey();
+          setApiKeyStatus({ has_key: false, active: false, masked_key: '' });
+          setNewApiKey(null);
+          message.success('Chave de API revogada com sucesso');
+        } catch (error) {
+          message.error('Erro ao revogar chave de API');
+        } finally {
+          setApiKeyLoading(false);
+        }
+      }
+    });
+  };
+
+  const handleCopyApiKey = () => {
+    if (newApiKey) {
+      navigator.clipboard.writeText(newApiKey);
+      message.success('Chave de API copiada para a área de transferência');
+    }
+  };
+
+  const handleViewDocs = async () => {
+    try {
+      const response = await settingsAPI.getAPIKeyDocs();
+      setApiDocs(response.data);
+      setShowDocs(true);
+    } catch (error) {
+      message.error('Erro ao carregar documentação');
     }
   };
 
@@ -259,6 +358,184 @@ const Settings = () => {
     </Row>
   );
 
+  const apiTab = (
+    <div>
+      <Alert
+        message="Integração WhatsApp / IA"
+        description="Configure uma chave de API para permitir que assistentes de IA e bots do WhatsApp interajam com o sistema da sua clínica. Os pacientes poderão verificar consultas, remarcar e entrar na lista de espera automaticamente."
+        type="info"
+        showIcon
+        style={{ marginBottom: 24 }}
+      />
+
+      {/* API Key Status */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Row align="middle" justify="space-between">
+          <Col>
+            <Space>
+              <Text strong>Status da Chave de API:</Text>
+              {apiKeyStatus.has_key ? (
+                apiKeyStatus.active ? (
+                  <Text type="success"><CheckCircleOutlined /> Ativa</Text>
+                ) : (
+                  <Text type="warning"><CloseCircleOutlined /> Desativada</Text>
+                )
+              ) : (
+                <Text type="secondary">Não configurada</Text>
+              )}
+            </Space>
+          </Col>
+          {apiKeyStatus.has_key && (
+            <Col>
+              <Space>
+                <Text type="secondary">Chave: {apiKeyStatus.masked_key}</Text>
+              </Space>
+            </Col>
+          )}
+        </Row>
+      </Card>
+
+      {/* New API Key Display */}
+      {newApiKey && (
+        <Alert
+          message="Sua Nova Chave de API"
+          description={
+            <div>
+              <Paragraph>
+                <Text strong>IMPORTANTE:</Text> Copie e guarde esta chave em local seguro.
+                Ela só será exibida uma vez!
+              </Paragraph>
+              <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 4, marginBottom: 12 }}>
+                <Text code copyable={{ text: newApiKey }}>
+                  {newApiKey}
+                </Text>
+              </div>
+              <Button icon={<CopyOutlined />} onClick={handleCopyApiKey}>
+                Copiar Chave
+              </Button>
+            </div>
+          }
+          type="success"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {/* Actions */}
+      <Space wrap style={{ marginBottom: 24 }}>
+        <Button
+          type="primary"
+          icon={<ReloadOutlined />}
+          onClick={handleGenerateApiKey}
+          loading={apiKeyLoading}
+        >
+          {apiKeyStatus.has_key ? 'Regenerar Chave' : 'Gerar Chave de API'}
+        </Button>
+
+        {apiKeyStatus.has_key && (
+          <>
+            <Button
+              icon={apiKeyStatus.active ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
+              onClick={handleToggleApiKey}
+              loading={apiKeyLoading}
+            >
+              {apiKeyStatus.active ? 'Desativar' : 'Ativar'}
+            </Button>
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={handleRevokeApiKey}
+              loading={apiKeyLoading}
+            >
+              Revogar
+            </Button>
+          </>
+        )}
+
+        <Button
+          icon={<QuestionCircleOutlined />}
+          onClick={handleViewDocs}
+        >
+          Ver Documentação
+        </Button>
+      </Space>
+
+      <Divider />
+
+      {/* Usage Instructions */}
+      <Collapse>
+        <Panel header="Como usar a API" key="1">
+          <Paragraph>
+            <ol>
+              <li>Gere uma chave de API clicando no botão acima</li>
+              <li>Copie a chave gerada e configure no seu bot do WhatsApp ou assistente de IA</li>
+              <li>Todas as requisições devem incluir o header <Text code>X-API-Key</Text> com sua chave</li>
+              <li>Os pacientes podem verificar sua identidade com CPF e data de nascimento</li>
+              <li>Após verificado, o paciente pode consultar, cancelar ou remarcar consultas</li>
+            </ol>
+          </Paragraph>
+        </Panel>
+        <Panel header="Endpoints Disponíveis" key="2">
+          <Paragraph>
+            <ul>
+              <li><Text code>POST /api/whatsapp/verify</Text> - Verificar identidade do paciente</li>
+              <li><Text code>GET /api/whatsapp/appointments</Text> - Listar consultas agendadas</li>
+              <li><Text code>POST /api/whatsapp/appointments/cancel</Text> - Cancelar consulta</li>
+              <li><Text code>POST /api/whatsapp/appointments/reschedule</Text> - Remarcar consulta</li>
+              <li><Text code>GET /api/whatsapp/slots</Text> - Horários disponíveis</li>
+              <li><Text code>POST /api/whatsapp/waiting-list</Text> - Entrar na lista de espera</li>
+              <li><Text code>GET /api/whatsapp/procedures</Text> - Lista de procedimentos</li>
+              <li><Text code>GET /api/whatsapp/dentists</Text> - Lista de profissionais</li>
+            </ul>
+          </Paragraph>
+        </Panel>
+      </Collapse>
+
+      {/* API Documentation Modal */}
+      <Modal
+        title="Documentação da API WhatsApp"
+        open={showDocs}
+        onCancel={() => setShowDocs(false)}
+        footer={null}
+        width={800}
+      >
+        {apiDocs && (
+          <div>
+            <Paragraph>{apiDocs.description}</Paragraph>
+
+            <Divider>Autenticação</Divider>
+            <Paragraph>
+              <Text strong>Header:</Text> <Text code>{apiDocs.authentication?.header}</Text>
+              <br />
+              <Text type="secondary">{apiDocs.authentication?.description}</Text>
+            </Paragraph>
+
+            <Divider>URL Base</Divider>
+            <Paragraph>
+              <Text code>{apiDocs.base_url}</Text>
+            </Paragraph>
+
+            <Divider>Endpoints</Divider>
+            {apiDocs.endpoints?.map((endpoint, index) => (
+              <Card key={index} size="small" style={{ marginBottom: 8 }}>
+                <Text strong>{endpoint.method}</Text> <Text code>{endpoint.path}</Text>
+                <br />
+                <Text type="secondary">{endpoint.description}</Text>
+              </Card>
+            ))}
+
+            <Divider>Fluxo de Exemplo</Divider>
+            <ol>
+              {apiDocs.example_flow?.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+
   const tabItems = [
     {
       key: 'clinic',
@@ -290,6 +567,17 @@ const Settings = () => {
       ),
       children: paymentTab,
     },
+    // Only show API tab for admins
+    ...(isAdmin ? [{
+      key: 'api',
+      label: (
+        <span>
+          <ApiOutlined />
+          Integração API
+        </span>
+      ),
+      children: apiTab,
+    }] : []),
   ];
 
   return (

@@ -31,24 +31,47 @@ func CreatePrescription(c *gin.Context) {
 		return
 	}
 
-	// Get tenant (clinic) info
-	var tenant models.Tenant
-	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
-		return
-	}
+	// Get clinic settings (preferred) or fallback to tenant info
+	var settings models.TenantSettings
+	settingsFound := db.Where("tenant_id = ?", tenantID).First(&settings).Error == nil
 
 	// Set default values
 	input.DentistID = userID
 	input.Status = "draft"
 
-	// Cache clinic and dentist info for document consistency
-	input.ClinicName = tenant.Name
-	input.ClinicAddress = tenant.Address + ", " + tenant.City + " - " + tenant.State
-	if tenant.ZipCode != "" {
-		input.ClinicAddress += " - CEP: " + tenant.ZipCode
+	// Cache clinic info from settings (dynamic) or tenant (fallback)
+	if settingsFound && settings.ClinicName != "" {
+		input.ClinicName = settings.ClinicName
+		// Build address from settings
+		address := settings.ClinicAddress
+		if settings.ClinicCity != "" {
+			if address != "" {
+				address += ", "
+			}
+			address += settings.ClinicCity
+		}
+		if settings.ClinicState != "" {
+			address += " - " + settings.ClinicState
+		}
+		if settings.ClinicZip != "" {
+			address += " - CEP: " + settings.ClinicZip
+		}
+		input.ClinicAddress = address
+		input.ClinicPhone = settings.ClinicPhone
+	} else {
+		// Fallback to tenant info
+		var tenant models.Tenant
+		if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
+			return
+		}
+		input.ClinicName = tenant.Name
+		input.ClinicAddress = tenant.Address + ", " + tenant.City + " - " + tenant.State
+		if tenant.ZipCode != "" {
+			input.ClinicAddress += " - CEP: " + tenant.ZipCode
+		}
+		input.ClinicPhone = tenant.Phone
 	}
-	input.ClinicPhone = tenant.Phone
 
 	input.DentistName = dentist.Name
 	input.DentistCRO = dentist.CRO

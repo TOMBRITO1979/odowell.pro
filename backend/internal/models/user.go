@@ -30,6 +30,9 @@ type User struct {
 
 	// Profile picture
 	ProfilePicture string `json:"profile_picture,omitempty"`
+
+	// UI preferences
+	HideSidebar bool `gorm:"default:false" json:"hide_sidebar"`
 }
 
 // TableName specifies the table name for User model

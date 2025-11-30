@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { campaignsAPI } from '../../services/api';
+import { actionColors } from '../../theme/designSystem';
 
 const Campaigns = () => {
   const navigate = useNavigate();
@@ -215,9 +216,13 @@ const Campaigns = () => {
         }
         extra={
           <Button
-            type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/campaigns/new')}
+            style={{
+              backgroundColor: actionColors.create,
+              borderColor: actionColors.create,
+              color: '#fff'
+            }}
           >
             Nova Campanha
           </Button>

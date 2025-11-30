@@ -132,7 +132,8 @@ func GetUserPermissions(userID uint) (map[string]map[string]bool, error) {
 	return permissions, nil
 }
 
-// GetAllUserPermissionsWithDefaults returns permissions with default false values for all modules
+// GetAllUserPermissionsWithDefaults returns ALL permissions as TRUE for admin users
+// This ensures admins have full access to all modules in the frontend
 func GetAllUserPermissionsWithDefaults(userID uint) (map[string]map[string]bool, error) {
 	db := database.GetDB()
 
@@ -142,29 +143,14 @@ func GetAllUserPermissionsWithDefaults(userID uint) (map[string]map[string]bool,
 		return nil, err
 	}
 
-	// Initialize with all modules and false permissions
+	// Initialize with all modules and TRUE permissions for admin
 	permissions := make(map[string]map[string]bool)
 	for _, module := range modules {
 		permissions[module.Code] = map[string]bool{
-			"view":   false,
-			"create": false,
-			"edit":   false,
-			"delete": false,
-		}
-	}
-
-	// Get user's actual permissions
-	userPerms, err := GetUserPermissions(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Merge with actual permissions
-	for moduleCode, actions := range userPerms {
-		for action, value := range actions {
-			if permissions[moduleCode] != nil {
-				permissions[moduleCode][action] = value
-			}
+			"view":   true,
+			"create": true,
+			"edit":   true,
+			"delete": true,
 		}
 	}
 

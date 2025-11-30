@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/models"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -103,6 +106,51 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		c.Next()
+	}
+}
+
+// APIKeyMiddleware validates API key for external integrations (WhatsApp, AI bots)
+// The API key should be passed in the X-API-Key header
+func APIKeyMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKey := c.GetHeader("X-API-Key")
+		if apiKey == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   true,
+				"message": "API key is required. Use X-API-Key header.",
+			})
+			c.Abort()
+			return
+		}
+
+		// Find tenant by API key
+		db := database.GetDB()
+		var tenant models.Tenant
+		result := db.Where("api_key = ? AND api_key_active = ? AND active = ?", apiKey, true, true).First(&tenant)
+
+		if result.Error != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   true,
+				"message": "Invalid or inactive API key",
+			})
+			c.Abort()
+			return
+		}
+
+		// Set tenant info in context
+		c.Set("tenant_id", tenant.ID)
+		c.Set("tenant_name", tenant.Name)
+		c.Set("api_access", true) // Flag to identify API access vs user access
+
+		// Set tenant-specific schema
+		schemaName := fmt.Sprintf("tenant_%d", tenant.ID)
+		tenantDB := database.SetSchema(db, schemaName)
+
+		// Store tenant DB in context
+		c.Set("db", tenantDB)
+		c.Set("schema", schemaName)
 
 		c.Next()
 	}

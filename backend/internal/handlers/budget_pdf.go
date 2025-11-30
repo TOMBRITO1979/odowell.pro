@@ -24,12 +24,8 @@ func GenerateBudgetPDF(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 	budgetID := c.Param("id")
 
-	// Get tenant info for header
-	var tenant models.Tenant
-	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
-		return
-	}
+	// Get clinic info from settings (dynamic) or tenant (fallback)
+	clinic := GetClinicInfo(db, tenantID)
 
 	// Get budget with patient and dentist info
 	var budget models.Budget
@@ -60,14 +56,19 @@ func GenerateBudgetPDF(c *gin.Context) {
 
 	// Header
 	pdf.SetFont("Arial", "B", 16)
-	pdf.Cell(0, 10, tr(tenant.Name))
+	pdf.Cell(0, 10, tr(clinic.Name))
 	pdf.Ln(8)
 
 	pdf.SetFont("Arial", "", 9)
-	pdf.Cell(0, 5, tr(tenant.Address+", "+tenant.City+" - "+tenant.State))
+	if clinic.Address != "" {
+		pdf.Cell(0, 5, tr(clinic.Address))
+		pdf.Ln(5)
+	}
+	if clinic.Phone != "" {
+		pdf.Cell(0, 5, tr("Tel: "+clinic.Phone))
+		pdf.Ln(5)
+	}
 	pdf.Ln(5)
-	pdf.Cell(0, 5, tr("Tel: "+tenant.Phone))
-	pdf.Ln(10)
 
 	// Title
 	pdf.SetFont("Arial", "B", 14)
@@ -202,12 +203,8 @@ func GenerateBudgetPaymentsPDF(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 	budgetID := c.Param("id")
 
-	// Get tenant info for header
-	var tenant models.Tenant
-	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
-		return
-	}
+	// Get clinic info from settings (dynamic) or tenant (fallback)
+	clinic := GetClinicInfo(db, tenantID)
 
 	// Get budget with patient, dentist and payments info
 	var budget models.Budget
@@ -249,14 +246,19 @@ func GenerateBudgetPaymentsPDF(c *gin.Context) {
 
 	// Header
 	pdf.SetFont("Arial", "B", 16)
-	pdf.Cell(0, 10, tr(tenant.Name))
+	pdf.Cell(0, 10, tr(clinic.Name))
 	pdf.Ln(8)
 
 	pdf.SetFont("Arial", "", 9)
-	pdf.Cell(0, 5, tr(tenant.Address+", "+tenant.City+" - "+tenant.State))
+	if clinic.Address != "" {
+		pdf.Cell(0, 5, tr(clinic.Address))
+		pdf.Ln(5)
+	}
+	if clinic.Phone != "" {
+		pdf.Cell(0, 5, tr("Tel: "+clinic.Phone))
+		pdf.Ln(5)
+	}
 	pdf.Ln(5)
-	pdf.Cell(0, 5, tr("Tel: "+tenant.Phone))
-	pdf.Ln(10)
 
 	// Title
 	pdf.SetFont("Arial", "B", 14)

@@ -3,6 +3,7 @@ import { Table, Button, Space, Tag, message, Modal, Form, Input, Select } from '
 import { UserOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { usersAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
+import { actionColors } from '../../theme/designSystem';
 import UserPermissions from './UserPermissions';
 
 const { Option } = Select;
@@ -105,9 +106,13 @@ const Users = () => {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <h2><UserOutlined /> Gerenciamento de Usuários</h2>
         <Button
-          type="primary"
           icon={<PlusOutlined />}
           onClick={() => setCreateModalVisible(true)}
+          style={{
+            backgroundColor: actionColors.create,
+            borderColor: actionColors.create,
+            color: '#fff'
+          }}
         >
           Novo Usuário
         </Button>

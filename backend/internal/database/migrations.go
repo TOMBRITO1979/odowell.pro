@@ -91,6 +91,7 @@ func migrateNewTablesOnly(schema string) error {
 		&models.ConsentTemplate{},
 		&models.PatientConsent{},
 		&models.Prescription{}, // Added for new signer fields
+		&models.Appointment{},  // Added for new room field
 	)
 
 	return err
@@ -171,6 +172,9 @@ func MigratePublicSchema() error {
 		&models.Module{},
 		&models.Permission{},
 		&models.UserPermission{},
+		&models.AuditLog{},
+		&models.EmailVerification{},
+		&models.PasswordReset{},
 	)
 
 	if err != nil {

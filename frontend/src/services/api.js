@@ -207,6 +207,12 @@ export const attachmentsAPI = {
 export const settingsAPI = {
   get: () => api.get('/settings'),
   update: (data) => api.put('/settings', data),
+  // API Key Management
+  getAPIKeyStatus: () => api.get('/settings/api-key/status'),
+  generateAPIKey: () => api.post('/settings/api-key/generate'),
+  toggleAPIKey: (active) => api.patch('/settings/api-key/toggle', { active }),
+  revokeAPIKey: () => api.delete('/settings/api-key'),
+  getAPIKeyDocs: () => api.get('/settings/api-key/docs'),
 };
 
 // Exams API
@@ -238,6 +244,7 @@ export const usersAPI = {
   getAll: () => api.get('/users'),
   create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
+  updateSidebar: (id, hideSidebar) => api.patch(`/users/${id}/sidebar`, { hide_sidebar: hideSidebar }),
 };
 
 // Permissions API

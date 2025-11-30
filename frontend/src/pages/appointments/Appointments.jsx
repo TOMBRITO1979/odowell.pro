@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, message, Tag, Space, Popconfirm, Card } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
-import { appointmentsAPI } from '../../services/api';
+import { Table, Button, message, Tag, Space, Popconfirm, Card, Row, Col, Select, DatePicker } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FileExcelOutlined, FilePdfOutlined, FilterOutlined, ClearOutlined } from '@ant-design/icons';
+import { appointmentsAPI, usersAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import { actionColors, statusColors, spacing, shadows, buttonSizes } from '../../theme/designSystem';
 import dayjs from 'dayjs';
 
+const { RangePicker } = DatePicker;
+
 const Appointments = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [dentists, setDentists] = useState([]);
+  const [filters, setFilters] = useState({
+    dentist_id: null,
+    procedure: null,
+    status: null,
+    dateRange: null,
+  });
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -19,12 +28,45 @@ const Appointments = () => {
   const { canCreate, canEdit, canDelete } = usePermission();
 
   useEffect(() => {
+    fetchDentists();
+  }, []);
+
+  useEffect(() => {
     fetchAppointments();
-  }, [pagination.current]);
+  }, [pagination.current, filters]);
+
+  const fetchDentists = async () => {
+    try {
+      const response = await usersAPI.getAll();
+      // Filtrar apenas dentistas e admins (profissionais que atendem)
+      const professionals = (response.data.users || []).filter(
+        user => user.role === 'dentist' || user.role === 'admin'
+      );
+      setDentists(professionals);
+    } catch (error) {
+      console.error('Error fetching dentists:', error);
+    }
+  };
 
   const fetchAppointments = () => {
     setLoading(true);
-    appointmentsAPI.getAll({ page: pagination.current, page_size: pagination.pageSize })
+    const params = {
+      page: pagination.current,
+      page_size: pagination.pageSize
+    };
+
+    // Adicionar filtros se definidos
+    if (filters.dentist_id) params.dentist_id = filters.dentist_id;
+    if (filters.procedure) params.procedure = filters.procedure;
+    if (filters.status) params.status = filters.status;
+    if (filters.dateRange && filters.dateRange[0]) {
+      params.start_date = filters.dateRange[0].startOf('day').toISOString();
+    }
+    if (filters.dateRange && filters.dateRange[1]) {
+      params.end_date = filters.dateRange[1].endOf('day').toISOString();
+    }
+
+    appointmentsAPI.getAll(params)
       .then(res => {
         setData(res.data.appointments || []);
         setPagination({
@@ -35,6 +77,44 @@ const Appointments = () => {
       .catch(() => message.error('Erro ao carregar agendamentos'))
       .finally(() => setLoading(false));
   };
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, current: 1 }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      dentist_id: null,
+      procedure: null,
+      status: null,
+      dateRange: null,
+    });
+    setPagination(prev => ({ ...prev, current: 1 }));
+  };
+
+  const procedureOptions = [
+    { value: 'consultation', label: 'Consulta' },
+    { value: 'cleaning', label: 'Limpeza' },
+    { value: 'filling', label: 'Restauração' },
+    { value: 'extraction', label: 'Extração' },
+    { value: 'root_canal', label: 'Canal' },
+    { value: 'orthodontics', label: 'Ortodontia' },
+    { value: 'whitening', label: 'Clareamento' },
+    { value: 'prosthesis', label: 'Prótese' },
+    { value: 'implant', label: 'Implante' },
+    { value: 'emergency', label: 'Emergência' },
+    { value: 'other', label: 'Outro' },
+  ];
+
+  const statusOptions = [
+    { value: 'scheduled', label: 'Agendado' },
+    { value: 'confirmed', label: 'Confirmado' },
+    { value: 'in_progress', label: 'Em Atendimento' },
+    { value: 'completed', label: 'Concluído' },
+    { value: 'cancelled', label: 'Cancelado' },
+    { value: 'no_show', label: 'Faltou' },
+  ];
 
   const handleDelete = async (id) => {
     try {
@@ -122,6 +202,12 @@ const Appointments = () => {
       render: (text) => text || 'N/A',
     },
     {
+      title: 'Profissional',
+      dataIndex: ['dentist', 'name'],
+      key: 'dentist_name',
+      render: (text) => text || 'N/A',
+    },
+    {
       title: 'Data/Hora',
       dataIndex: 'start_time',
       key: 'start_time',
@@ -138,6 +224,12 @@ const Appointments = () => {
       dataIndex: 'status',
       key: 'status',
       render: (status) => getStatusTag(status),
+    },
+    {
+      title: 'Sala',
+      dataIndex: 'room',
+      key: 'room',
+      render: (text) => text || '-',
     },
     {
       title: 'Ações',
@@ -195,7 +287,10 @@ const Appointments = () => {
               style={{
                 backgroundColor: actionColors.exportExcel,
                 borderColor: actionColors.exportExcel,
-                color: '#fff'
+                color: '#fff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
               className="appointments-btn"
             >
@@ -208,7 +303,10 @@ const Appointments = () => {
               style={{
                 backgroundColor: actionColors.exportPDF,
                 borderColor: actionColors.exportPDF,
-                color: '#fff'
+                color: '#fff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
               className="appointments-btn"
             >
@@ -236,6 +334,74 @@ const Appointments = () => {
           </div>
         }
       >
+        {/* Filtros */}
+        <div style={{ marginBottom: 16, padding: '16px', background: '#fafafa', borderRadius: '8px' }}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                placeholder="Profissional"
+                allowClear
+                style={{ width: '100%' }}
+                value={filters.dentist_id}
+                onChange={(value) => handleFilterChange('dentist_id', value)}
+                showSearch
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {dentists.map(d => (
+                  <Select.Option key={d.id} value={d.id}>{d.name}</Select.Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} sm={12} md={5}>
+              <Select
+                placeholder="Procedimento"
+                allowClear
+                style={{ width: '100%' }}
+                value={filters.procedure}
+                onChange={(value) => handleFilterChange('procedure', value)}
+              >
+                {procedureOptions.map(p => (
+                  <Select.Option key={p.value} value={p.value}>{p.label}</Select.Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} sm={12} md={5}>
+              <Select
+                placeholder="Status"
+                allowClear
+                style={{ width: '100%' }}
+                value={filters.status}
+                onChange={(value) => handleFilterChange('status', value)}
+              >
+                {statusOptions.map(s => (
+                  <Select.Option key={s.value} value={s.value}>{s.label}</Select.Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <RangePicker
+                style={{ width: '100%' }}
+                format="DD/MM/YYYY"
+                value={filters.dateRange}
+                onChange={(dates) => handleFilterChange('dateRange', dates)}
+                placeholder={['Data Início', 'Data Fim']}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={2}>
+              <Button
+                icon={<ClearOutlined />}
+                onClick={clearFilters}
+                style={{ width: '100%' }}
+                title="Limpar Filtros"
+              >
+                Limpar
+              </Button>
+            </Col>
+          </Row>
+        </div>
+
         <div style={{ overflowX: 'auto' }}>
           <Table
             columns={columns}

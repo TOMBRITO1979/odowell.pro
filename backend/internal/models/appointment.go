@@ -38,6 +38,9 @@ type Appointment struct {
 
 	Notes       string    `gorm:"type:text" json:"notes"`
 
+	// Room
+	Room        string    `json:"room"`
+
 	// Recurrence
 	IsRecurring bool      `gorm:"default:false" json:"is_recurring"`
 	RecurrenceRule string `json:"recurrence_rule,omitempty"` // JSON with recurrence config

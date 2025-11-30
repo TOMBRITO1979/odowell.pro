@@ -1,6 +1,7 @@
 package main
 
 import (
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/handlers"
 	"drcrwell/backend/internal/middleware"
@@ -16,6 +17,12 @@ func main() {
 	// Initialize database
 	if err := database.Connect(); err != nil {
 		log.Fatal("Database connection failed:", err)
+	}
+
+	// Initialize Redis cache
+	if err := cache.Connect(); err != nil {
+		log.Printf("WARNING: Redis connection failed: %v (cache disabled)", err)
+		// Don't fail startup - app can work without cache
 	}
 
 	// Run migrations for all existing tenant schemas
@@ -42,16 +49,76 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Health check
+	// Health check with detailed status
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		pgStatus := "healthy"
+		redisStatus := "healthy"
+		pgError := ""
+		redisError := ""
+
+		// Check PostgreSQL using direct ping
+		err := database.Health()
+		if err != nil {
+			pgStatus = "unhealthy"
+			pgError = err.Error()
+			log.Printf("Health check - PostgreSQL error: %v", err)
+		} else {
+			log.Printf("Health check - PostgreSQL OK")
+		}
+
+		// Check Redis
+		if err := cache.Health(); err != nil {
+			redisStatus = "unhealthy"
+			redisError = err.Error()
+		} else if cache.GetClient() == nil {
+			redisStatus = "unhealthy"
+			redisError = "client is nil"
+		}
+
+		overallStatus := "ok"
+		if pgStatus == "unhealthy" || redisStatus == "unhealthy" {
+			overallStatus = "degraded"
+		}
+
+		response := gin.H{
+			"status": overallStatus,
+			"services": gin.H{
+				"postgres": pgStatus,
+				"redis":    redisStatus,
+			},
+		}
+
+		// Add error details in debug mode or when unhealthy
+		if pgError != "" || redisError != "" {
+			response["errors"] = gin.H{}
+			if pgError != "" {
+				response["errors"].(gin.H)["postgres"] = pgError
+			}
+			if redisError != "" {
+				response["errors"].(gin.H)["redis"] = redisError
+			}
+		}
+
+		httpStatus := 200
+		if overallStatus != "ok" {
+			httpStatus = 503
+		}
+		c.JSON(httpStatus, response)
 	})
 
 	// Public routes
 	public := r.Group("/api")
 	{
 		public.POST("/tenants", handlers.CreateTenant)
-		public.POST("/auth/login", handlers.Login)
+		// Login with rate limiting: 5 attempts per minute, 15 min block
+		public.POST("/auth/login", middleware.LoginRateLimiter.RateLimitMiddleware(), handlers.Login)
+		// Email verification
+		public.GET("/auth/verify-email", handlers.VerifyEmail)
+		public.POST("/auth/resend-verification", handlers.ResendVerificationEmail)
+		// Password reset
+		public.POST("/auth/forgot-password", handlers.ForgotPassword)
+		public.POST("/auth/reset-password", handlers.ResetPassword)
+		public.GET("/auth/validate-reset-token", handlers.ValidateResetToken)
 	}
 
 	// Static file serving for uploads
@@ -323,12 +390,20 @@ func main() {
 		tenanted.GET("/settings", middleware.PermissionMiddleware("settings", "view"), handlers.GetTenantSettings)
 		tenanted.PUT("/settings", middleware.PermissionMiddleware("settings", "edit"), handlers.UpdateTenantSettings)
 
+		// API Key Management (for WhatsApp/AI integrations)
+		tenanted.POST("/settings/api-key/generate", handlers.GenerateAPIKey)
+		tenanted.GET("/settings/api-key/status", handlers.GetAPIKeyStatus)
+		tenanted.PATCH("/settings/api-key/toggle", handlers.ToggleAPIKey)
+		tenanted.DELETE("/settings/api-key", handlers.RevokeAPIKey)
+		tenanted.GET("/settings/api-key/docs", handlers.WhatsAppAPIDocumentation)
+
 		// User Management (admin only)
 		users := tenanted.Group("/users")
 		{
 			users.GET("", handlers.GetTenantUsers)
 			users.POST("", handlers.CreateTenantUser)
 			users.PUT("/:id", handlers.UpdateTenantUser)
+			users.PATCH("/:id/sidebar", handlers.UpdateUserSidebar)
 		}
 
 		// Permission Management (admin only)
@@ -341,6 +416,33 @@ func main() {
 			permissions.POST("/users/:id/bulk", handlers.BulkUpdateUserPermissions)
 			permissions.GET("/defaults/:role", handlers.GetDefaultRolePermissions)
 		}
+	}
+
+	// WhatsApp/External API routes (API key authentication, tenant-isolated)
+	// These endpoints are for external integrations like WhatsApp bots and AI assistants
+	whatsappAPI := r.Group("/api/whatsapp")
+	whatsappAPI.Use(middleware.APIKeyMiddleware())
+	{
+		// Patient identity verification
+		whatsappAPI.POST("/verify", handlers.WhatsAppVerifyIdentity)
+
+		// Appointments
+		whatsappAPI.GET("/appointments", handlers.WhatsAppGetAppointments)
+		whatsappAPI.GET("/appointments/history", handlers.WhatsAppGetAppointmentHistory)
+		whatsappAPI.POST("/appointments/cancel", handlers.WhatsAppCancelAppointment)
+		whatsappAPI.POST("/appointments/reschedule", handlers.WhatsAppRescheduleAppointment)
+
+		// Available time slots
+		whatsappAPI.GET("/slots", handlers.WhatsAppGetAvailableSlots)
+
+		// Waiting list
+		whatsappAPI.POST("/waiting-list", handlers.WhatsAppAddToWaitingList)
+		whatsappAPI.GET("/waiting-list", handlers.WhatsAppGetWaitingListStatus)
+		whatsappAPI.DELETE("/waiting-list/:id", handlers.WhatsAppRemoveFromWaitingList)
+
+		// Reference data
+		whatsappAPI.GET("/procedures", handlers.WhatsAppGetProcedures)
+		whatsappAPI.GET("/dentists", handlers.WhatsAppGetDentists)
 	}
 
 	port := os.Getenv("PORT")

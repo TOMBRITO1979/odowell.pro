@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Drawer, Checkbox, Button, message, Spin, Card, Row, Col, Space } from 'antd';
-import { permissionsAPI } from '../../services/api';
+import { Drawer, Checkbox, Button, message, Spin, Card, Row, Col, Space, Switch, Divider } from 'antd';
+import { EyeInvisibleOutlined, MenuOutlined } from '@ant-design/icons';
+import { permissionsAPI, usersAPI } from '../../services/api';
 
 const UserPermissions = ({ user, visible, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [modules, setModules] = useState([]);
   const [permissions, setPermissions] = useState({});
+  const [hideSidebar, setHideSidebar] = useState(false);
 
   useEffect(() => {
     if (visible && user) {
       fetchData();
+      setHideSidebar(user.hide_sidebar || false);
     }
   }, [visible, user]);
 
@@ -27,6 +30,16 @@ const UserPermissions = ({ user, visible, onClose }) => {
       message.error('Erro ao carregar permissões');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSidebarChange = async (checked) => {
+    try {
+      await usersAPI.updateSidebar(user.id, checked);
+      setHideSidebar(checked);
+      message.success(checked ? 'Sidebar será ocultada para este usuário' : 'Sidebar será exibida para este usuário');
+    } catch (error) {
+      message.error('Erro ao atualizar preferência de sidebar');
     }
   };
 
@@ -93,6 +106,40 @@ const UserPermissions = ({ user, visible, onClose }) => {
         <Spin />
       ) : (
         <div>
+          {/* UI Preferences */}
+          <Card
+            title={
+              <Space>
+                <MenuOutlined />
+                <span>Preferências de Interface</span>
+              </Space>
+            }
+            size="small"
+            style={{ marginBottom: 16, borderColor: '#d9d9d9' }}
+          >
+            <Row align="middle" justify="space-between">
+              <Col>
+                <Space>
+                  <EyeInvisibleOutlined />
+                  <span>Esconder Sidebar (Menu Lateral)</span>
+                </Space>
+              </Col>
+              <Col>
+                <Switch
+                  checked={hideSidebar}
+                  onChange={handleSidebarChange}
+                  checkedChildren="Oculta"
+                  unCheckedChildren="Visível"
+                />
+              </Col>
+            </Row>
+            <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
+              Quando ativado, o menu lateral será ocultado para este usuário, mostrando apenas a área de conteúdo.
+            </div>
+          </Card>
+
+          <Divider>Permissões de Módulos</Divider>
+
           {modules.map(module => (
             <Card key={module.code} title={module.name} size="small" style={{ marginBottom: 16 }}>
               <Row gutter={16}>

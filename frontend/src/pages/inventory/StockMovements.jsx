@@ -256,9 +256,13 @@ const StockMovements = () => {
               Gerar PDF
             </Button>
             <Button
-              type="primary"
               icon={<PlusOutlined />}
               onClick={showModal}
+              style={{
+                backgroundColor: actionColors.create,
+                borderColor: actionColors.create,
+                color: '#fff'
+              }}
             >
               Nova Movimentação
             </Button>

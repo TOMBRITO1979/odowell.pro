@@ -80,6 +80,10 @@ const Login = () => {
             </Button>
           </Form.Item>
 
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <Link to="/forgot-password">Esqueci minha senha</Link>
+          </div>
+
           <div style={{ textAlign: 'center' }}>
             <Link to="/register">Criar conta</Link>
             <span style={{ margin: '0 8px' }}>|</span>
