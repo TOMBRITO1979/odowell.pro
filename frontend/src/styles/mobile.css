@@ -361,6 +361,9 @@ body {
 .appointments-btn {
   flex: 1;
   min-width: 0;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
 }
 
 @media (max-width: 768px) {
