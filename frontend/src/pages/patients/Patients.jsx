@@ -153,6 +153,7 @@ const Patients = () => {
       title: 'CPF',
       dataIndex: 'cpf',
       key: 'cpf',
+      responsive: ['sm', 'md', 'lg', 'xl', 'xxl'], // Esconde em xs
     },
     {
       title: 'Telefone',
@@ -164,6 +165,7 @@ const Patients = () => {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      responsive: ['md', 'lg', 'xl', 'xxl'], // Esconde em mobile
     },
     {
       title: 'Status',
@@ -174,10 +176,13 @@ const Patients = () => {
           {active ? 'Ativo' : 'Inativo'}
         </Tag>
       ),
+      responsive: ['sm', 'md', 'lg', 'xl', 'xxl'], // Esconde em xs
     },
     {
       title: 'Ações',
       key: 'actions',
+      fixed: 'right',
+      width: 100,
       render: (_, record) => (
         <Space>
           <Button

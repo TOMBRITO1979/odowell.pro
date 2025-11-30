@@ -206,6 +206,7 @@ const Appointments = () => {
       dataIndex: ['dentist', 'name'],
       key: 'dentist_name',
       render: (text) => text || 'N/A',
+      responsive: ['md', 'lg', 'xl', 'xxl'], // Esconde em mobile
     },
     {
       title: 'Data/Hora',
@@ -218,6 +219,7 @@ const Appointments = () => {
       dataIndex: 'procedure',
       key: 'procedure',
       render: (text) => getProcedureText(text),
+      responsive: ['sm', 'md', 'lg', 'xl', 'xxl'], // Esconde em xs
     },
     {
       title: 'Status',
@@ -230,10 +232,13 @@ const Appointments = () => {
       dataIndex: 'room',
       key: 'room',
       render: (text) => text || '-',
+      responsive: ['lg', 'xl', 'xxl'], // Esconde em tablet e mobile
     },
     {
       title: 'Ações',
       key: 'actions',
+      fixed: 'right',
+      width: 100,
       render: (_, record) => (
         <Space>
           <Button
