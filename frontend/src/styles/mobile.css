@@ -360,7 +360,7 @@ body {
 
 .appointments-btn {
   flex: 1;
-  min-width: 0;
+  min-width: 160px;
 }
 
 .appointments-btn.ant-btn {
@@ -368,10 +368,16 @@ body {
   justify-content: center !important;
   align-items: center !important;
   text-align: center !important;
+  gap: 6px !important;
+}
+
+.appointments-btn.ant-btn > span {
+  flex-shrink: 0 !important;
 }
 
 .appointments-btn .ant-btn-icon {
-  margin-inline-end: 6px !important;
+  margin-inline-end: 0 !important;
+  margin-right: 0 !important;
 }
 
 @media (max-width: 768px) {
@@ -383,6 +389,16 @@ body {
     font-size: 12px !important;
     padding: 4px 8px !important;
   }
+}
+
+/* ===== STATUS TAGS ===== */
+/* Center text in all tags */
+.ant-tag {
+  text-align: center !important;
+  min-width: 70px !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
 }
 
 /* ===== PATIENTS PAGE ===== */

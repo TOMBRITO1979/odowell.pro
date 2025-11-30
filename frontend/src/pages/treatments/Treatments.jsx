@@ -56,7 +56,7 @@ const Treatments = () => {
   });
 
   const statusOptions = [
-    { value: 'in_progress', label: 'Em Andamento', color: statusColors.inProgress, icon: <ClockCircleOutlined /> },
+    { value: 'in_progress', label: 'Andando', color: statusColors.inProgress, icon: <ClockCircleOutlined /> },
     { value: 'completed', label: 'Concluído', color: statusColors.success, icon: <CheckCircleOutlined /> },
     { value: 'cancelled', label: 'Cancelado', color: statusColors.error, icon: <CloseCircleOutlined /> },
   ];
