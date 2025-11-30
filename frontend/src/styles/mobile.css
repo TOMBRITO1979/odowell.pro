@@ -1,52 +1,50 @@
 /* Dr. Crwell - Mobile Responsive Styles */
 /* CRITICAL: These styles MUST override Ant Design defaults */
 
-/* Force correct viewport behavior */
+/* Force correct viewport behavior - page level */
 html {
-  overflow-x: hidden !important;
-  max-width: 100vw !important;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
-  overflow-x: hidden !important;
-  max-width: 100vw !important;
-  position: relative !important;
+  overflow-x: hidden;
+  max-width: 100vw;
+  position: relative;
 }
 
 #root {
-  overflow-x: hidden !important;
-  max-width: 100vw !important;
-}
-
-/* Prevent horizontal scroll globally */
-* {
-  max-width: 100% !important;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* ===== Mobile-First Media Queries ===== */
 
 /* Tablets and below (768px) */
 @media (max-width: 768px) {
-  /* Force no horizontal scroll */
+  /* Page level - prevent horizontal scroll */
   html, body, #root, .ant-app, .ant-layout {
-    overflow-x: hidden !important;
-    max-width: 100vw !important;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
 
   /* Container adjustments */
   .ant-layout-content {
     padding: 12px !important;
     margin: 12px 8px !important;
-    overflow-x: hidden !important;
+    overflow-x: hidden;
   }
 
   /* Card spacing */
   .ant-card {
     margin-bottom: 12px !important;
+    overflow: visible !important;
   }
 
   .ant-card-body {
-    padding: 16px !important;
+    padding: 12px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Typography adjustments */
@@ -74,23 +72,45 @@ body {
     font-size: 14px !important;
   }
 
-  /* Table responsiveness */
+  /* ===== TABLE HORIZONTAL SCROLL ===== */
+  /* Allow tables to scroll horizontally on mobile */
   .ant-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -12px;
+    padding: 0 12px;
+  }
+
+  .ant-table-container {
     overflow-x: auto !important;
   }
 
   .ant-table {
     font-size: 12px !important;
+    min-width: 500px; /* Force minimum width to enable scroll */
   }
 
   .ant-table-thead > tr > th {
-    padding: 8px 4px !important;
+    padding: 8px 6px !important;
     font-size: 12px !important;
+    white-space: nowrap;
   }
 
   .ant-table-tbody > tr > td {
-    padding: 8px 4px !important;
+    padding: 8px 6px !important;
     font-size: 12px !important;
+  }
+
+  /* Scroll indicator shadow */
+  .ant-table-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.05));
+    pointer-events: none;
   }
 
   /* Tabs - Make them scrollable on mobile */
