@@ -287,10 +287,7 @@ const Appointments = () => {
               style={{
                 backgroundColor: actionColors.exportExcel,
                 borderColor: actionColors.exportExcel,
-                color: '#fff',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                color: '#fff'
               }}
               className="appointments-btn"
             >
@@ -303,10 +300,7 @@ const Appointments = () => {
               style={{
                 backgroundColor: actionColors.exportPDF,
                 borderColor: actionColors.exportPDF,
-                color: '#fff',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                color: '#fff'
               }}
               className="appointments-btn"
             >
@@ -320,10 +314,7 @@ const Appointments = () => {
                 style={{
                   backgroundColor: actionColors.create,
                   borderColor: actionColors.create,
-                  color: '#fff',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  color: '#fff'
                 }}
                 className="appointments-btn"
               >
