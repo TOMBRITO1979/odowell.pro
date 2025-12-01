@@ -264,7 +264,7 @@ const Treatments = () => {
             <Statistic
               title="Total de Tratamentos"
               value={stats.total}
-              prefix={<MedicineBoxOutlined style={{ color: '#1890ff' }} />}
+              prefix={<MedicineBoxOutlined style={{ color: '#64B5F6' }} />}
             />
           </Card>
         </Col>

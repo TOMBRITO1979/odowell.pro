@@ -1,49 +1,86 @@
 /**
  * OdoWell Design System
  * Sistema centralizado de cores, estilos e padrões visuais
+ * Paleta Suave Moderna - Verde Claro #C8E6C9
  */
 
 // ============================================
-// CORES PRIMÁRIAS (Identidade da Marca)
+// CORES PRIMÁRIAS (Verde Claro Suave)
 // ============================================
 export const brandColors = {
-  primary: '#16a34a',        // Verde principal
-  primaryDark: '#15803d',    // Verde escuro (hover, gradientes)
-  primaryLight: '#22c55e',   // Verde claro
+  primary: '#66BB6A',        // Verde suave principal
+  primaryDark: '#4CAF50',    // Verde médio (hover)
+  primaryLight: '#E8F5E9',   // Verde muito claro (fundo)
+  primary50: '#E8F5E9',
+  primary100: '#C8E6C9',
+  primary200: '#A5D6A7',
+  primary300: '#81C784',
+  primary400: '#66BB6A',
+  primary500: '#4CAF50',
+  primary600: '#43A047',
 };
 
 // ============================================
-// CORES FUNCIONAIS (Ações)
+// CORES FUNCIONAIS (Ações - Tons Suaves)
 // ============================================
 export const actionColors = {
-  create: '#3b82f6',        // Azul suave - Criar/Adicionar
-  edit: '#f59e0b',          // Âmbar - Editar/Modificar
-  view: '#8b5cf6',          // Roxo suave - Visualizar/Ver
-  delete: '#ef4444',        // Vermelho suave - Excluir/Remover
-  save: '#10b981',          // Verde esmeralda - Salvar/Confirmar
-  cancel: '#6b7280',        // Cinza - Cancelar
-  exportPDF: '#b45454',     // Vermelho suave/fosco - Exportar PDF
-  exportExcel: '#4a8c6f',   // Verde suave/fosco - Exportar Excel/CSV
-  import: '#0284c7',        // Azul céu - Importar
-  print: '#4b5563',         // Cinza escuro - Imprimir
-  refund: '#f97316',        // Laranja - Estornar
-  approve: '#4a8c6f',       // Verde suave - Aprovar
-  reject: '#b45454',        // Vermelho suave - Rejeitar
+  create: '#7986CB',        // Azul índigo suave - Criar/Adicionar
+  edit: '#FFB74D',          // Âmbar suave - Editar/Modificar
+  view: '#B39DDB',          // Roxo suave - Visualizar/Ver
+  delete: '#E57373',        // Vermelho suave - Excluir/Remover
+  save: '#81C784',          // Verde suave - Salvar/Confirmar
+  cancel: '#90A4AE',        // Cinza azulado - Cancelar
+  exportPDF: '#E57373',     // Vermelho suave - Exportar PDF
+  exportExcel: '#81C784',   // Verde suave - Exportar Excel/CSV
+  import: '#64B5F6',        // Azul suave - Importar
+  print: '#78909C',         // Cinza azulado - Imprimir
+  refund: '#FFB74D',        // Âmbar suave - Estornar
+  approve: '#81C784',       // Verde suave - Aprovar
+  reject: '#E57373',        // Vermelho suave - Rejeitar
 };
 
 // ============================================
-// CORES DE STATUS
+// CORES DE STATUS (Tons Suaves)
 // ============================================
 export const statusColors = {
-  pending: '#f59e0b',       // Âmbar - Pendente/Aguardando
-  success: '#10b981',       // Verde - Sucesso/Pago/Concluído
-  error: '#b45454',         // Vermelho fosco - Erro/Faltou
-  cancelled: '#6b7280',     // Cinza - Cancelado
-  inProgress: '#3b82f6',    // Azul - Em Progresso
-  approved: '#10b981',      // Verde - Aprovado
-  rejected: '#b45454',      // Vermelho fosco - Rejeitado
-  overdue: '#b45454',       // Vermelho fosco - Atrasado
-  refunded: '#9333ea',      // Roxo - Estornado
+  pending: '#FFD54F',       // Âmbar suave - Pendente/Aguardando
+  success: '#81C784',       // Verde suave - Sucesso/Pago/Concluído
+  error: '#E57373',         // Vermelho suave - Erro/Faltou
+  cancelled: '#90A4AE',     // Cinza azulado - Cancelado
+  inProgress: '#64B5F6',    // Azul suave - Em Progresso
+  approved: '#81C784',      // Verde suave - Aprovado
+  rejected: '#E57373',      // Vermelho suave - Rejeitado
+  overdue: '#E57373',       // Vermelho suave - Atrasado
+  refunded: '#B39DDB',      // Roxo suave - Estornado
+  waiting: '#FFD54F',       // Âmbar suave - Aguardando
+  scheduled: '#64B5F6',     // Azul suave - Agendado
+  completed: '#81C784',     // Verde suave - Concluído
+  noShow: '#EF9A9A',        // Vermelho claro - Faltou
+};
+
+// ============================================
+// CORES DE FUNDO
+// ============================================
+export const backgroundColors = {
+  primary: '#FAFAFA',
+  secondary: '#F5F5F5',
+  tertiary: '#EEEEEE',
+  card: '#FFFFFF',
+  hover: '#E8F5E9',
+};
+
+// ============================================
+// CORES DE TEXTO
+// ============================================
+export const textColors = {
+  primary: '#37474F',
+  secondary: '#78909C',
+  tertiary: '#90A4AE',
+  muted: '#B0BEC5',
+  disabled: '#CFD8DC',
+  inverse: '#FFFFFF',
+  link: '#5C6BC0',
+  linkHover: '#3F51B5',
 };
 
 // ============================================

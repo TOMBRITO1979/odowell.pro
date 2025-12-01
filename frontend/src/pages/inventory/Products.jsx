@@ -235,7 +235,7 @@ const Products = () => {
           showZero
           overflowCount={9999}
           style={{
-            backgroundColor: quantity <= record.minimum_stock ? '#faad14' : '#52c41a',
+            backgroundColor: quantity <= record.minimum_stock ? '#FFD54F' : '#81C784',
           }}
         />
       ),

@@ -48,28 +48,29 @@ import { actionColors, statusColors, shadows } from '../theme/designSystem';
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 
-const COLORS = ['#52c41a', '#ff4d4f', '#faad14', '#1890ff', '#722ed1', '#eb2f96'];
+// Cores suaves para gráficos
+const COLORS = ['#81C784', '#E57373', '#FFD54F', '#64B5F6', '#B39DDB', '#F48FB1'];
 
 // Cores suaves e foscas para cada profissional (não agridem a vista)
 const PROFESSIONAL_COLORS = [
-  '#a7d7a7', // verde suave
-  '#b8d4e8', // azul suave
-  '#d4c4e8', // lilás suave
-  '#f5e0a8', // amarelo suave
-  '#e8c4d4', // rosa suave
-  '#a8d8d8', // teal suave
-  '#e8d0b8', // pêssego suave
-  '#c4c8e8', // indigo suave
-  '#b8e0c8', // menta suave
-  '#d4e0a8', // lima suave
+  '#A5D6A7', // verde suave
+  '#90CAF9', // azul suave
+  '#CE93D8', // lilás suave
+  '#FFF59D', // amarelo suave
+  '#F8BBD9', // rosa suave
+  '#80DEEA', // teal suave
+  '#FFCC80', // pêssego suave
+  '#B39DDB', // indigo suave
+  '#A5D6A7', // menta suave
+  '#C5E1A5', // lima suave
 ];
 
 // Cores específicas para status de orçamentos (tons foscos/suaves)
 const BUDGET_STATUS_COLORS = {
-  'approved': '#4a8c6f',   // Verde fosco para aprovado
-  'pending': '#c9a227',    // Amarelo fosco para pendente
-  'rejected': '#b45454',   // Vermelho fosco para rejeitado
-  'cancelled': '#8b7355',  // Marrom acinzentado para cancelado
+  'approved': '#81C784',   // Verde suave para aprovado
+  'pending': '#FFD54F',    // Amarelo suave para pendente
+  'rejected': '#E57373',   // Vermelho suave para rejeitado
+  'cancelled': '#90A4AE',  // Cinza azulado para cancelado
 };
 
 // Tradução de status de orçamentos
@@ -85,7 +86,7 @@ const translateStatus = (status) => {
 
 // Função para obter cor do status do orçamento
 const getBudgetStatusColor = (status) => {
-  return BUDGET_STATUS_COLORS[status] || '#1890ff';
+  return BUDGET_STATUS_COLORS[status] || '#64B5F6';
 };
 
 const Dashboard = () => {
@@ -195,9 +196,10 @@ const Dashboard = () => {
       <Card
         style={{
           marginBottom: 24,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #7986CB 0%, #9575CD 100%)',
           color: '#fff',
           boxShadow: shadows.large,
+          borderRadius: 12,
         }}
       >
         <Row align="middle" justify="space-between">
@@ -257,12 +259,12 @@ const Dashboard = () => {
                 </Card>
               </Col>
               <Col xs={24} sm={12} lg={6}>
-                <Card hoverable style={{ boxShadow: shadows.medium, borderLeft: `4px solid #1890ff` }}>
+                <Card hoverable style={{ boxShadow: shadows.medium, borderLeft: `4px solid #64B5F6` }}>
                   <Statistic
                     title={<Text strong>Consultas Concluídas</Text>}
                     value={dashboardData.completed_appointments}
-                    prefix={<CheckCircleOutlined style={{ color: '#1890ff' }} />}
-                    valueStyle={{ color: '#1890ff', fontSize: 32 }}
+                    prefix={<CheckCircleOutlined style={{ color: '#64B5F6' }} />}
+                    valueStyle={{ color: '#64B5F6', fontSize: 32 }}
                   />
                 </Card>
               </Col>
@@ -298,9 +300,9 @@ const Dashboard = () => {
                       percent={parseFloat(dashboardData.attendance_rate?.toFixed(2) || 0)}
                       format={(percent) => `${percent}%`}
                       strokeColor={{
-                        '0%': '#ff4d4f',
-                        '50%': '#faad14',
-                        '100%': '#52c41a',
+                        '0%': '#E57373',
+                        '50%': '#FFD54F',
+                        '100%': '#81C784',
                       }}
                       width={180}
                     />
@@ -341,7 +343,7 @@ const Dashboard = () => {
                       <Statistic
                         title="Remarcadas"
                         value={dashboardData.reschedules}
-                        valueStyle={{ color: '#1890ff' }}
+                        valueStyle={{ color: '#64B5F6' }}
                         prefix={<SyncOutlined />}
                       />
                     </Col>
@@ -362,7 +364,7 @@ const Dashboard = () => {
                       title="Novos Pacientes no Período"
                       value={dashboardData.new_patients}
                       prefix={<RiseOutlined />}
-                      valueStyle={{ color: '#1890ff', fontSize: 28 }}
+                      valueStyle={{ color: '#64B5F6', fontSize: 28 }}
                     />
                   </div>
                 </Card>
@@ -378,8 +380,8 @@ const Dashboard = () => {
                       <AreaChart data={dashboardData.daily_appointments}>
                         <defs>
                           <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8} />
-                            <stop offset="95%" stopColor="#1890ff" stopOpacity={0.1} />
+                            <stop offset="5%" stopColor="#64B5F6" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#64B5F6" stopOpacity={0.1} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" />
@@ -389,7 +391,7 @@ const Dashboard = () => {
                         <Area
                           type="monotone"
                           dataKey="count"
-                          stroke="#1890ff"
+                          stroke="#64B5F6"
                           fillOpacity={1}
                           fill="url(#colorCount)"
                           name="Agendamentos"
@@ -470,7 +472,7 @@ const Dashboard = () => {
                         <YAxis />
                         <Tooltip />
                         <Legend />
-                        <Line type="monotone" dataKey="count" stroke="#722ed1" name="Orçamentos Criados" strokeWidth={2} />
+                        <Line type="monotone" dataKey="count" stroke="#B39DDB" name="Orçamentos Criados" strokeWidth={2} />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (

@@ -301,7 +301,7 @@ const BudgetView = () => {
             {budget.valid_until ? dayjs(budget.valid_until).format('DD/MM/YYYY') : '-'}
           </Descriptions.Item>
           <Descriptions.Item label="Valor Total" span={2}>
-            <span style={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }}>
+            <span style={{ fontSize: 20, fontWeight: 'bold', color: '#64B5F6' }}>
               {formatCurrency(budget.total_value)}
             </span>
           </Descriptions.Item>
@@ -339,10 +339,10 @@ const BudgetView = () => {
           style={{
             fontSize: '18px',
             fontWeight: 'bold',
-            color: '#1890ff',
+            color: '#64B5F6',
             marginTop: '32px',
             marginBottom: '24px',
-            borderColor: '#1890ff'
+            borderColor: '#64B5F6'
           }}
         >
           <Space>
@@ -373,7 +373,7 @@ const BudgetView = () => {
                     value={calculateFinancialSummary().totalValue}
                     precision={2}
                     prefix="R$"
-                    valueStyle={{ color: '#1890ff' }}
+                    valueStyle={{ color: '#64B5F6' }}
                   />
                 </Card>
               </Col>
@@ -384,7 +384,7 @@ const BudgetView = () => {
                     value={calculateFinancialSummary().totalPaid}
                     precision={2}
                     prefix="R$"
-                    valueStyle={{ color: '#52c41a' }}
+                    valueStyle={{ color: '#81C784' }}
                   />
                 </Card>
               </Col>
@@ -396,7 +396,7 @@ const BudgetView = () => {
                     precision={2}
                     prefix="R$"
                     valueStyle={{
-                      color: calculateFinancialSummary().remainingBalance > 0 ? '#ff4d4f' : '#52c41a'
+                      color: calculateFinancialSummary().remainingBalance > 0 ? '#E57373' : '#81C784'
                     }}
                   />
                 </Card>

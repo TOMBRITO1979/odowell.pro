@@ -48,16 +48,16 @@ import { actionColors, statusColors, shadows } from '../../theme/designSystem';
 
 const { RangePicker } = DatePicker;
 
-// Cores suaves e foscas (não agridem a vista)
+// Cores suaves e foscas (paleta moderna)
 const COLORS = [
-  '#a7d7a7', // verde suave
-  '#b8d4e8', // azul suave
-  '#d4c4e8', // lilás suave
-  '#f5e0a8', // amarelo suave
-  '#e8c4d4', // rosa suave
-  '#a8d8d8', // teal suave
-  '#e8d0b8', // pêssego suave
-  '#c4c8e8', // indigo suave
+  '#A5D6A7', // verde suave
+  '#90CAF9', // azul suave
+  '#CE93D8', // lilás suave
+  '#FFF59D', // amarelo suave
+  '#F8BBD9', // rosa suave
+  '#80DEEA', // teal suave
+  '#FFCC80', // pêssego suave
+  '#B39DDB', // indigo suave
 ];
 
 // Tradução de métodos de pagamento
@@ -559,9 +559,9 @@ const Reports = () => {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: 'Concluídos', value: attendanceData.completed, color: '#4a8c6f' },
-                          { name: 'Cancelados', value: attendanceData.cancelled, color: '#b45454' },
-                          { name: 'Faltaram', value: attendanceData.no_show, color: '#c9a227' },
+                          { name: 'Concluídos', value: attendanceData.completed, color: '#81C784' },
+                          { name: 'Cancelados', value: attendanceData.cancelled, color: '#E57373' },
+                          { name: 'Faltaram', value: attendanceData.no_show, color: '#FFD54F' },
                         ]}
                         dataKey="value"
                         nameKey="name"
@@ -571,9 +571,9 @@ const Reports = () => {
                         label
                       >
                         {[
-                          { name: 'Concluídos', value: attendanceData.completed, color: '#4a8c6f' },
-                          { name: 'Cancelados', value: attendanceData.cancelled, color: '#b45454' },
-                          { name: 'Faltaram', value: attendanceData.no_show, color: '#c9a227' },
+                          { name: 'Concluídos', value: attendanceData.completed, color: '#81C784' },
+                          { name: 'Cancelados', value: attendanceData.cancelled, color: '#E57373' },
+                          { name: 'Faltaram', value: attendanceData.no_show, color: '#FFD54F' },
                         ].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
@@ -784,8 +784,8 @@ const Reports = () => {
                       percent={parseFloat(budgetConversionData.conversion_rate?.toFixed(2) || 0)}
                       format={(percent) => `${percent}%`}
                       strokeColor={{
-                        '0%': '#108ee9',
-                        '100%': '#87d068',
+                        '0%': '#64B5F6',
+                        '100%': '#81C784',
                       }}
                       width={200}
                     />
@@ -878,21 +878,21 @@ const Reports = () => {
             <div>
               <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col xs={24} md={12}>
-                  <Card style={{ textAlign: 'center', borderColor: '#ff4d4f' }}>
+                  <Card style={{ textAlign: 'center', borderColor: '#E57373' }}>
                     <Statistic
                       title="Total em Atraso"
                       value={overduePaymentsData.total_overdue || 0}
                       formatter={(value) => formatCurrency(value)}
-                      valueStyle={{ color: '#ff4d4f', fontSize: 24 }}
+                      valueStyle={{ color: '#E57373', fontSize: 24 }}
                     />
                   </Card>
                 </Col>
                 <Col xs={24} md={12}>
-                  <Card style={{ textAlign: 'center', borderColor: '#ff4d4f' }}>
+                  <Card style={{ textAlign: 'center', borderColor: '#E57373' }}>
                     <Statistic
                       title="Quantidade de Pagamentos Atrasados"
                       value={overduePaymentsData.overdue_count || 0}
-                      valueStyle={{ color: '#ff4d4f', fontSize: 24 }}
+                      valueStyle={{ color: '#E57373', fontSize: 24 }}
                     />
                   </Card>
                 </Col>
@@ -908,7 +908,7 @@ const Reports = () => {
                         <YAxis />
                         <Tooltip formatter={(value) => formatCurrency(value)} />
                         <Legend />
-                        <Bar dataKey="total" fill="#ff4d4f" name="Valor em Atraso" />
+                        <Bar dataKey="total" fill="#E57373" name="Valor em Atraso" />
                       </BarChart>
                     </ResponsiveContainer>
                   </Col>
@@ -936,7 +936,7 @@ const Reports = () => {
                   </Col>
                 </Row>
               ) : (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#52c41a' }}>
+                <div style={{ textAlign: 'center', padding: '40px', color: '#81C784' }}>
                   <h2>✓ Nenhum pagamento em atraso!</h2>
                   <p style={{ fontSize: 16 }}>Todos os pagamentos estão em dia.</p>
                 </div>

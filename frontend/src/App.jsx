@@ -77,16 +77,16 @@ function App() {
         locale={ptBR}
         theme={{
         token: {
-          colorPrimary: '#16a34a',
-          colorSuccess: '#52c41a',
-          colorWarning: '#faad14',
-          colorError: '#ff4d4f',
-          colorInfo: '#1890ff',
-          colorTextBase: '#262626',
-          colorBgBase: '#ffffff',
+          colorPrimary: '#66BB6A',
+          colorSuccess: '#81C784',
+          colorWarning: '#FFD54F',
+          colorError: '#EF9A9A',
+          colorInfo: '#64B5F6',
+          colorTextBase: '#37474F',
+          colorBgBase: '#FAFAFA',
           fontFamily: "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
           fontSize: 14,
-          borderRadius: 6,
+          borderRadius: 8,
           controlHeight: 36,
         },
         components: {

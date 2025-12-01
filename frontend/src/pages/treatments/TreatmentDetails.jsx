@@ -373,7 +373,7 @@ const TreatmentDetails = () => {
 
                 <Progress
                   percent={progressPercent}
-                  strokeColor="#52c41a"
+                  strokeColor="#81C784"
                   trailColor="rgba(255,255,255,0.3)"
                   format={(percent) => (
                     <span style={{ color: '#fff' }}>{percent}%</span>
@@ -386,7 +386,7 @@ const TreatmentDetails = () => {
                       title={<Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>Pago</Text>}
                       value={treatment.paid_value}
                       precision={2}
-                      valueStyle={{ color: '#52c41a', fontSize: 18 }}
+                      valueStyle={{ color: '#81C784', fontSize: 18 }}
                       formatter={(value) => formatCurrency(value)}
                     />
                   </Col>
@@ -395,7 +395,7 @@ const TreatmentDetails = () => {
                       title={<Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>Restante</Text>}
                       value={remainingValue}
                       precision={2}
-                      valueStyle={{ color: remainingValue > 0 ? '#ff4d4f' : '#52c41a', fontSize: 18 }}
+                      valueStyle={{ color: remainingValue > 0 ? '#E57373' : '#81C784', fontSize: 18 }}
                       formatter={(value) => formatCurrency(value)}
                     />
                   </Col>

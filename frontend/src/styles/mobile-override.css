@@ -162,7 +162,25 @@
 
   .ant-tabs-nav-wrap::-webkit-scrollbar-thumb,
   .ant-table-wrapper::-webkit-scrollbar-thumb {
-    background: #d9d9d9 !important;
+    background: #B0BEC5 !important;
     border-radius: 4px !important;
   }
+}
+
+/* ===== PALETA DE CORES SUAVES ===== */
+/* Override global para garantir cores suaves */
+.ant-btn-primary {
+  background-color: #66BB6A !important;
+  border-color: #66BB6A !important;
+}
+
+.ant-btn-primary:hover,
+.ant-btn-primary:focus {
+  background-color: #4CAF50 !important;
+  border-color: #4CAF50 !important;
+}
+
+.ant-btn-primary:active {
+  background-color: #43A047 !important;
+  border-color: #43A047 !important;
 }

@@ -263,8 +263,8 @@ const DashboardLayout = () => {
     justifyContent: 'center',
     fontSize: collapsed ? 18 : 20,
     fontWeight: 700,
-    color: '#16a34a',
-    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+    color: '#66BB6A',
+    background: 'linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%)',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     transition: 'all 0.3s',
@@ -340,7 +340,7 @@ const DashboardLayout = () => {
               }}
               onClick={() => setCollapsed(!collapsed)}
             >
-              {collapsed ? <MenuUnfoldOutlined style={{ fontSize: 16, color: '#16a34a' }} /> : <MenuFoldOutlined style={{ fontSize: 16, color: '#16a34a' }} />}
+              {collapsed ? <MenuUnfoldOutlined style={{ fontSize: 16, color: '#66BB6A' }} /> : <MenuFoldOutlined style={{ fontSize: 16, color: '#66BB6A' }} />}
             </div>
           </div>
         </Sider>
@@ -380,7 +380,7 @@ const DashboardLayout = () => {
               <Avatar
                 icon={<UserOutlined />}
                 src={user?.profile_picture ? `${API_URL}/${user.profile_picture}` : null}
-                style={{ backgroundColor: '#16a34a' }}
+                style={{ backgroundColor: '#66BB6A' }}
                 size={isMobile ? 32 : 40}
               />
               {!isMobile && <Text>{user?.name}</Text>}

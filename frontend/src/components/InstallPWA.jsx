@@ -65,7 +65,7 @@ const InstallPWA = () => {
         left: 0,
         right: 0,
         zIndex: 1000,
-        background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+        background: 'linear-gradient(135deg, #81C784 0%, #66BB6A 100%)',
         padding: '16px',
         boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.15)',
         animation: 'slideUp 0.3s ease-out',
@@ -129,7 +129,7 @@ const InstallPWA = () => {
             onClick={handleInstallClick}
             style={{
               background: 'white',
-              color: '#16a34a',
+              color: '#66BB6A',
               border: 'none',
               fontWeight: 600,
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',

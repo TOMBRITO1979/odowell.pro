@@ -1,56 +1,104 @@
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 
-/* CSS Variables - Design System */
+/* CSS Variables - Design System - Paleta Suave Moderna */
 :root {
-  /* Primary Colors */
-  --primary-color: #16a34a;
-  --primary-hover: #15803d;
-  --primary-light: #dcfce7;
-  --primary-dark: #14532d;
+  /* ========================================
+     COR PRIMÁRIA (Verde Claro Suave)
+     ======================================== */
+  --primary-50: #E8F5E9;
+  --primary-100: #C8E6C9;
+  --primary-200: #A5D6A7;
+  --primary-300: #81C784;
+  --primary-400: #66BB6A;
+  --primary-500: #4CAF50;
+  --primary-600: #43A047;
 
-  /* Semantic Colors */
-  --success-color: #52c41a;
-  --warning-color: #faad14;
-  --error-color: #ff4d4f;
-  --info-color: #1890ff;
+  --primary-color: #66BB6A;
+  --primary-hover: #4CAF50;
+  --primary-light: #E8F5E9;
+  --primary-dark: #43A047;
 
-  /* Text Colors */
-  --text-primary: #262626;
-  --text-secondary: #8c8c8c;
-  --text-disabled: #bfbfbf;
-  --text-white: #ffffff;
+  /* ========================================
+     CORES SEMÂNTICAS (Tons Suaves)
+     ======================================== */
+  --success-color: #81C784;
+  --warning-color: #FFD54F;
+  --error-color: #EF9A9A;
+  --info-color: #64B5F6;
 
-  /* Background Colors */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --bg-tertiary: #fafafa;
-  --bg-disabled: #f0f0f0;
+  /* ========================================
+     CORES DE TEXTO (Cinza Azulado)
+     ======================================== */
+  --text-primary: #37474F;
+  --text-secondary: #78909C;
+  --text-tertiary: #90A4AE;
+  --text-disabled: #B0BEC5;
+  --text-muted: #CFD8DC;
+  --text-white: #FFFFFF;
+  --text-link: #5C6BC0;
+  --text-link-hover: #3F51B5;
 
-  /* Border Colors */
-  --border-color: #d9d9d9;
-  --border-light: #f0f0f0;
-  --border-dark: #434343;
+  /* ========================================
+     CORES DE FUNDO
+     ======================================== */
+  --bg-primary: #FAFAFA;
+  --bg-secondary: #F5F5F5;
+  --bg-tertiary: #EEEEEE;
+  --bg-card: #FFFFFF;
+  --bg-disabled: #F5F5F5;
+  --bg-hover: #E8F5E9;
 
-  /* Spacing */
+  /* ========================================
+     BORDAS
+     ======================================== */
+  --border-color: #E0E0E0;
+  --border-light: #EEEEEE;
+  --border-dark: #BDBDBD;
+  --divider: #E8E8E8;
+
+  /* ========================================
+     CORES DE AÇÃO
+     ======================================== */
+  --action-create: #7986CB;
+  --action-edit: #FFB74D;
+  --action-view: #B39DDB;
+  --action-delete: #E57373;
+  --action-save: #81C784;
+  --action-cancel: #90A4AE;
+  --action-pdf: #E57373;
+  --action-excel: #81C784;
+
+  /* ========================================
+     ESPAÇAMENTOS
+     ======================================== */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
 
-  /* Border Radius */
+  /* ========================================
+     BORDER RADIUS
+     ======================================== */
   --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  /* ========================================
+     SOMBRAS (Suaves)
+     ======================================== */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
 
-  /* Typography */
+  /* ========================================
+     TIPOGRAFIA
+     ======================================== */
   --font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   --font-size-xs: 12px;
   --font-size-sm: 13px;
@@ -60,10 +108,12 @@
   --font-size-2xl: 20px;
   --font-size-3xl: 24px;
 
-  /* Transitions */
-  --transition-fast: 0.15s ease-in-out;
-  --transition-base: 0.3s ease-in-out;
-  --transition-slow: 0.5s ease-in-out;
+  /* ========================================
+     TRANSIÇÕES
+     ======================================== */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 350ms ease;
 }
 
 /* Global Resets */

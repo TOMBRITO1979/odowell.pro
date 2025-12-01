@@ -100,7 +100,7 @@
 
 .tooth-selected {
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4) !important;
+  box-shadow: 0 4px 12px rgba(102, 187, 106, 0.4) !important;
   z-index: 10;
 }
 
@@ -121,7 +121,7 @@
 
 .tooth-selector {
   margin-top: 20px;
-  border: 2px solid #1890ff;
+  border: 2px solid #66BB6A;
 }
 
 .odontogram-legend {

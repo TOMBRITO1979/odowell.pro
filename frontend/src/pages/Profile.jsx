@@ -118,14 +118,14 @@ const Profile = () => {
                 size={120}
                 icon={<UserOutlined />}
                 src={profilePictureUrl}
-                style={{ backgroundColor: '#16a34a' }}
+                style={{ backgroundColor: '#66BB6A' }}
               />
               <div
                 style={{
                   position: 'absolute',
                   bottom: 0,
                   right: 0,
-                  backgroundColor: '#16a34a',
+                  backgroundColor: '#66BB6A',
                   borderRadius: '50%',
                   width: 36,
                   height: 36,

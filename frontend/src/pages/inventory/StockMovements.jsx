@@ -217,7 +217,7 @@ const StockMovements = () => {
       width: 110,
       align: 'center',
       render: (quantity, record) => {
-        const color = record.type === 'entry' ? '#52c41a' : '#ff4d4f';
+        const color = record.type === 'entry' ? '#81C784' : '#E57373';
         const prefix = record.type === 'entry' ? '+' : record.type === 'exit' ? '-' : '';
         return <span style={{ color, fontWeight: 'bold' }}>{prefix}{quantity}</span>;
       },

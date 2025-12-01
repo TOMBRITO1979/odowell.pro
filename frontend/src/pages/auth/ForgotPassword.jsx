@@ -29,7 +29,7 @@ const ForgotPassword = () => {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'
+        background: 'linear-gradient(135deg, #81C784 0%, #66BB6A 100%)'
       }}>
         <Card style={{ width: 450, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
           <Result
@@ -53,24 +53,24 @@ const ForgotPassword = () => {
       justifyContent: 'center',
       alignItems: 'center',
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'
+      background: 'linear-gradient(135deg, #81C784 0%, #66BB6A 100%)'
     }}>
-      <Card style={{ width: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+      <Card style={{ width: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.1)', borderRadius: 12 }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{
             width: 80,
             height: 80,
             margin: '0 auto 16px',
-            background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+            background: 'linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%)',
             borderRadius: 16,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)',
+            boxShadow: '0 4px 12px rgba(102, 187, 106, 0.3)',
           }}>
             <span style={{ fontSize: 48, filter: 'brightness(0) invert(1)' }}>🦷</span>
           </div>
-          <Title level={3} style={{ color: '#16a34a', marginTop: 0 }}>Esqueci minha senha</Title>
+          <Title level={3} style={{ color: '#4CAF50', marginTop: 0 }}>Esqueci minha senha</Title>
           <Typography.Text type="secondary">
             Digite seu email para receber instruções de redefinição
           </Typography.Text>

@@ -169,16 +169,16 @@ body {
     min-width: 80px !important;
   }
 
-  /* Primary button color standardization */
+  /* Primary button color standardization - Paleta Suave */
   .ant-btn-primary {
-    background-color: #16a34a !important;
-    border-color: #16a34a !important;
+    background-color: #66BB6A !important;
+    border-color: #66BB6A !important;
   }
 
   .ant-btn-primary:hover,
   .ant-btn-primary:focus {
-    background-color: #15803d !important;
-    border-color: #15803d !important;
+    background-color: #4CAF50 !important;
+    border-color: #4CAF50 !important;
   }
 
   /* Input fields */

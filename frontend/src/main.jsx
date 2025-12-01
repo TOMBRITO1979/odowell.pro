@@ -16,9 +16,59 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         locale={ptBR}
         theme={{
           token: {
-            colorPrimary: '#16a34a',
-            colorLink: '#16a34a',
-            borderRadius: 6,
+            // Cor primária suave
+            colorPrimary: '#66BB6A',
+            colorLink: '#5C6BC0',
+            colorLinkHover: '#3F51B5',
+            // Cores de sucesso/erro/warning/info
+            colorSuccess: '#81C784',
+            colorWarning: '#FFD54F',
+            colorError: '#EF9A9A',
+            colorInfo: '#64B5F6',
+            // Texto
+            colorText: '#37474F',
+            colorTextSecondary: '#78909C',
+            colorTextTertiary: '#90A4AE',
+            colorTextDisabled: '#B0BEC5',
+            // Fundos
+            colorBgContainer: '#FFFFFF',
+            colorBgLayout: '#F5F5F5',
+            colorBgElevated: '#FFFFFF',
+            // Bordas
+            colorBorder: '#E0E0E0',
+            colorBorderSecondary: '#EEEEEE',
+            // Border radius moderno
+            borderRadius: 8,
+            borderRadiusLG: 12,
+            borderRadiusSM: 4,
+            // Sombras suaves
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+            boxShadowSecondary: '0 4px 12px rgba(0, 0, 0, 0.08)',
+          },
+          components: {
+            Button: {
+              primaryColor: '#FFFFFF',
+              colorPrimaryHover: '#4CAF50',
+              colorPrimaryActive: '#43A047',
+            },
+            Table: {
+              headerBg: '#FAFAFA',
+              rowHoverBg: '#E8F5E9',
+              borderColor: '#EEEEEE',
+            },
+            Card: {
+              colorBgContainer: '#FFFFFF',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+            },
+            Input: {
+              activeBorderColor: '#66BB6A',
+              hoverBorderColor: '#81C784',
+            },
+            Menu: {
+              itemSelectedBg: '#E8F5E9',
+              itemSelectedColor: '#4CAF50',
+              itemHoverBg: '#F5F5F5',
+            },
           },
         }}
       >

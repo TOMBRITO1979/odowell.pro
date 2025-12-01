@@ -268,7 +268,7 @@ const Budgets = () => {
         const paidAmount = (record.payments || [])
           .filter(p => p.status === 'paid')
           .reduce((sum, p) => sum + p.amount, 0);
-        return <span style={{ color: '#52c41a', fontWeight: 'bold' }}>{formatCurrency(paidAmount)}</span>;
+        return <span style={{ color: '#81C784', fontWeight: 'bold' }}>{formatCurrency(paidAmount)}</span>;
       },
     },
     {
@@ -281,7 +281,7 @@ const Budgets = () => {
           .filter(p => p.status === 'paid')
           .reduce((sum, p) => sum + p.amount, 0);
         const dueAmount = record.total_value - paidAmount;
-        const color = dueAmount > 0 ? '#ff4d4f' : '#52c41a';
+        const color = dueAmount > 0 ? '#E57373' : '#81C784';
         return <span style={{ color, fontWeight: 'bold' }}>{formatCurrency(dueAmount)}</span>;
       },
     },

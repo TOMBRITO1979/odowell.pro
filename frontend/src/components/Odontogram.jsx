@@ -40,13 +40,13 @@ const Odontogram = ({ value, onChange, readOnly = false }) => {
   const lowerLeft = [31, 32, 33, 34, 35, 36, 37, 38];
 
   const toothStatuses = [
-    { value: 'healthy', label: 'Saudável', color: '#52c41a', icon: <CheckCircleOutlined /> },
-    { value: 'cavity', label: 'Cárie', color: '#faad14', icon: <WarningOutlined /> },
-    { value: 'restoration', label: 'Restauração', color: '#1890ff', icon: <ToolOutlined /> },
-    { value: 'missing', label: 'Ausente', color: '#f5222d', icon: <CloseCircleOutlined /> },
-    { value: 'root_canal', label: 'Canal', color: '#722ed1', icon: <ToolOutlined /> },
-    { value: 'crown', label: 'Coroa', color: '#13c2c2', icon: <ToolOutlined /> },
-    { value: 'implant', label: 'Implante', color: '#2f54eb', icon: <ToolOutlined /> },
+    { value: 'healthy', label: 'Saudável', color: '#81C784', icon: <CheckCircleOutlined /> },
+    { value: 'cavity', label: 'Cárie', color: '#FFD54F', icon: <WarningOutlined /> },
+    { value: 'restoration', label: 'Restauração', color: '#64B5F6', icon: <ToolOutlined /> },
+    { value: 'missing', label: 'Ausente', color: '#E57373', icon: <CloseCircleOutlined /> },
+    { value: 'root_canal', label: 'Canal', color: '#B39DDB', icon: <ToolOutlined /> },
+    { value: 'crown', label: 'Coroa', color: '#80DEEA', icon: <ToolOutlined /> },
+    { value: 'implant', label: 'Implante', color: '#7986CB', icon: <ToolOutlined /> },
   ];
 
   const getToothStatus = (toothNumber) => {
@@ -95,7 +95,7 @@ const Odontogram = ({ value, onChange, readOnly = false }) => {
           className={`tooth ${isSelected ? 'tooth-selected' : ''} ${readOnly ? 'tooth-readonly' : ''}`}
           style={{
             backgroundColor: status ? status.color : '#fff',
-            border: `2px solid ${isSelected ? '#1890ff' : (status ? status.color : '#d9d9d9')}`,
+            border: `2px solid ${isSelected ? '#66BB6A' : (status ? status.color : '#E0E0E0')}`,
             color: status ? '#fff' : '#000',
             cursor: readOnly ? 'default' : 'pointer',
           }}
