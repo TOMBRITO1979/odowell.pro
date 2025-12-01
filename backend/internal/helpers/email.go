@@ -28,6 +28,15 @@ func GetEmailConfig() EmailConfig {
 	}
 }
 
+// GetAppName returns the application name from environment or default
+func GetAppName() string {
+	appName := os.Getenv("APP_NAME")
+	if appName == "" {
+		appName = "Sistema Odontológico"
+	}
+	return appName
+}
+
 // SendEmail sends an email using SMTP
 func SendEmail(to, subject, body string) error {
 	config := GetEmailConfig()
@@ -159,8 +168,9 @@ func buildMessage(from, to, subject, body string) string {
 // SendVerificationEmail sends account verification email
 func SendVerificationEmail(to, name, token, baseURL string) error {
 	verifyURL := fmt.Sprintf("%s/verify-email?token=%s", baseURL, token)
+	appName := GetAppName()
 
-	subject := "Verifique sua conta - OdoWell"
+	subject := fmt.Sprintf("Verifique sua conta - %s", appName)
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -178,27 +188,27 @@ func SendVerificationEmail(to, name, token, baseURL string) error {
 <body>
     <div class="container">
         <div class="header">
-            <h1>OdoWell</h1>
+            <h1>%s</h1>
         </div>
         <div class="content">
             <h2>Olá, %s!</h2>
-            <p>Bem-vindo ao OdoWell! Para ativar sua conta e começar a usar nosso sistema de gestão odontológica, clique no botão abaixo:</p>
+            <p>Bem-vindo ao %s! Para ativar sua conta e começar a usar nosso sistema de gestão odontológica, clique no botão abaixo:</p>
             <p style="text-align: center;">
                 <a href="%s" class="button">Verificar Minha Conta</a>
             </p>
             <p>Ou copie e cole este link no seu navegador:</p>
             <p style="word-break: break-all; background: #eee; padding: 10px; border-radius: 4px;">%s</p>
             <p><strong>Este link expira em 24 horas.</strong></p>
-            <p>Se você não criou uma conta no OdoWell, ignore este email.</p>
+            <p>Se você não criou uma conta no %s, ignore este email.</p>
         </div>
         <div class="footer">
             <p>Este é um email automático, por favor não responda.</p>
-            <p>&copy; 2024 OdoWell - Sistema de Gestão Odontológica</p>
+            <p>&copy; 2024 %s - Sistema de Gestão Odontológica</p>
         </div>
     </div>
 </body>
 </html>
-`, name, verifyURL, verifyURL)
+`, appName, name, appName, verifyURL, verifyURL, appName, appName)
 
 	return SendEmail(to, subject, body)
 }
@@ -206,8 +216,9 @@ func SendVerificationEmail(to, name, token, baseURL string) error {
 // SendPasswordResetEmail sends password reset email
 func SendPasswordResetEmail(to, name, token, baseURL string) error {
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", baseURL, token)
+	appName := GetAppName()
 
-	subject := "Redefinir sua senha - OdoWell"
+	subject := fmt.Sprintf("Redefinir sua senha - %s", appName)
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -226,11 +237,11 @@ func SendPasswordResetEmail(to, name, token, baseURL string) error {
 <body>
     <div class="container">
         <div class="header">
-            <h1>OdoWell</h1>
+            <h1>%s</h1>
         </div>
         <div class="content">
             <h2>Olá, %s!</h2>
-            <p>Recebemos uma solicitação para redefinir a senha da sua conta no OdoWell.</p>
+            <p>Recebemos uma solicitação para redefinir a senha da sua conta no %s.</p>
             <p style="text-align: center;">
                 <a href="%s" class="button">Redefinir Minha Senha</a>
             </p>
@@ -243,12 +254,12 @@ func SendPasswordResetEmail(to, name, token, baseURL string) error {
         </div>
         <div class="footer">
             <p>Este é um email automático, por favor não responda.</p>
-            <p>&copy; 2024 OdoWell - Sistema de Gestão Odontológica</p>
+            <p>&copy; 2024 %s - Sistema de Gestão Odontológica</p>
         </div>
     </div>
 </body>
 </html>
-`, name, resetURL, resetURL)
+`, appName, name, appName, resetURL, resetURL, appName)
 
 	return SendEmail(to, subject, body)
 }

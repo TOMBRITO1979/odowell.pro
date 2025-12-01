@@ -74,7 +74,7 @@ func ForgotPassword(c *gin.Context) {
 	go func() {
 		baseURL := os.Getenv("FRONTEND_URL")
 		if baseURL == "" {
-			baseURL = "https://app.odowell.pro"
+			baseURL = "http://localhost:3000"
 		}
 
 		if err := helpers.SendPasswordResetEmail(user.Email, user.Name, token, baseURL); err != nil {

@@ -123,7 +123,7 @@ func ResendVerificationEmail(c *gin.Context) {
 	// Send verification email
 	baseURL := os.Getenv("FRONTEND_URL")
 	if baseURL == "" {
-		baseURL = "https://app.odowell.pro"
+		baseURL = "http://localhost:3000"
 	}
 
 	if err := helpers.SendVerificationEmail(tenant.Email, tenant.Name, token, baseURL); err != nil {
@@ -162,7 +162,7 @@ func CreateAndSendVerification(tenantID uint, email, name string) error {
 	// Send verification email
 	baseURL := os.Getenv("FRONTEND_URL")
 	if baseURL == "" {
-		baseURL = "https://app.odowell.pro"
+		baseURL = "http://localhost:3000"
 	}
 
 	return helpers.SendVerificationEmail(email, name, token, baseURL)

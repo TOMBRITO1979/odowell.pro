@@ -36,7 +36,7 @@ func main() {
 	r := gin.Default()
 
 	// CORS - use origins from environment
-	allowedOrigins := []string{"https://dr.crwell.pro"}
+	allowedOrigins := []string{"http://localhost:3000"}
 	if corsOrigins := os.Getenv("CORS_ORIGINS"); corsOrigins != "" {
 		allowedOrigins = strings.Split(corsOrigins, ",")
 	}
