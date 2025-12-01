@@ -143,16 +143,16 @@ const Campaigns = () => {
       render: (status) => getStatusTag(status),
     },
     {
-      title: 'Destinatários',
+      title: 'Dest.',
       dataIndex: 'total_recipients',
       key: 'total_recipients',
-      width: 120,
+      width: 80,
       align: 'center',
     },
     {
       title: 'Progresso',
       key: 'progress',
-      width: 150,
+      width: 120,
       render: (_, record) => {
         if (record.total_recipients === 0) return '-';
         const percent = Math.round((record.sent / record.total_recipients) * 100);
@@ -160,17 +160,17 @@ const Campaigns = () => {
       },
     },
     {
-      title: 'Criado em',
+      title: 'Criado',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 120,
+      width: 100,
       render: (date) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'Ações',
       key: 'actions',
-      width: 150,
-      fixed: 'right',
+      width: 120,
+      align: 'center',
       render: (_, record) => (
         <Space>
           {record.status === 'draft' && (
@@ -266,15 +266,17 @@ const Campaigns = () => {
           </Col>
         </Row>
 
-        <Table
-          columns={columns}
-          dataSource={campaigns}
-          rowKey="id"
-          loading={loading}
-          pagination={pagination}
-          onChange={setPagination}
-          scroll={{ x: 1000 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={campaigns}
+            rowKey="id"
+            loading={loading}
+            pagination={pagination}
+            onChange={setPagination}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
     </div>
   );

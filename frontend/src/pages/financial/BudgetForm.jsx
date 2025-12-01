@@ -190,6 +190,7 @@ const BudgetForm = () => {
       title: 'Ações',
       key: 'actions',
       width: 80,
+      align: 'center',
       render: (_, record) => (
         <Button
           type="text"

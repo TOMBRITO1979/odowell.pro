@@ -148,7 +148,7 @@ const Prescriptions = () => {
       title: 'Data',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 120,
+      width: 100,
       render: (date) => dayjs(date).format('DD/MM/YYYY'),
       sorter: true,
     },
@@ -162,7 +162,7 @@ const Prescriptions = () => {
       title: 'Tipo',
       dataIndex: 'type',
       key: 'type',
-      width: 150,
+      width: 130,
       render: (type) => getTypeTag(type),
     },
     {
@@ -182,14 +182,14 @@ const Prescriptions = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
+      width: 100,
       render: (status) => getStatusTag(status),
     },
     {
       title: 'Ações',
       key: 'actions',
-      width: 160,
-      fixed: 'right',
+      width: 130,
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -314,15 +314,17 @@ const Prescriptions = () => {
           </Col>
         </Row>
 
-        <Table
-          columns={columns}
-          dataSource={prescriptions}
-          rowKey="id"
-          loading={loading}
-          pagination={pagination}
-          onChange={handleTableChange}
-          scroll={{ x: 1200 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={prescriptions}
+            rowKey="id"
+            loading={loading}
+            pagination={pagination}
+            onChange={handleTableChange}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
     </div>
   );

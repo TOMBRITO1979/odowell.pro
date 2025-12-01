@@ -224,7 +224,7 @@ const Suppliers = () => {
       title: 'Ações',
       key: 'actions',
       width: 120,
-      fixed: 'right',
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -310,13 +310,16 @@ const Suppliers = () => {
           </Space>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={suppliers}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: 20 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={suppliers}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: 20 }}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
 
       <Modal

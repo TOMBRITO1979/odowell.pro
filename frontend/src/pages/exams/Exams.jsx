@@ -190,6 +190,7 @@ const Exams = () => {
     {
       title: 'Ações',
       key: 'actions',
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button

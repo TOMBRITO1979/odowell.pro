@@ -84,6 +84,8 @@ const Users = () => {
     {
       title: 'Ações',
       key: 'actions',
+      width: 120,
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -118,12 +120,15 @@ const Users = () => {
         </Button>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={users}
-        loading={loading}
-        rowKey="id"
-      />
+      <div style={{ overflowX: 'auto' }}>
+        <Table
+          columns={columns}
+          dataSource={users}
+          loading={loading}
+          rowKey="id"
+          scroll={{ x: 'max-content' }}
+        />
+      </div>
 
       <Modal
         title="Novo Usuário"

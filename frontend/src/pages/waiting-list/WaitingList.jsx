@@ -187,6 +187,7 @@ const WaitingList = () => {
       title: 'Ações',
       key: 'actions',
       width: 200,
+      align: 'center',
       render: (_, record) => (
         <Space>
           {record.status === 'waiting' && canEdit('appointments') && (

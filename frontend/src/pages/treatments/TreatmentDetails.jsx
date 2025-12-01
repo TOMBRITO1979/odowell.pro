@@ -254,7 +254,7 @@ const TreatmentDetails = () => {
       title: 'Ações',
       key: 'actions',
       width: 100,
-      fixed: 'right',
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button

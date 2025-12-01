@@ -141,6 +141,7 @@ const Tasks = () => {
     {
       title: 'Ações',
       key: 'actions',
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -184,20 +185,20 @@ const Tasks = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
-        <h1>Tarefas</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <h1 style={{ margin: 0 }}>Tarefas</h1>
         {canCreate('tasks') && (
           <Button
             icon={<PlusOutlined />}
             onClick={() => navigate('/tasks/new')}
-            size="small"
             style={{
               backgroundColor: actionColors.create,
               borderColor: actionColors.create,
               color: '#fff'
             }}
           >
-            Nova Tarefa
+            <span className="btn-text-desktop">Nova Tarefa</span>
+            <span className="btn-text-mobile">Nova</span>
           </Button>
         )}
       </div>

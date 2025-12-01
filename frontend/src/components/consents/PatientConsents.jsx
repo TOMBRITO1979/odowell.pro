@@ -136,6 +136,7 @@ const PatientConsents = ({ patient }) => {
       title: 'Ações',
       key: 'actions',
       width: '15%',
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button

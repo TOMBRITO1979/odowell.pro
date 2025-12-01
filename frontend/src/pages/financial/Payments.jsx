@@ -386,8 +386,8 @@ const Payments = () => {
     {
       title: 'Ações',
       key: 'actions',
-      width: 150,
-      fixed: 'right',
+      width: 120,
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -593,15 +593,17 @@ const Payments = () => {
           </Col>
         </Row>
 
-        <Table
-          columns={columns}
-          dataSource={payments}
-          rowKey="id"
-          loading={loading}
-          pagination={pagination}
-          onChange={handleTableChange}
-          scroll={{ x: 1600 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={payments}
+            rowKey="id"
+            loading={loading}
+            pagination={pagination}
+            onChange={handleTableChange}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
 
       <Modal

@@ -154,7 +154,7 @@ const MedicalRecords = () => {
       title: 'Ações',
       key: 'actions',
       width: 150,
-      fixed: 'right',
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -208,7 +208,7 @@ const MedicalRecords = () => {
               color: '#fff'
             }}
           >
-            Novo Prontuário
+            <span className="btn-text-desktop">Novo Prontuário</span>
           </Button>
         }
         style={{ boxShadow: shadows.small }}
@@ -268,15 +268,17 @@ const MedicalRecords = () => {
           </Col>
         </Row>
 
-        <Table
-          columns={columns}
-          dataSource={records}
-          rowKey="id"
-          loading={loading}
-          pagination={pagination}
-          onChange={handleTableChange}
-          scroll={{ x: 1000 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={records}
+            rowKey="id"
+            loading={loading}
+            pagination={pagination}
+            onChange={handleTableChange}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
     </div>
   );

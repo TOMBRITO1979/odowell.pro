@@ -147,10 +147,10 @@ const Treatments = () => {
 
   const columns = [
     {
-      title: 'Data Início',
+      title: 'Data',
       dataIndex: 'start_date',
       key: 'start_date',
-      width: 110,
+      width: 100,
       render: (date) => dayjs(date).format('DD/MM/YYYY'),
       sorter: true,
     },
@@ -168,17 +168,17 @@ const Treatments = () => {
       render: (text) => text || '-',
     },
     {
-      title: 'Valor Total',
+      title: 'Total',
       dataIndex: 'total_value',
       key: 'total_value',
-      width: 130,
+      width: 110,
       render: (value) => formatCurrency(value),
     },
     {
       title: 'Pago',
       dataIndex: 'paid_value',
       key: 'paid_value',
-      width: 130,
+      width: 110,
       render: (value) => (
         <Text type="success">{formatCurrency(value)}</Text>
       ),
@@ -186,7 +186,7 @@ const Treatments = () => {
     {
       title: 'Restante',
       key: 'remaining',
-      width: 130,
+      width: 110,
       render: (_, record) => {
         const remaining = record.total_value - record.paid_value;
         return (
@@ -199,7 +199,7 @@ const Treatments = () => {
     {
       title: 'Progresso',
       key: 'progress',
-      width: 120,
+      width: 100,
       render: (_, record) => {
         const percent = record.total_value > 0
           ? Math.round((record.paid_value / record.total_value) * 100)
@@ -217,14 +217,14 @@ const Treatments = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 140,
+      width: 110,
       render: (status) => getStatusTag(status),
     },
     {
       title: 'Ações',
       key: 'actions',
-      width: 100,
-      fixed: 'right',
+      width: 80,
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -356,15 +356,17 @@ const Treatments = () => {
           </Col>
         </Row>
 
-        <Table
-          columns={columns}
-          dataSource={treatments}
-          rowKey="id"
-          loading={loading}
-          pagination={pagination}
-          onChange={handleTableChange}
-          scroll={{ x: 1200 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={treatments}
+            rowKey="id"
+            loading={loading}
+            pagination={pagination}
+            onChange={handleTableChange}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
     </div>
   );

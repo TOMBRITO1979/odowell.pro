@@ -224,10 +224,10 @@ const Products = () => {
       render: (category) => getCategoryTag(category),
     },
     {
-      title: 'Quantidade',
+      title: 'Qtd',
       dataIndex: 'quantity',
       key: 'quantity',
-      width: 100,
+      width: 80,
       align: 'center',
       render: (quantity, record) => (
         <Badge
@@ -241,30 +241,30 @@ const Products = () => {
       ),
     },
     {
-      title: 'Estoque Min.',
+      title: 'Est. Min.',
       dataIndex: 'minimum_stock',
       key: 'minimum_stock',
-      width: 100,
+      width: 80,
       align: 'center',
     },
     {
       title: 'Status',
       key: 'stock_status',
-      width: 140,
+      width: 120,
       render: (_, record) => getStockStatus(record.quantity, record.minimum_stock),
     },
     {
-      title: 'Preço Custo',
+      title: 'P. Custo',
       dataIndex: 'cost_price',
       key: 'cost_price',
-      width: 120,
+      width: 100,
       render: (price) => formatCurrency(price),
     },
     {
-      title: 'Preço Venda',
+      title: 'P. Venda',
       dataIndex: 'sale_price',
       key: 'sale_price',
-      width: 120,
+      width: 100,
       render: (price) => formatCurrency(price),
     },
     {
@@ -281,8 +281,8 @@ const Products = () => {
     {
       title: 'Ações',
       key: 'actions',
-      width: 120,
-      fixed: 'right',
+      width: 100,
+      align: 'center',
       render: (_, record) => (
         <Space>
           {canEdit('products') && (
@@ -422,15 +422,17 @@ const Products = () => {
           </Col>
         </Row>
 
-        <Table
-          columns={columns}
-          dataSource={products}
-          rowKey="id"
-          loading={loading}
-          pagination={pagination}
-          onChange={handleTableChange}
-          scroll={{ x: 1200 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={products}
+            rowKey="id"
+            loading={loading}
+            pagination={pagination}
+            onChange={handleTableChange}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
 
       <Modal

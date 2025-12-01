@@ -163,6 +163,7 @@ const ConsentTemplates = () => {
       title: 'Ações',
       key: 'actions',
       width: '15%',
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -203,9 +204,9 @@ const ConsentTemplates = () => {
   return (
     <div>
       <Card style={{ boxShadow: shadows.small }}>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={2} style={{ margin: 0 }}>
-            <FileTextOutlined /> Templates de Consentimento
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <Title level={4} style={{ margin: 0 }}>
+            <FileTextOutlined /> Termos de Consentimento
           </Title>
           {canCreate('clinical_records') && (
             <Button
@@ -217,18 +218,22 @@ const ConsentTemplates = () => {
                 color: '#fff'
               }}
             >
-              Novo Template
+              <span className="btn-text-desktop">Novo Template</span>
+              <span className="btn-text-mobile">Novo</span>
             </Button>
           )}
         </div>
 
-        <Table
-          columns={columns}
-          dataSource={templates}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={templates}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
       </Card>
 
       <Modal

@@ -206,7 +206,6 @@ const Appointments = () => {
       dataIndex: ['dentist', 'name'],
       key: 'dentist_name',
       render: (text) => text || 'N/A',
-      responsive: ['md', 'lg', 'xl', 'xxl'], // Esconde em mobile
     },
     {
       title: 'Data/Hora',
@@ -219,7 +218,6 @@ const Appointments = () => {
       dataIndex: 'procedure',
       key: 'procedure',
       render: (text) => getProcedureText(text),
-      responsive: ['sm', 'md', 'lg', 'xl', 'xxl'], // Esconde em xs
     },
     {
       title: 'Status',
@@ -232,13 +230,12 @@ const Appointments = () => {
       dataIndex: 'room',
       key: 'room',
       render: (text) => text || '-',
-      responsive: ['lg', 'xl', 'xxl'], // Esconde em tablet e mobile
     },
     {
       title: 'Ações',
       key: 'actions',
-      fixed: 'right',
       width: 100,
+      align: 'center',
       render: (_, record) => (
         <Space>
           <Button
@@ -279,56 +276,54 @@ const Appointments = () => {
 
   return (
     <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <h1 style={{ margin: 0 }}>Agendamentos</h1>
+        <Space wrap>
+          <Button
+            icon={<FileExcelOutlined />}
+            onClick={handleExportCSV}
+            style={{
+              backgroundColor: actionColors.exportExcel,
+              borderColor: actionColors.exportExcel,
+              color: '#fff'
+            }}
+          >
+            <span className="btn-text-desktop">Exportar CSV</span>
+            <span className="btn-text-mobile">CSV</span>
+          </Button>
+          <Button
+            icon={<FilePdfOutlined />}
+            onClick={handleExportPDF}
+            style={{
+              backgroundColor: actionColors.exportPDF,
+              borderColor: actionColors.exportPDF,
+              color: '#fff'
+            }}
+          >
+            <span className="btn-text-desktop">Gerar PDF</span>
+            <span className="btn-text-mobile">PDF</span>
+          </Button>
+          {canCreate('appointments') && (
+            <Button
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/appointments/new')}
+              style={{
+                backgroundColor: actionColors.create,
+                borderColor: actionColors.create,
+                color: '#fff'
+              }}
+            >
+              <span className="btn-text-desktop">Novo Agendamento</span>
+              <span className="btn-text-mobile">Novo</span>
+            </Button>
+          )}
+        </Space>
+      </div>
+
       <Card
-        title="Agendamentos"
         style={{
           boxShadow: shadows.small,
         }}
-        extra={
-          <div className="appointments-button-group">
-            <Button
-              icon={<FileExcelOutlined />}
-              onClick={handleExportCSV}
-              style={{
-                backgroundColor: actionColors.exportExcel,
-                borderColor: actionColors.exportExcel,
-                color: '#fff'
-              }}
-              className="appointments-btn"
-            >
-              <span className="btn-text-desktop">Exportar CSV</span>
-              <span className="btn-text-mobile">CSV</span>
-            </Button>
-            <Button
-              icon={<FilePdfOutlined />}
-              onClick={handleExportPDF}
-              style={{
-                backgroundColor: actionColors.exportPDF,
-                borderColor: actionColors.exportPDF,
-                color: '#fff'
-              }}
-              className="appointments-btn"
-            >
-              <span className="btn-text-desktop">Gerar PDF</span>
-              <span className="btn-text-mobile">PDF</span>
-            </Button>
-            {canCreate('appointments') && (
-              <Button
-                icon={<PlusOutlined />}
-                onClick={() => navigate('/appointments/new')}
-                style={{
-                  backgroundColor: actionColors.create,
-                  borderColor: actionColors.create,
-                  color: '#fff'
-                }}
-                className="appointments-btn"
-              >
-                <span className="btn-text-desktop">Novo Agendamento</span>
-                <span className="btn-text-mobile">Novo</span>
-              </Button>
-            )}
-          </div>
-        }
       >
         {/* Filtros */}
         <div style={{ marginBottom: 16, padding: '16px', background: '#fafafa', borderRadius: '8px' }}>

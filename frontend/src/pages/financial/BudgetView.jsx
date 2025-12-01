@@ -473,6 +473,7 @@ const BudgetView = () => {
                   {
                     title: 'Ações',
                     key: 'actions',
+                    align: 'center',
                     render: (_, record) => (
                       <Button
                         size="small"
