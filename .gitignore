@@ -43,6 +43,18 @@ logs/
 # Database
 *.db
 *.sqlite
+*.sql.gz
+**/backup*.sql
+**/dump*.sql
+
+# Sensitive files - NEVER commit these
+**/credentials*
+**/secrets*
+**/*secret*
+**/*password*
+**/aws-policy*.md
+**/check-aws*.md
+ssl/
 
 # Docker
 .docker/
