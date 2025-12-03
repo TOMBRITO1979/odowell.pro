@@ -397,6 +397,11 @@ func main() {
 		tenanted.DELETE("/settings/api-key", handlers.RevokeAPIKey)
 		tenanted.GET("/settings/api-key/docs", handlers.WhatsAppAPIDocumentation)
 
+		// Embed Token Management (for Chatwell/external panels)
+		tenanted.GET("/settings/embed-token", middleware.PermissionMiddleware("settings", "view"), handlers.GetEmbedToken)
+		tenanted.POST("/settings/embed-token", middleware.PermissionMiddleware("settings", "edit"), handlers.GenerateEmbedToken)
+		tenanted.DELETE("/settings/embed-token", middleware.PermissionMiddleware("settings", "edit"), handlers.RevokeEmbedToken)
+
 		// User Management (admin only)
 		users := tenanted.Group("/users")
 		{

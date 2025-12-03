@@ -195,7 +195,7 @@ const DashboardLayout = () => {
     ...(isSuperAdmin ? [{
       key: '/admin/tenants',
       icon: <CrownOutlined />,
-      label: 'Admin Plataforma',
+      label: 'Adm Empresas',
       superAdminOnly: true,
     }] : []),
   ];

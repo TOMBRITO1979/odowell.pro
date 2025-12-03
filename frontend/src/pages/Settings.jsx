@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, message, Row, Col, Tabs, TimePicker, Switch, Modal, Alert, Typography, Space, Divider, Collapse } from 'antd';
-import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { settingsAPI } from '../services/api';
+import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, CreditCardOutlined, MessageOutlined, LinkOutlined } from '@ant-design/icons';
+import { settingsAPI, stripeSettingsAPI } from '../services/api';
 import { useAuth, usePermission } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
 
@@ -22,10 +22,23 @@ const Settings = () => {
   const [apiDocs, setApiDocs] = useState(null);
   const [showDocs, setShowDocs] = useState(false);
 
+  // Stripe state
+  const [stripeStatus, setStripeStatus] = useState({ stripe_connected: false, has_secret_key: false, has_webhook_secret: false });
+  const [stripeForm] = Form.useForm();
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeTesting, setStripeTesting] = useState(false);
+
+  // Chatwell state
+  const [chatwellToken, setChatwellToken] = useState(null);
+  const [chatwellLoading, setChatwellLoading] = useState(false);
+  const [embedUrl, setEmbedUrl] = useState('');
+
   useEffect(() => {
     fetchSettings();
     if (isAdmin) {
       fetchApiKeyStatus();
+      fetchStripeStatus();
+      fetchChatwellStatus();
     }
   }, [isAdmin]);
 
@@ -70,6 +83,128 @@ const Settings = () => {
       setApiKeyStatus(response.data);
     } catch (error) {
       // Could not fetch API key status - ignore
+    }
+  };
+
+  // Stripe functions
+  const fetchStripeStatus = async () => {
+    try {
+      const response = await stripeSettingsAPI.get();
+      setStripeStatus(response.data);
+      if (response.data.stripe_publishable_key) {
+        stripeForm.setFieldsValue({
+          stripe_publishable_key: response.data.stripe_publishable_key,
+        });
+      }
+    } catch (error) {
+      // Could not fetch Stripe status - ignore
+    }
+  };
+
+  const handleSaveStripe = async (values) => {
+    setStripeLoading(true);
+    try {
+      const response = await stripeSettingsAPI.update(values);
+      setStripeStatus(response.data);
+      message.success('Credenciais do Stripe salvas com sucesso!');
+      stripeForm.resetFields(['stripe_secret_key', 'stripe_webhook_secret']);
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao salvar credenciais do Stripe');
+    } finally {
+      setStripeLoading(false);
+    }
+  };
+
+  const handleTestStripe = async () => {
+    setStripeTesting(true);
+    try {
+      const response = await stripeSettingsAPI.test();
+      if (response.data.connected) {
+        message.success(`Conectado com sucesso! Conta: ${response.data.account_name}`);
+      } else {
+        message.error(response.data.error || 'Falha na conexão');
+      }
+    } catch (error) {
+      message.error('Erro ao testar conexão');
+    } finally {
+      setStripeTesting(false);
+    }
+  };
+
+  const handleDisconnectStripe = async () => {
+    Modal.confirm({
+      title: 'Desconectar Stripe',
+      content: 'Tem certeza que deseja remover as credenciais do Stripe? Isso desativará todas as integrações de pagamento.',
+      okText: 'Desconectar',
+      cancelText: 'Cancelar',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await stripeSettingsAPI.disconnect();
+          setStripeStatus({ stripe_connected: false, has_secret_key: false, has_webhook_secret: false });
+          stripeForm.resetFields();
+          message.success('Stripe desconectado com sucesso');
+        } catch (error) {
+          message.error('Erro ao desconectar Stripe');
+        }
+      }
+    });
+  };
+
+  // Chatwell functions
+  const fetchChatwellStatus = async () => {
+    try {
+      const response = await settingsAPI.getEmbedToken();
+      if (response.data.token) {
+        setChatwellToken(response.data.token);
+        setEmbedUrl(response.data.embed_url || '');
+      }
+    } catch (error) {
+      // Token not configured - ignore
+    }
+  };
+
+  const handleGenerateChatwellToken = async () => {
+    setChatwellLoading(true);
+    try {
+      const response = await settingsAPI.generateEmbedToken();
+      setChatwellToken(response.data.token);
+      setEmbedUrl(response.data.embed_url || '');
+      message.success('Token gerado com sucesso!');
+    } catch (error) {
+      message.error('Erro ao gerar token');
+    } finally {
+      setChatwellLoading(false);
+    }
+  };
+
+  const handleRevokeChatwellToken = async () => {
+    Modal.confirm({
+      title: 'Revogar Token',
+      content: 'Tem certeza que deseja revogar o token? O painel externo perderá acesso imediatamente.',
+      okText: 'Revogar',
+      cancelText: 'Cancelar',
+      okType: 'danger',
+      onOk: async () => {
+        setChatwellLoading(true);
+        try {
+          await settingsAPI.revokeEmbedToken();
+          setChatwellToken(null);
+          setEmbedUrl('');
+          message.success('Token revogado com sucesso');
+        } catch (error) {
+          message.error('Erro ao revogar token');
+        } finally {
+          setChatwellLoading(false);
+        }
+      }
+    });
+  };
+
+  const handleCopyEmbedUrl = () => {
+    if (embedUrl) {
+      navigator.clipboard.writeText(embedUrl);
+      message.success('URL copiada para a área de transferência');
     }
   };
 
@@ -536,6 +671,182 @@ const Settings = () => {
     </div>
   );
 
+  const stripeTab = (
+    <div>
+      <Alert
+        message="Integração Stripe para Assinaturas"
+        description="Configure suas credenciais do Stripe para permitir que pacientes assinem planos de pagamento recorrente diretamente pelo sistema."
+        type="info"
+        showIcon
+        style={{ marginBottom: 24 }}
+      />
+
+      {/* Status */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Row align="middle" justify="space-between">
+          <Col>
+            <Space>
+              <Text strong>Status:</Text>
+              {stripeStatus.stripe_connected ? (
+                <Text type="success"><CheckCircleOutlined /> Conectado</Text>
+              ) : (
+                <Text type="secondary"><CloseCircleOutlined /> Não conectado</Text>
+              )}
+            </Space>
+          </Col>
+          {stripeStatus.stripe_account_name && (
+            <Col>
+              <Text type="secondary">Conta: {stripeStatus.stripe_account_name}</Text>
+            </Col>
+          )}
+        </Row>
+      </Card>
+
+      <Form
+        form={stripeForm}
+        layout="vertical"
+        onFinish={handleSaveStripe}
+      >
+        <Divider>Credenciais do Stripe</Divider>
+
+        <Row gutter={16}>
+          <Col xs={24}>
+            <Form.Item
+              label="Secret Key"
+              name="stripe_secret_key"
+              extra="Encontre em: Dashboard Stripe > Developers > API Keys"
+            >
+              <Input.Password
+                placeholder={stripeStatus.has_secret_key ? "••••••••••••••••" : "sk_live_... ou sk_test_..."}
+              />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24}>
+            <Form.Item
+              label="Publishable Key"
+              name="stripe_publishable_key"
+              extra="Opcional - usada para componentes do frontend"
+            >
+              <Input placeholder="pk_live_... ou pk_test_..." />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24}>
+            <Form.Item
+              label="Webhook Secret"
+              name="stripe_webhook_secret"
+              extra="Configure o webhook no Stripe e cole o secret aqui"
+            >
+              <Input.Password
+                placeholder={stripeStatus.has_webhook_secret ? "••••••••••••••••" : "whsec_..."}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Space wrap>
+          <Button type="primary" htmlType="submit" loading={stripeLoading}>
+            Salvar Credenciais
+          </Button>
+          {stripeStatus.stripe_connected && (
+            <>
+              <Button onClick={handleTestStripe} loading={stripeTesting}>
+                Testar Conexão
+              </Button>
+              <Button danger onClick={handleDisconnectStripe}>
+                Desconectar
+              </Button>
+            </>
+          )}
+        </Space>
+      </Form>
+    </div>
+  );
+
+  const chatwellTab = (
+    <div>
+      <Alert
+        message="Integração Chatwell / Painel Externo"
+        description="Gere um token para incorporar páginas do OdoWell em painéis externos como o Chatwell. O atendente poderá visualizar agenda, pacientes e outras informações diretamente no painel de atendimento."
+        type="info"
+        showIcon
+        style={{ marginBottom: 24 }}
+      />
+
+      {/* Status */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Row align="middle" justify="space-between">
+          <Col>
+            <Space>
+              <Text strong>Status do Token:</Text>
+              {chatwellToken ? (
+                <Text type="success"><CheckCircleOutlined /> Configurado</Text>
+              ) : (
+                <Text type="secondary">Não configurado</Text>
+              )}
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {chatwellToken && embedUrl && (
+        <Alert
+          message="URL de Incorporação"
+          description={
+            <div>
+              <Paragraph>
+                Use esta URL para incorporar o OdoWell no seu painel externo:
+              </Paragraph>
+              <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 4, marginBottom: 12 }}>
+                <Text code copyable={{ text: embedUrl }}>
+                  {embedUrl}
+                </Text>
+              </div>
+              <Button icon={<CopyOutlined />} onClick={handleCopyEmbedUrl}>
+                Copiar URL
+              </Button>
+            </div>
+          }
+          type="success"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      <Space wrap>
+        <Button
+          type="primary"
+          icon={<LinkOutlined />}
+          onClick={handleGenerateChatwellToken}
+          loading={chatwellLoading}
+        >
+          {chatwellToken ? 'Regenerar Token' : 'Gerar Token'}
+        </Button>
+        {chatwellToken && (
+          <Button danger onClick={handleRevokeChatwellToken} loading={chatwellLoading}>
+            Revogar Token
+          </Button>
+        )}
+      </Space>
+
+      <Divider />
+
+      <Collapse>
+        <Panel header="Como usar" key="1">
+          <Paragraph>
+            <ol>
+              <li>Clique em "Gerar Token" para criar um token de acesso</li>
+              <li>Copie a URL de incorporação gerada</li>
+              <li>No Chatwell ou outro painel, adicione um iframe com a URL</li>
+              <li>O atendente terá acesso às informações da clínica</li>
+            </ol>
+          </Paragraph>
+        </Panel>
+      </Collapse>
+    </div>
+  );
+
   const tabItems = [
     {
       key: 'clinic',
@@ -577,6 +888,28 @@ const Settings = () => {
         </span>
       ),
       children: apiTab,
+    }] : []),
+    // Stripe tab for admins
+    ...(isAdmin ? [{
+      key: 'stripe',
+      label: (
+        <span>
+          <CreditCardOutlined />
+          Stripe
+        </span>
+      ),
+      children: stripeTab,
+    }] : []),
+    // Chatwell tab for admins
+    ...(isAdmin ? [{
+      key: 'chatwell',
+      label: (
+        <span>
+          <MessageOutlined />
+          Chatwell
+        </span>
+      ),
+      children: chatwellTab,
     }] : []),
   ];
 

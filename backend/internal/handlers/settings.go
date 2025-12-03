@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"crypto/rand"
 	"drcrwell/backend/internal/models"
+	"encoding/hex"
+	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -172,4 +176,81 @@ func UpdateTenantSettings(c *gin.Context) {
 
 	// Return the input data as it was just saved successfully
 	c.JSON(http.StatusOK, gin.H{"settings": input})
+}
+
+// GetEmbedToken returns the current embed token status
+func GetEmbedToken(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
+
+	var tenant models.Tenant
+	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Tenant not found"})
+		return
+	}
+
+	if tenant.EmbedToken == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"token":     "",
+			"embed_url": "",
+		})
+		return
+	}
+
+	// Build embed URL
+	baseURL := os.Getenv("FRONTEND_URL")
+	if baseURL == "" {
+		baseURL = "https://app.odowell.pro"
+	}
+	embedURL := fmt.Sprintf("%s/embed?token=%s", baseURL, tenant.EmbedToken)
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":     tenant.EmbedToken,
+		"embed_url": embedURL,
+	})
+}
+
+// GenerateEmbedToken generates a new embed token for the tenant
+func GenerateEmbedToken(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
+
+	// Generate random token
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+	token := hex.EncodeToString(bytes)
+
+	// Update tenant with new token
+	if err := db.Exec("UPDATE public.tenants SET embed_token = ?, updated_at = NOW() WHERE id = ?", token, tenantID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save token"})
+		return
+	}
+
+	// Build embed URL
+	baseURL := os.Getenv("FRONTEND_URL")
+	if baseURL == "" {
+		baseURL = "https://app.odowell.pro"
+	}
+	embedURL := fmt.Sprintf("%s/embed?token=%s", baseURL, token)
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":     token,
+		"embed_url": embedURL,
+	})
+}
+
+// RevokeEmbedToken removes the embed token for the tenant
+func RevokeEmbedToken(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
+
+	if err := db.Exec("UPDATE public.tenants SET embed_token = '', updated_at = NOW() WHERE id = ?", tenantID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Token revoked successfully"})
 }

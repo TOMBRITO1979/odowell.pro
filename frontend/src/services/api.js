@@ -213,6 +213,10 @@ export const settingsAPI = {
   toggleAPIKey: (active) => api.patch('/settings/api-key/toggle', { active }),
   revokeAPIKey: () => api.delete('/settings/api-key'),
   getAPIKeyDocs: () => api.get('/settings/api-key/docs'),
+  // Embed Token Management (Chatwell)
+  getEmbedToken: () => api.get('/settings/embed-token'),
+  generateEmbedToken: () => api.post('/settings/embed-token'),
+  revokeEmbedToken: () => api.delete('/settings/embed-token'),
 };
 
 // Exams API
