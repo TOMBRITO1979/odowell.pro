@@ -12,9 +12,20 @@ const Subscription = () => {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [expiredAlert, setExpiredAlert] = useState(null);
 
   useEffect(() => {
     loadPlans();
+    // Check if user was redirected due to subscription expiration
+    const expiredInfo = localStorage.getItem('subscription_expired');
+    if (expiredInfo) {
+      try {
+        setExpiredAlert(JSON.parse(expiredInfo));
+      } catch (e) {
+        // ignore parse error
+      }
+      localStorage.removeItem('subscription_expired');
+    }
   }, []);
 
   const loadPlans = async () => {
@@ -95,6 +106,26 @@ const Subscription = () => {
         <CrownOutlined style={{ marginRight: 8 }} />
         Assinatura
       </Title>
+
+      {/* Subscription Expired Alert (when redirected from blocked route) */}
+      {expiredAlert && (
+        <Alert
+          type="error"
+          showIcon
+          icon={<ExclamationCircleOutlined />}
+          message="Acesso Bloqueado - Assinatura Necessária"
+          description={
+            <div>
+              <p>{expiredAlert.message}</p>
+              <p>Seu período de avaliação expirou{expiredAlert.days_expired > 0 ? ` há ${expiredAlert.days_expired} dia(s)` : ''}.
+                 Para continuar usando todas as funcionalidades do sistema, escolha um plano abaixo.</p>
+            </div>
+          }
+          style={{ marginBottom: 24 }}
+          closable
+          onClose={() => setExpiredAlert(null)}
+        />
+      )}
 
       {/* Current Status Card */}
       <Card style={{ marginBottom: 24 }}>

@@ -134,9 +134,24 @@ func main() {
 		protected.POST("/auth/profile/picture", handlers.UploadProfilePicture)
 	}
 
-	// Tenant-scoped routes
+	// Tenant-scoped routes (subscription NOT required - for subscription management)
+	tenantedNoSub := r.Group("/api")
+	tenantedNoSub.Use(middleware.AuthMiddleware(), middleware.TenantMiddleware())
+	{
+		// Subscription routes - always accessible
+		subscription := tenantedNoSub.Group("/subscription")
+		{
+			subscription.GET("/plans", handlers.GetPlans)
+			subscription.GET("/status", handlers.GetSubscriptionStatus)
+			subscription.POST("/checkout", handlers.CreateCheckoutSession)
+			subscription.POST("/portal", handlers.CreatePortalSession)
+			subscription.POST("/cancel", handlers.CancelSubscription)
+		}
+	}
+
+	// Tenant-scoped routes (subscription REQUIRED)
 	tenanted := r.Group("/api")
-	tenanted.Use(middleware.AuthMiddleware(), middleware.TenantMiddleware())
+	tenanted.Use(middleware.AuthMiddleware(), middleware.TenantMiddleware(), middleware.SubscriptionMiddleware())
 	{
 		// Patients CRUD
 		patients := tenanted.Group("/patients")
@@ -472,17 +487,8 @@ func main() {
 		stripeSettings.GET("/webhook-url", middleware.PermissionMiddleware("settings", "view"), handlers.GenerateWebhookURL)
 	}
 
-	// ==============================================
-	// Tenant Subscription (Assinatura - for clinics)
-	// ==============================================
-	subscription := tenanted.Group("/subscription")
-	{
-		subscription.GET("/plans", handlers.GetPlans)
-		subscription.GET("/status", handlers.GetSubscriptionStatus)
-		subscription.POST("/checkout", handlers.CreateCheckoutSession)
-		subscription.POST("/portal", handlers.CreatePortalSession)
-		subscription.POST("/cancel", handlers.CancelSubscription)
-	}
+	// NOTE: Tenant Subscription routes are defined above in tenantedNoSub group
+	// (without SubscriptionMiddleware) so users can always access them to subscribe
 
 	// ==============================================
 	// Public Webhook Routes (no auth)

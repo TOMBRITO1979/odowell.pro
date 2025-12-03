@@ -32,6 +32,20 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    // Handle 402 Payment Required - subscription expired
+    if (error.response?.status === 402) {
+      const currentPath = window.location.pathname;
+      // Don't redirect if already on subscription page
+      if (!currentPath.startsWith('/subscription')) {
+        // Store the subscription error info
+        localStorage.setItem('subscription_expired', JSON.stringify({
+          message: error.response?.data?.message || 'Sua assinatura expirou',
+          status: error.response?.data?.subscription_status,
+          days_expired: error.response?.data?.days_expired
+        }));
+        window.location.href = '/subscription';
+      }
+    }
     return Promise.reject(error);
   }
 );
