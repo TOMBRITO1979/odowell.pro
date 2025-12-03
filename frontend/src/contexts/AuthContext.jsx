@@ -193,5 +193,6 @@ export const usePermission = () => {
     canDelete,
     permissions,
     isAdmin: user?.role === 'admin',
+    isSuperAdmin: user?.is_super_admin === true,
   };
 };

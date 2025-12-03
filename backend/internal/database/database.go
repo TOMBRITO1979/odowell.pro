@@ -125,3 +125,15 @@ func CreateSchema(schemaName string) error {
 	}
 	return DB.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schemaName)).Error
 }
+
+// TenantDB wraps a gorm.DB with tenant-specific schema
+type TenantDB struct {
+	DB *gorm.DB
+}
+
+// GetTenantDBByID returns a database connection configured for a specific tenant
+func GetTenantDBByID(tenantID uint) *TenantDB {
+	schemaName := fmt.Sprintf("tenant_%d", tenantID)
+	db := SetSchema(DB.Session(&gorm.Session{}), schemaName)
+	return &TenantDB{DB: db}
+}

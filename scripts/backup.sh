@@ -50,7 +50,7 @@ log "Container PostgreSQL: $POSTGRES_CONTAINER"
 # Criar backup
 log "Criando dump do banco de dados..."
 docker exec "$POSTGRES_CONTAINER" pg_dump \
-    -U drcrwell_user \
+    -U odowell_app \
     -d drcrwell_db \
     --no-owner \
     --no-acl \

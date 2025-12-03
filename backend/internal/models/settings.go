@@ -51,6 +51,13 @@ type TenantSettings struct {
 	WhatsAppNumber string `json:"whatsapp_number,omitempty"`
 
 	// SMS Settings (future use)
-	SMSAPIKey    string `json:"sms_api_key,omitempty"`
-	SMSProvider  string `json:"sms_provider,omitempty"`
+	SMSAPIKey   string `json:"sms_api_key,omitempty"`
+	SMSProvider string `json:"sms_provider,omitempty"`
+
+	// Stripe Settings (for patient subscriptions)
+	StripeSecretKey      string `json:"stripe_secret_key,omitempty"`      // Encrypted in DB
+	StripePublishableKey string `json:"stripe_publishable_key,omitempty"`
+	StripeWebhookSecret  string `json:"stripe_webhook_secret,omitempty"`  // Encrypted in DB
+	StripeConnected      bool   `json:"stripe_connected" gorm:"default:false"`
+	StripeAccountName    string `json:"stripe_account_name,omitempty"`
 }

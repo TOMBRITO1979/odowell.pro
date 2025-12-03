@@ -318,3 +318,52 @@ export const treatmentPaymentsAPI = {
   delete: (id) => api.delete(`/treatment-payments/${id}`),
   downloadReceipt: (id) => api.get(`/treatment-payments/${id}/receipt`, { responseType: 'blob' }),
 };
+
+// Patient Subscriptions API (Planos - for patients)
+export const patientSubscriptionsAPI = {
+  getAll: (params) => api.get('/patient-subscriptions', { params }),
+  getOne: (id) => api.get(`/patient-subscriptions/${id}`),
+  create: (data) => api.post('/patient-subscriptions', data),
+  cancel: (id) => api.post(`/patient-subscriptions/${id}/cancel`),
+  cancelImmediately: (id) => api.delete(`/patient-subscriptions/${id}`),
+  refresh: (id) => api.post(`/patient-subscriptions/${id}/refresh`),
+  getPayments: (id, params) => api.get(`/patient-subscriptions/${id}/payments`, { params }),
+  resendLink: (id) => api.post(`/patient-subscriptions/${id}/resend-link`),
+  getStripeProducts: () => api.get('/stripe/products'),
+};
+
+// Stripe Settings API (for patient subscriptions)
+export const stripeSettingsAPI = {
+  get: () => api.get('/stripe-settings'),
+  update: (data) => api.put('/stripe-settings', data),
+  disconnect: () => api.delete('/stripe-settings'),
+  test: () => api.get('/stripe-settings/test'),
+  getWebhookURL: () => api.get('/stripe-settings/webhook-url'),
+};
+
+// Tenant Subscription API (Assinatura - for clinics)
+export const subscriptionAPI = {
+  getPlans: () => api.get('/subscription/plans'),
+  getStatus: () => api.get('/subscription/status'),
+  createCheckout: (data) => api.post('/subscription/checkout', data),
+  createPortal: () => api.post('/subscription/portal'),
+  cancel: () => api.post('/subscription/cancel'),
+};
+
+// Super Admin API (platform administration)
+export const adminAPI = {
+  // Dashboard
+  getDashboard: () => api.get('/admin/dashboard'),
+
+  // Tenant Management
+  getAllTenants: () => api.get('/admin/tenants'),
+  getTenantDetails: (id) => api.get(`/admin/tenants/${id}`),
+  updateTenantStatus: (id, data) => api.patch(`/admin/tenants/${id}`, data),
+  getTenantUsers: (id) => api.get(`/admin/tenants/${id}/users`),
+  updateTenantUserStatus: (tenantId, userId, data) => api.patch(`/admin/tenants/${tenantId}/users/${userId}`, data),
+
+  // Reports
+  getUnverifiedTenants: () => api.get('/admin/tenants/unverified'),
+  getExpiringTrials: () => api.get('/admin/tenants/expiring'),
+  getInactiveTenants: () => api.get('/admin/tenants/inactive'),
+};

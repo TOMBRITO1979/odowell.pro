@@ -21,6 +21,9 @@ import {
   ClockCircleOutlined,
   FileTextOutlined,
   AppstoreOutlined,
+  CrownOutlined,
+  CreditCardOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI } from '../../services/api';
@@ -38,7 +41,7 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, tenant, logout } = useAuth();
-  const { canView, isAdmin } = usePermission();
+  const { canView, isAdmin, isSuperAdmin } = usePermission();
 
   // Check if sidebar should be hidden for this user
   const hideSidebar = user?.hide_sidebar || false;
@@ -149,6 +152,7 @@ const DashboardLayout = () => {
         { key: '/budgets', label: 'Orçamentos', permission: 'budgets' },
         { key: '/treatments', label: 'Tratamentos', permission: 'budgets' },
         { key: '/payments', label: 'Pagamentos', permission: 'payments' },
+        { key: '/plans', label: 'Planos', permission: 'plans' },
       ],
     },
     {
@@ -180,10 +184,27 @@ const DashboardLayout = () => {
       label: 'Usuários',
       adminOnly: true,
     }] : []),
+    // Subscription - available to admins
+    ...(isAdmin ? [{
+      key: '/subscription',
+      icon: <CreditCardOutlined />,
+      label: 'Assinatura',
+      adminOnly: true,
+    }] : []),
+    // Super Admin only - Platform Administration
+    ...(isSuperAdmin ? [{
+      key: '/admin/tenants',
+      icon: <CrownOutlined />,
+      label: 'Admin Plataforma',
+      superAdminOnly: true,
+    }] : []),
   ];
 
   // Filter items based on permissions
   const menuItems = allMenuItems.filter(item => {
+    // Super Admin-only items
+    if (item.superAdminOnly) return isSuperAdmin;
+
     // Admin-only items
     if (item.adminOnly) return isAdmin;
 

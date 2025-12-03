@@ -32,13 +32,30 @@ type Tenant struct {
 	Active        bool `gorm:"default:true" json:"active"`
 	EmailVerified bool `gorm:"default:false" json:"email_verified"`
 
-	// Subscription (for future SaaS features)
-	PlanType   string `gorm:"default:'basic'" json:"plan_type"` // basic, professional, premium
-	ExpiresAt  *time.Time `json:"expires_at"`
+	// Subscription
+	PlanType           string     `gorm:"default:'basic'" json:"plan_type"` // basic, professional, premium, gold
+	ExpiresAt          *time.Time `json:"expires_at"`
+	SubscriptionStatus string     `gorm:"default:'trialing'" json:"subscription_status"` // trialing, active, expired, cancelled
+	TrialEndsAt        *time.Time `json:"trial_ends_at"`
+	PatientLimit       int        `gorm:"default:1000" json:"patient_limit"` // Max patients allowed
 
 	// WhatsApp/External API Integration
-	APIKey     string `gorm:"unique" json:"api_key,omitempty"` // API key for external integrations (WhatsApp, AI bots)
-	APIKeyActive bool `gorm:"default:false" json:"api_key_active"` // Whether API key is enabled
+	APIKey       string `gorm:"unique" json:"api_key,omitempty"` // API key for external integrations (WhatsApp, AI bots)
+	APIKeyActive bool   `gorm:"default:false" json:"api_key_active"` // Whether API key is enabled
+
+	// Embed token for external forms
+	EmbedToken string `json:"embed_token,omitempty"`
+}
+
+// IsSubscriptionActive checks if tenant has an active subscription
+func (t *Tenant) IsSubscriptionActive() bool {
+	if t.SubscriptionStatus == "active" {
+		return true
+	}
+	if t.SubscriptionStatus == "trialing" && t.TrialEndsAt != nil {
+		return time.Now().Before(*t.TrialEndsAt)
+	}
+	return false
 }
 
 // TableName specifies the table name for Tenant model

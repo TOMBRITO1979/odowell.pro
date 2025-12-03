@@ -55,6 +55,18 @@ import Treatments from './pages/treatments/Treatments';
 import TreatmentDetails from './pages/treatments/TreatmentDetails';
 import Attendance from './pages/attendance/Attendance';
 
+// Admin pages
+import AdminTenants from './pages/admin/AdminTenants';
+
+// Plans (Patient Subscriptions)
+import Plans from './pages/plans/Plans';
+import PlanForm from './pages/plans/PlanForm';
+
+// Subscription (Tenant/Clinic Subscription)
+import Subscription from './pages/subscription/Subscription';
+import SubscriptionSuccess from './pages/subscription/SubscriptionSuccess';
+import SubscriptionCancel from './pages/subscription/SubscriptionCancel';
+
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
@@ -216,6 +228,18 @@ function App() {
 
         {/* User Management (Admin only) */}
         <Route path="users" element={<Users />} />
+
+        {/* Super Admin - Platform Administration */}
+        <Route path="admin/tenants" element={<AdminTenants />} />
+
+        {/* Plans (Patient Subscriptions - Stripe) */}
+        <Route path="plans" element={<Plans />} />
+        <Route path="plans/new" element={<PlanForm />} />
+
+        {/* Subscription (Tenant/Clinic Subscription) */}
+        <Route path="subscription" element={<Subscription />} />
+        <Route path="subscription/success" element={<SubscriptionSuccess />} />
+        <Route path="subscription/cancel" element={<SubscriptionCancel />} />
       </Route>
 
       {/* Catch all */}

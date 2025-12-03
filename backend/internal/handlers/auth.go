@@ -63,11 +63,12 @@ type RegisterRequest struct {
 }
 
 type Claims struct {
-	UserID      uint                       `json:"user_id"`
-	TenantID    uint                       `json:"tenant_id"`
-	Email       string                     `json:"email"`
-	Role        string                     `json:"role"`
-	Permissions map[string]map[string]bool `json:"permissions,omitempty"`
+	UserID       uint                       `json:"user_id"`
+	TenantID     uint                       `json:"tenant_id"`
+	Email        string                     `json:"email"`
+	Role         string                     `json:"role"`
+	IsSuperAdmin bool                       `json:"is_super_admin"`
+	Permissions  map[string]map[string]bool `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -111,7 +112,7 @@ func Login(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := generateToken(user.ID, user.TenantID, user.Email, user.Role)
+	token, err := generateToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -127,12 +128,13 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
 		"user": gin.H{
-			"id":           user.ID,
-			"name":         user.Name,
-			"email":        user.Email,
-			"role":         user.Role,
-			"tenant_id":    user.TenantID,
-			"hide_sidebar": user.HideSidebar,
+			"id":             user.ID,
+			"name":           user.Name,
+			"email":          user.Email,
+			"role":           user.Role,
+			"tenant_id":      user.TenantID,
+			"hide_sidebar":   user.HideSidebar,
+			"is_super_admin": user.IsSuperAdmin,
 		},
 		"tenant": gin.H{
 			"id":       tenant.ID,
@@ -420,7 +422,7 @@ func UploadProfilePicture(c *gin.Context) {
 }
 
 // Helper function to generate JWT token
-func generateToken(userID, tenantID uint, email, role string) (string, error) {
+func generateToken(userID, tenantID uint, email, role string, isSuperAdmin bool) (string, error) {
 	// Get user permissions (admins get all permissions in the middleware, but we still include them for consistency)
 	var permissions map[string]map[string]bool
 	var err error
@@ -448,11 +450,12 @@ func generateToken(userID, tenantID uint, email, role string) (string, error) {
 	}
 
 	claims := Claims{
-		UserID:      userID,
-		TenantID:    tenantID,
-		Email:       email,
-		Role:        role,
-		Permissions: permissions,
+		UserID:       userID,
+		TenantID:     tenantID,
+		Email:        email,
+		Role:         role,
+		IsSuperAdmin: isSuperAdmin,
+		Permissions:  permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

@@ -23,6 +23,9 @@ services:
       -c max_parallel_maintenance_workers=4
       -c log_statement=mod
       -c log_min_duration_statement=1000
+      -c ssl=on
+      -c ssl_cert_file=/run/secrets/pg_ssl_cert
+      -c ssl_key_file=/run/secrets/pg_ssl_key
     environment:
       POSTGRES_DB: ${DB_NAME:-drcrwell_db}
       POSTGRES_USER: ${DB_USER:-drcrwell_user}
@@ -32,8 +35,17 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - network_public
+    secrets:
+      - source: pg_ssl_cert
+        uid: '70'
+        gid: '70'
+        mode: 0644
+      - source: pg_ssl_key
+        uid: '70'
+        gid: '70'
+        mode: 0600
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U drcrwell_user -d drcrwell_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-odowell_app} -d ${DB_NAME:-drcrwell_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -105,7 +117,15 @@ services:
       DB_USER: ${DB_USER:-drcrwell_user}
       DB_PASSWORD: ${DB_PASSWORD:-change_this_password}
       DB_NAME: ${DB_NAME:-drcrwell_db}
-      DB_SSL_MODE: disable
+      DB_SSL_MODE: ${DB_SSL_MODE:-require}
+      # Encryption Key for sensitive data
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Stripe
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_BRONZE: ${STRIPE_PRICE_BRONZE}
+      STRIPE_PRICE_SILVER: ${STRIPE_PRICE_SILVER}
+      STRIPE_PRICE_GOLD: ${STRIPE_PRICE_GOLD}
       DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-50}
       DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-10}
       DB_CONN_MAX_LIFETIME: ${DB_CONN_MAX_LIFETIME:-3600}
@@ -218,3 +238,9 @@ volumes:
     driver: local
   redis_data:
     driver: local
+
+secrets:
+  pg_ssl_cert:
+    external: true
+  pg_ssl_key:
+    external: true

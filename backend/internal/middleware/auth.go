@@ -111,6 +111,36 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	}
 }
 
+// SuperAdminMiddleware checks if user is a super admin
+func SuperAdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{"error": "User not authenticated"})
+			c.Abort()
+			return
+		}
+
+		// Check if user is super admin
+		db := database.GetDB()
+		var user models.User
+		if err := db.First(&user, userID).Error; err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "User not found"})
+			c.Abort()
+			return
+		}
+
+		if !user.IsSuperAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Super admin access required"})
+			c.Abort()
+			return
+		}
+
+		c.Set("is_super_admin", true)
+		c.Next()
+	}
+}
+
 // APIKeyMiddleware validates API key for external integrations (WhatsApp, AI bots)
 // The API key should be passed in the X-API-Key header
 func APIKeyMiddleware() gin.HandlerFunc {

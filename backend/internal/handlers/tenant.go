@@ -75,20 +75,24 @@ func CreateTenant(c *gin.Context) {
 	}
 	apiKey := hex.EncodeToString(apiKeyBytes)
 
-	// Create tenant
+	// Create tenant with 7-day trial
+	trialEndsAt := time.Now().AddDate(0, 0, 7) // 7 days trial
 	tenant := models.Tenant{
-		Name:      req.Name,
-		Subdomain: subdomain,
-		DBSchema:  fmt.Sprintf("tenant_%s", subdomain),
-		Email:     req.Email,
-		Phone:     req.Phone,
-		Address:   req.Address,
-		City:      req.City,
-		State:     req.State,
-		ZipCode:   req.ZipCode,
-		Active:    true,
-		PlanType:  "basic",
-		APIKey:    apiKey,
+		Name:               req.Name,
+		Subdomain:          subdomain,
+		DBSchema:           fmt.Sprintf("tenant_%s", subdomain),
+		Email:              req.Email,
+		Phone:              req.Phone,
+		Address:            req.Address,
+		City:               req.City,
+		State:              req.State,
+		ZipCode:            req.ZipCode,
+		Active:             true,
+		PlanType:           "basic",
+		APIKey:             apiKey,
+		SubscriptionStatus: "trialing",
+		TrialEndsAt:        &trialEndsAt,
+		PatientLimit:       1000, // Default limit for trial
 	}
 
 	if err := tx.Create(&tenant).Error; err != nil {
@@ -154,7 +158,7 @@ func CreateTenant(c *gin.Context) {
 	}()
 
 	// Generate token for immediate login
-	token, _ := generateToken(adminUser.ID, adminUser.TenantID, adminUser.Email, adminUser.Role)
+	token, _ := generateToken(adminUser.ID, adminUser.TenantID, adminUser.Email, adminUser.Role, false)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message":            "Tenant created successfully. Please check your email to verify your account.",

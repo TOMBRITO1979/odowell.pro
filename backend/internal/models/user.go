@@ -21,8 +21,9 @@ type User struct {
 	Password  string `gorm:"not null" json:"-"`
 	Phone     string `json:"phone,omitempty"`
 
-	Role      string `gorm:"default:'user'" json:"role"` // admin, dentist, receptionist, user
-	Active    bool   `gorm:"default:true" json:"active"`
+	Role         string `gorm:"default:'user'" json:"role"` // admin, dentist, receptionist, user
+	Active       bool   `gorm:"default:true" json:"active"`
+	IsSuperAdmin bool   `gorm:"default:false" json:"is_super_admin"` // Platform-level admin
 
 	// Professional info (for dentists)
 	CRO       string `json:"cro,omitempty"`

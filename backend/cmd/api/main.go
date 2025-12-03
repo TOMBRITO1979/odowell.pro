@@ -418,6 +418,76 @@ func main() {
 		}
 	}
 
+	// Super Admin routes (platform-level administration)
+	superAdmin := r.Group("/api/admin")
+	superAdmin.Use(middleware.AuthMiddleware())
+	superAdmin.Use(middleware.SuperAdminMiddleware())
+	{
+		// Dashboard
+		superAdmin.GET("/dashboard", handlers.GetAdminDashboard)
+
+		// Tenant Management
+		superAdmin.GET("/tenants", handlers.GetAllTenants)
+		superAdmin.GET("/tenants/:id", handlers.GetTenantDetails)
+		superAdmin.PATCH("/tenants/:id", handlers.UpdateTenantStatus)
+		superAdmin.GET("/tenants/:id/users", handlers.GetAdminTenantUsers)
+		superAdmin.PATCH("/tenants/:id/users/:userId", handlers.UpdateTenantUserStatus)
+
+		// Reports
+		superAdmin.GET("/tenants/unverified", handlers.GetUnverifiedTenants)
+		superAdmin.GET("/tenants/expiring", handlers.GetExpiringTrials)
+		superAdmin.GET("/tenants/inactive", handlers.GetInactiveTenants)
+	}
+
+	// ==============================================
+	// Patient Subscriptions (Planos - for patients)
+	// ==============================================
+	patientSubs := tenanted.Group("/patient-subscriptions")
+	{
+		patientSubs.GET("", middleware.PermissionMiddleware("plans", "view"), handlers.ListPatientSubscriptions)
+		patientSubs.GET("/:id", middleware.PermissionMiddleware("plans", "view"), handlers.GetPatientSubscription)
+		patientSubs.POST("", middleware.PermissionMiddleware("plans", "create"), handlers.CreatePatientSubscription)
+		patientSubs.POST("/:id/cancel", middleware.PermissionMiddleware("plans", "edit"), handlers.CancelPatientSubscription)
+		patientSubs.DELETE("/:id", middleware.PermissionMiddleware("plans", "delete"), handlers.CancelPatientSubscriptionImmediately)
+		patientSubs.POST("/:id/refresh", middleware.PermissionMiddleware("plans", "view"), handlers.RefreshSubscriptionStatus)
+		patientSubs.GET("/:id/payments", middleware.PermissionMiddleware("plans", "view"), handlers.GetSubscriptionPayments)
+		patientSubs.POST("/:id/resend-link", middleware.PermissionMiddleware("plans", "edit"), handlers.ResendCheckoutLink)
+	}
+
+	// Stripe products for patient plans
+	tenanted.GET("/stripe/products", middleware.PermissionMiddleware("plans", "view"), handlers.GetStripeProducts)
+
+	// Tenant Stripe settings (for patient subscriptions)
+	stripeSettings := tenanted.Group("/stripe-settings")
+	{
+		stripeSettings.GET("", middleware.PermissionMiddleware("settings", "view"), handlers.GetStripeSettings)
+		stripeSettings.PUT("", middleware.PermissionMiddleware("settings", "edit"), handlers.UpdateStripeCredentials)
+		stripeSettings.DELETE("", middleware.PermissionMiddleware("settings", "edit"), handlers.DisconnectStripe)
+		stripeSettings.GET("/test", middleware.PermissionMiddleware("settings", "view"), handlers.TestStripeConnection)
+		stripeSettings.GET("/webhook-url", middleware.PermissionMiddleware("settings", "view"), handlers.GenerateWebhookURL)
+	}
+
+	// ==============================================
+	// Tenant Subscription (Assinatura - for clinics)
+	// ==============================================
+	subscription := tenanted.Group("/subscription")
+	{
+		subscription.GET("/plans", handlers.GetPlans)
+		subscription.GET("/status", handlers.GetSubscriptionStatus)
+		subscription.POST("/checkout", handlers.CreateCheckoutSession)
+		subscription.POST("/portal", handlers.CreatePortalSession)
+		subscription.POST("/cancel", handlers.CancelSubscription)
+	}
+
+	// ==============================================
+	// Public Webhook Routes (no auth)
+	// ==============================================
+	// Webhook for patient subscriptions (per-tenant)
+	r.POST("/api/v1/webhooks/stripe/:tenant_id", handlers.HandleStripeWebhook)
+
+	// Webhook for tenant/clinic subscriptions (platform-level)
+	r.POST("/api/webhooks/stripe", handlers.StripeWebhook)
+
 	// WhatsApp/External API routes (API key authentication, tenant-isolated)
 	// These endpoints are for external integrations like WhatsApp bots and AI assistants
 	whatsappAPI := r.Group("/api/whatsapp")
