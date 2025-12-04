@@ -26,11 +26,13 @@ services:
       -c ssl=on
       -c ssl_cert_file=/run/secrets/pg_ssl_cert
       -c ssl_key_file=/run/secrets/pg_ssl_key
+      -c timezone=America/Sao_Paulo
     environment:
       POSTGRES_DB: ${DB_NAME:-drcrwell_db}
       POSTGRES_USER: ${DB_USER:-drcrwell_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-change_this_password}
       PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: America/Sao_Paulo
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -155,6 +157,8 @@ services:
       FRONTEND_URL: https://${FRONTEND_URL:-app.odowell.pro}
       # App Branding
       APP_NAME: ${APP_NAME:-Sistema Odontológico}
+      # Timezone
+      TZ: America/Sao_Paulo
     networks:
       - network_public
     deploy:
