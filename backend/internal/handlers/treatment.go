@@ -123,6 +123,11 @@ func GetTreatments(c *gin.Context) {
 		query = query.Where("dentist_id = ?", dentistID)
 	}
 
+	// Filter by budget_id
+	if budgetID := c.Query("budget_id"); budgetID != "" {
+		query = query.Where("budget_id = ?", budgetID)
+	}
+
 	// Pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))

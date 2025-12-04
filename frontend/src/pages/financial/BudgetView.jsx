@@ -9,26 +9,19 @@ import {
   Tag,
   Table,
   Divider,
-  Modal,
-  Form,
-  InputNumber,
-  DatePicker,
-  Select,
-  Row,
-  Col,
-  Statistic,
-  Input,
+  Alert,
+  Result,
+  Spin,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   EditOutlined,
   DollarOutlined,
   FilePdfOutlined,
-  PlusOutlined,
-  PrinterOutlined,
+  MedicineBoxOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { budgetsAPI, paymentsAPI } from '../../services/api';
+import { budgetsAPI, treatmentsAPI } from '../../services/api';
 import { actionColors } from '../../theme/designSystem';
 
 const BudgetView = () => {
@@ -37,26 +30,16 @@ const BudgetView = () => {
   const [loading, setLoading] = useState(false);
   const [budget, setBudget] = useState(null);
   const [items, setItems] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
-  const [paymentForm] = Form.useForm();
+  const [treatment, setTreatment] = useState(null);
+  const [loadingTreatment, setLoadingTreatment] = useState(false);
 
   const statusOptions = {
     pending: { label: 'Pendente', color: 'warning' },
     approved: { label: 'Aprovado', color: 'success' },
     rejected: { label: 'Rejeitado', color: 'error' },
     expired: { label: 'Expirado', color: 'default' },
+    cancelled: { label: 'Cancelado', color: 'default' },
   };
-
-  const paymentMethods = [
-    { value: 'cash', label: 'Dinheiro' },
-    { value: 'credit_card', label: 'Cartão de Crédito' },
-    { value: 'debit_card', label: 'Cartão de Débito' },
-    { value: 'pix', label: 'PIX' },
-    { value: 'transfer', label: 'Transferência' },
-    { value: 'zelle', label: 'Zelle' },
-    { value: 'insurance', label: 'Convênio' },
-  ];
 
   useEffect(() => {
     fetchBudget();
@@ -79,9 +62,9 @@ const BudgetView = () => {
         }
       }
 
-      // Set payments from budget
-      if (budgetData.payments) {
-        setPayments(budgetData.payments);
+      // If budget is approved, fetch the associated treatment
+      if (budgetData.status === 'approved') {
+        fetchTreatment(budgetData.id);
       }
     } catch (error) {
       message.error('Erro ao carregar orçamento');
@@ -90,81 +73,18 @@ const BudgetView = () => {
     }
   };
 
-  const handleAddPayment = () => {
-    if (budget.status !== 'approved') {
-      message.warning('Apenas orçamentos aprovados podem receber pagamentos');
-      return;
-    }
-
-    // Calculate next installment number
-    const paidPayments = payments.filter(p => p.status === 'paid').length;
-    const nextInstallment = paidPayments + 1;
-
-    paymentForm.setFieldsValue({
-      installment_number: nextInstallment,
-      paid_date: dayjs(),
-    });
-
-    setPaymentModalVisible(true);
-  };
-
-  const handlePaymentSubmit = async (values) => {
+  const fetchTreatment = async (budgetId) => {
+    setLoadingTreatment(true);
     try {
-      const paymentData = {
-        budget_id: parseInt(id),
-        patient_id: budget.patient_id,
-        type: 'income',
-        category: 'treatment',
-        description: `Pagamento ${values.installment_number}/${values.total_installments || 1} - Orçamento #${id}`,
-        amount: parseFloat(values.amount),
-        payment_method: values.payment_method,
-        is_installment: values.total_installments > 1,
-        installment_number: parseInt(values.installment_number),
-        total_installments: parseInt(values.total_installments) || 1,
-        status: 'paid',
-        paid_date: values.paid_date.format('YYYY-MM-DDTHH:mm:ss') + 'Z',
-        notes: values.notes || '',
-      };
-
-      await paymentsAPI.create(paymentData);
-      message.success('Pagamento adicionado com sucesso');
-      setPaymentModalVisible(false);
-      paymentForm.resetFields();
-      fetchBudget(); // Reload to get updated payments
-    } catch (error) {
-      message.error('Erro ao adicionar pagamento');
-      console.error('Error:', error);
-      if (error.response?.data?.error) {
-        message.error('Detalhes: ' + error.response.data.error);
+      const response = await treatmentsAPI.getByBudgetId(budgetId);
+      if (response.data.treatments && response.data.treatments.length > 0) {
+        setTreatment(response.data.treatments[0]);
       }
-    }
-  };
-
-  const handlePrintReceipt = async (paymentId) => {
-    try {
-      const response = await paymentsAPI.downloadReceipt(id, paymentId);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `recibo_${paymentId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      message.success('Recibo baixado com sucesso');
     } catch (error) {
-      message.error('Erro ao gerar recibo');
-      console.error('Error:', error);
+      console.error('Error fetching treatment:', error);
+    } finally {
+      setLoadingTreatment(false);
     }
-  };
-
-  const calculateFinancialSummary = () => {
-    const totalValue = budget?.total_value || 0;
-    const totalPaid = payments
-      .filter(p => p.status === 'paid')
-      .reduce((sum, p) => sum + p.amount, 0);
-    const remainingBalance = totalValue - totalPaid;
-
-    return { totalValue, totalPaid, remainingBalance };
   };
 
   const formatCurrency = (value) => {
@@ -187,23 +107,6 @@ const BudgetView = () => {
       message.success('PDF baixado com sucesso');
     } catch (error) {
       message.error('Erro ao baixar PDF');
-      console.error('Error:', error);
-    }
-  };
-
-  const handleDownloadPaymentsPDF = async () => {
-    try {
-      const response = await budgetsAPI.downloadPaymentsPDF(id);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `orcamento_pagamentos_${id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      message.success('PDF de gerenciamento de pagamentos baixado com sucesso');
-    } catch (error) {
-      message.error('Erro ao baixar PDF de pagamentos');
       console.error('Error:', error);
     }
   };
@@ -334,283 +237,121 @@ const BudgetView = () => {
           </>
         )}
 
-        <Divider
-          orientation="left"
-          style={{
-            fontSize: '18px',
-            fontWeight: 'bold',
-            color: '#64B5F6',
-            marginTop: '32px',
-            marginBottom: '24px',
-            borderColor: '#64B5F6'
-          }}
-        >
-          <Space>
-            <DollarOutlined style={{ fontSize: '20px' }} />
-            Gerenciamento de Pagamentos
-          </Space>
-        </Divider>
-
-        {budget.status !== 'approved' ? (
-          <Card style={{ marginBottom: 16 }}>
-            <div style={{ textAlign: 'center', padding: '20px' }}>
-              <p style={{ fontSize: 16, marginBottom: 16 }}>
-                Para gerenciar pagamentos, o orçamento precisa estar com status <strong>"Aprovado"</strong>.
-              </p>
-              <p style={{ color: '#999' }}>
-                Status atual: <Tag color={statusOptions[budget.status]?.color}>{statusOptions[budget.status]?.label}</Tag>
-              </p>
-            </div>
-          </Card>
-        ) : (
+        {/* Seção de Tratamento/Pagamentos */}
+        {budget.status === 'approved' && (
           <>
-            <Divider>Resumo Financeiro</Divider>
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col xs={24} sm={8}>
-                <Card>
-                  <Statistic
-                    title="Valor Total"
-                    value={calculateFinancialSummary().totalValue}
-                    precision={2}
-                    prefix="R$"
-                    valueStyle={{ color: '#64B5F6' }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={8}>
-                <Card>
-                  <Statistic
-                    title="Total Pago"
-                    value={calculateFinancialSummary().totalPaid}
-                    precision={2}
-                    prefix="R$"
-                    valueStyle={{ color: '#81C784' }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={8}>
-                <Card>
-                  <Statistic
-                    title="Saldo Restante"
-                    value={calculateFinancialSummary().remainingBalance}
-                    precision={2}
-                    prefix="R$"
-                    valueStyle={{
-                      color: calculateFinancialSummary().remainingBalance > 0 ? '#E57373' : '#81C784'
-                    }}
-                  />
-                </Card>
-              </Col>
-            </Row>
-
-            <Divider>
+            <Divider
+              orientation="left"
+              style={{
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#66BB6A',
+                marginTop: '32px',
+                marginBottom: '24px',
+                borderColor: '#66BB6A'
+              }}
+            >
               <Space>
-                Pagamentos Recebidos
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<PlusOutlined />}
-                  onClick={handleAddPayment}
-                >
-                  Adicionar Pagamento
-                </Button>
-                <Button
-                  size="small"
-                  icon={<FilePdfOutlined />}
-                  onClick={handleDownloadPaymentsPDF}
-                  style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
-                >
-                  Gerar PDF
-                </Button>
+                <MedicineBoxOutlined style={{ fontSize: '20px' }} />
+                Tratamento
               </Space>
             </Divider>
 
-            {payments && payments.length > 0 ? (
-              <Table
-                dataSource={payments}
-                rowKey="id"
-                columns={[
-                  {
-                    title: 'Data',
-                    dataIndex: 'paid_date',
-                    render: (date) => date ? dayjs(date).format('DD/MM/YYYY') : '-',
-                    width: 120,
-                  },
-                  {
-                    title: 'Parcela',
-                    key: 'installment',
-                    render: (_, record) =>
-                      record.is_installment
-                        ? `${record.installment_number}/${record.total_installments}`
-                        : '1/1',
-                    width: 80,
-                  },
-                  {
-                    title: 'Forma de Pagamento',
-                    dataIndex: 'payment_method',
-                    render: (method) => {
-                      const methodObj = paymentMethods.find(m => m.value === method);
-                      return methodObj ? methodObj.label : method;
-                    },
-                    width: 150,
-                  },
-                  {
-                    title: 'Valor',
-                    dataIndex: 'amount',
-                    render: (value) => formatCurrency(value),
-                    width: 120,
-                  },
-                  {
-                    title: 'Status',
-                    dataIndex: 'status',
-                    render: (status) => (
-                      <Tag color={status === 'paid' ? 'success' : 'warning'}>
-                        {status === 'paid' ? 'Pago' : 'Pendente'}
+            {loadingTreatment ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <Spin size="large" />
+                <p style={{ marginTop: 16, color: '#666' }}>Carregando tratamento...</p>
+              </div>
+            ) : treatment ? (
+              <Result
+                status="success"
+                icon={<MedicineBoxOutlined style={{ color: '#66BB6A' }} />}
+                title="Tratamento em Andamento"
+                subTitle={
+                  <div>
+                    <p style={{ marginBottom: 8 }}>
+                      Este orçamento foi aprovado e possui um tratamento vinculado.
+                    </p>
+                    <p style={{ marginBottom: 8 }}>
+                      <strong>Status:</strong>{' '}
+                      <Tag color={treatment.status === 'completed' ? 'success' : treatment.status === 'cancelled' ? 'error' : 'processing'}>
+                        {treatment.status === 'completed' ? 'Concluído' : treatment.status === 'cancelled' ? 'Cancelado' : 'Em Andamento'}
                       </Tag>
-                    ),
-                    width: 100,
-                  },
-                  {
-                    title: 'Ações',
-                    key: 'actions',
-                    align: 'center',
-                    render: (_, record) => (
-                      <Button
-                        size="small"
-                        icon={<PrinterOutlined />}
-                        onClick={() => handlePrintReceipt(record.id)}
-                      >
-                        Recibo
-                      </Button>
-                    ),
-                    width: 120,
-                  },
+                    </p>
+                    <p style={{ marginBottom: 8 }}>
+                      <strong>Valor Total:</strong> {formatCurrency(treatment.total_value)} |{' '}
+                      <strong>Pago:</strong> <span style={{ color: '#66BB6A' }}>{formatCurrency(treatment.paid_value)}</span> |{' '}
+                      <strong>Restante:</strong> <span style={{ color: treatment.total_value - treatment.paid_value > 0 ? '#E57373' : '#66BB6A' }}>
+                        {formatCurrency(treatment.total_value - treatment.paid_value)}
+                      </span>
+                    </p>
+                  </div>
+                }
+                extra={[
+                  <Button
+                    key="view"
+                    type="primary"
+                    size="large"
+                    icon={<MedicineBoxOutlined />}
+                    onClick={() => navigate(`/treatments/${treatment.id}`)}
+                    style={{ backgroundColor: '#66BB6A', borderColor: '#66BB6A' }}
+                  >
+                    Gerenciar Pagamentos do Tratamento
+                  </Button>,
                 ]}
-                pagination={false}
-                summary={() => (
-                  <Table.Summary>
-                    <Table.Summary.Row>
-                      <Table.Summary.Cell index={0} colSpan={3}>
-                        <strong>Total Pago:</strong>
-                      </Table.Summary.Cell>
-                      <Table.Summary.Cell index={1}>
-                        <strong>{formatCurrency(calculateFinancialSummary().totalPaid)}</strong>
-                      </Table.Summary.Cell>
-                      <Table.Summary.Cell index={2} colSpan={2} />
-                    </Table.Summary.Row>
-                  </Table.Summary>
-                )}
               />
             ) : (
-              <p style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
-                Nenhum pagamento registrado ainda
-              </p>
+              <Alert
+                type="warning"
+                showIcon
+                message="Tratamento não encontrado"
+                description={
+                  <div>
+                    <p>Este orçamento está aprovado, mas não foi encontrado um tratamento vinculado.</p>
+                    <p>Isso pode ter ocorrido por um erro no sistema. Por favor, entre em contato com o suporte ou tente aprovar o orçamento novamente.</p>
+                  </div>
+                }
+              />
             )}
           </>
         )}
+
+        {budget.status !== 'approved' && (
+          <>
+            <Divider
+              orientation="left"
+              style={{
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#64B5F6',
+                marginTop: '32px',
+                marginBottom: '24px',
+                borderColor: '#64B5F6'
+              }}
+            >
+              <Space>
+                <DollarOutlined style={{ fontSize: '20px' }} />
+                Pagamentos
+              </Space>
+            </Divider>
+
+            <Alert
+              type="info"
+              showIcon
+              message="Orçamento aguardando aprovação"
+              description={
+                <div>
+                  <p>Para gerenciar pagamentos, o orçamento precisa ser <strong>aprovado</strong> primeiro.</p>
+                  <p>Quando aprovado, um <strong>Tratamento</strong> será criado automaticamente e você poderá registrar os pagamentos por lá.</p>
+                  <p style={{ marginTop: 8 }}>
+                    Status atual: <Tag color={statusOptions[budget.status]?.color}>{statusOptions[budget.status]?.label}</Tag>
+                  </p>
+                </div>
+              }
+            />
+          </>
+        )}
       </Card>
-
-      {/* Modal para adicionar pagamento */}
-      <Modal
-        title="Adicionar Pagamento"
-        open={paymentModalVisible}
-        onCancel={() => {
-          setPaymentModalVisible(false);
-          paymentForm.resetFields();
-        }}
-        onOk={() => paymentForm.submit()}
-        okText="Salvar"
-        cancelText="Cancelar"
-        width={600}
-      >
-        <Form
-          form={paymentForm}
-          layout="vertical"
-          onFinish={handlePaymentSubmit}
-        >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="amount"
-                label="Valor Recebido"
-                rules={[{ required: true, message: 'Informe o valor' }]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  prefix="R$"
-                  min={0}
-                  step={0.01}
-                  precision={2}
-                  placeholder="0,00"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="paid_date"
-                label="Data do Pagamento"
-                rules={[{ required: true, message: 'Informe a data' }]}
-              >
-                <DatePicker
-                  style={{ width: '100%' }}
-                  format="DD/MM/YYYY"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="payment_method"
-            label="Forma de Pagamento"
-            rules={[{ required: true, message: 'Selecione a forma de pagamento' }]}
-          >
-            <Select placeholder="Selecione">
-              {paymentMethods.map(method => (
-                <Select.Option key={method.value} value={method.value}>
-                  {method.label}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="installment_number"
-                label="Número da Parcela"
-                rules={[{ required: true, message: 'Informe o número da parcela' }]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={1}
-                  placeholder="1"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="total_installments"
-                label="Total de Parcelas"
-                initialValue={1}
-                rules={[{ required: true, message: 'Informe o total de parcelas' }]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={1}
-                  placeholder="1"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="notes"
-            label="Observações"
-          >
-            <Input.TextArea rows={3} placeholder="Observações adicionais (opcional)" />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

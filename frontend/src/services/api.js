@@ -322,6 +322,7 @@ export const consentsAPI = {
 export const treatmentsAPI = {
   getAll: (params) => api.get('/treatments', { params }),
   getOne: (id) => api.get(`/treatments/${id}`),
+  getByBudgetId: (budgetId) => api.get('/treatments', { params: { budget_id: budgetId } }),
   create: (data) => api.post('/treatments', data),
   update: (id, data) => api.put(`/treatments/${id}`, data),
   delete: (id) => api.delete(`/treatments/${id}`),

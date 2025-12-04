@@ -1,83 +1,95 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-**Odowell** (formerly Dr. Crwell) is a multitenant SaaS dental clinic management system with:
-- **Backend**: Go + Gin framework
-- **Frontend**: React + Vite + Ant Design
-- **Database**: PostgreSQL 15 (schema-per-tenant isolation)
-- **Deployment**: Docker Swarm + Traefik (SSL/TLS)
-- **Security**: Full RBAC (Role-Based Access Control)
+**Odowell** (formerly Dr. Crwell) is a multitenant SaaS dental clinic management system.
 
-**Live URLs:**
-- Frontend: https://app.odowell.pro
-- Backend API: https://api.odowell.pro
+| Layer | Technology |
+|-------|------------|
+| Backend | Go 1.21 + Gin |
+| Frontend | React 18 + Vite + Ant Design |
+| Database | PostgreSQL 15 (schema-per-tenant) |
+| Cache | Redis (optional) |
+| Deployment | Docker Swarm + Traefik |
 
-## Quick Commands
+**Live URLs:** Frontend: `https://app.odowell.pro` | API: `https://api.odowell.pro`
+
+## Commands
+
+### Local Development
 
 ```bash
-# Full deployment
-./deploy.sh
+# Backend
+cd backend && go run cmd/api/main.go
 
-# Build & deploy separately
-make build && make push && make deploy
+# Frontend
+cd frontend && npm install && npm run dev
+```
 
-# View logs
+### Deployment
+
+```bash
+./deploy.sh                    # Full automated deploy
+make build && make push && make deploy  # Manual steps
+make remove                    # Remove stack
+```
+
+### Logs
+
+```bash
 make logs-backend
 make logs-frontend
 make logs-db
+```
 
-# Remove stack
-make remove
+### Database Access
+
+```bash
+docker exec -it $(docker ps -q -f name=postgres) psql -U drcrwell_user -d drcrwell_db
+\dn                    # List schemas
+\dt tenant_1.*         # List tenant tables
 ```
 
 ## Architecture
 
 ### Multitenant: Schema-per-Tenant
 
-Each tenant gets an isolated PostgreSQL schema (`tenant_X`):
+Each tenant gets an isolated PostgreSQL schema (`tenant_X`).
 
-**Public schema** (shared):
-- `tenants`, `users`, `modules`, `permissions`, `user_permissions`
+**Public schema** (shared): `tenants`, `users`, `modules`, `permissions`, `user_permissions`
 
-**Tenant schemas** (isolated per clinic):
-- `patients`, `appointments`, `medical_records`, `prescriptions`, `exams`
-- `budgets`, `payments`, `products`, `suppliers`, `stock_movements`
-- `campaigns`, `attachments`, `tasks`, `settings`, `waiting_list`, `treatment_protocols`
+**Tenant schemas** (isolated): `patients`, `appointments`, `medical_records`, `prescriptions`, `exams`, `budgets`, `payments`, `products`, `suppliers`, `stock_movements`, `campaigns`, `attachments`, `tasks`, `settings`, `waiting_list`, `treatment_protocols`
 
-**Schema switching**: Middleware executes `SET search_path TO tenant_X` based on JWT `tenant_id`.
+**Schema switching**: `TenantMiddleware` executes `SET search_path TO tenant_X` based on JWT `tenant_id`.
 
-### Backend (Go + Gin)
+### Backend Structure
 
-- **Entry point**: `cmd/api/main.go`
+- **Entry point**: `cmd/api/main.go` - All routes defined here
 - **Handlers**: `internal/handlers/` - HTTP controllers
 - **Models**: `internal/models/` - GORM models
-- **Middleware**:
-  - `AuthMiddleware()`: JWT validation
-  - `TenantMiddleware()`: Schema switching
-  - `PermissionMiddleware(module, action)`: RBAC enforcement
+- **Middleware chain**: `AuthMiddleware() → TenantMiddleware() → SubscriptionMiddleware() → PermissionMiddleware(module, action)`
 
-### Frontend (React + Vite)
+### Frontend Structure
 
 - **Entry point**: `src/main.jsx`
-- **Pages**: `src/pages/` - Route components
-- **Components**: `src/components/` - Reusable UI (Ant Design)
-- **API**: `src/services/api.js` - Axios with JWT interceptor
-- **Auth**: `usePermission()` hook from AuthContext
+- **Routes**: `src/App.jsx`
+- **Layout/Menu**: `src/components/layouts/DashboardLayout.jsx`
+- **API client**: `src/services/api.js` - Axios with JWT interceptor
+- **Auth/Permissions**: `src/contexts/AuthContext.jsx` - `usePermission()` hook
 
 ## RBAC (Role-Based Access Control)
 
-**Two-layer security**:
+**Two-layer enforcement:**
 
-1. **Frontend**: `usePermission()` hook hides/disables UI
+1. **Frontend** - `usePermission()` hook controls UI visibility:
    ```jsx
    const { canDelete } = usePermission();
    {canDelete('patients') && <Button>Delete</Button>}
    ```
 
-2. **Backend**: `PermissionMiddleware` enforces on routes
+2. **Backend** - `PermissionMiddleware` enforces on routes:
    ```go
    patients.DELETE("/:id",
      middleware.PermissionMiddleware("patients", "delete"),
@@ -89,51 +101,25 @@ Each tenant gets an isolated PostgreSQL schema (`tenant_X`):
 
 ## Adding New Features
 
-### Backend Steps
+### Backend
 
 1. Create model: `internal/models/feature.go`
 2. Create handler: `internal/handlers/feature.go`
-3. Register routes in `cmd/api/main.go` with `PermissionMiddleware`
+3. Register routes in `cmd/api/main.go` with appropriate middleware
 4. Add module to `modules` table (if new module)
 
-### Frontend Steps
+### Frontend
 
 1. Add API methods: `src/services/api.js`
 2. Create page: `src/pages/feature/Feature.jsx`
 3. Add route: `src/App.jsx`
 4. Add menu item: `src/components/layouts/DashboardLayout.jsx` (with `canView()`)
 
-## Key Features Implemented
+## Important Implementation Details
 
-### Gestão de Pacientes
-- Cadastro completo com histórico
-- **Prontuário eletrônico com odontograma digital** (visual component)
-- Armazenamento de exames e documentos
-- Controle de alergias e medicações
+### Odontogram
 
-### Agendamento
-- Agenda por profissional/cadeira
-- **Lista de espera** (waiting list)
-- Controle de faltas e reagendamentos
-- Bloqueio de horários
-
-### Financeiro
-- Orçamentos e planos de tratamento
-- Contas a receber/pagar
-- Gestão de convênios
-- Relatórios e fluxo de caixa
-
-### Gestão Clínica
-- Registro de procedimentos
-- Controle de estoque
-- **Protocolos de atendimento** (treatment protocols)
-- Prescrições e atestados
-
-## Important Notes
-
-### Odontogram Implementation
-
-The odontogram is stored as JSONB in `medical_records.odontogram`:
+Stored as JSONB in `medical_records.odontogram`:
 ```json
 {
   "11": {"status": "healthy", "procedures": []},
@@ -141,58 +127,33 @@ The odontogram is stored as JSONB in `medical_records.odontogram`:
 }
 ```
 
-**Frontend component**: `src/components/Odontogram.jsx`
-- Interactive mode (edit)
-- Read-only mode (display)
-- Responsive design with multiple breakpoints
+- **Frontend component**: `src/components/Odontogram.jsx` (interactive/read-only modes)
+- **PDF generation**: `backend/internal/handlers/medical_record_pdf.go`
 
-**PDF generation**: `backend/internal/handlers/medical_record_pdf.go`
-- Renders odontogram in PDF with quadrants and symbols
+### GORM Limitations
 
-### CRUD Operations with GORM Issues
-
-For cross-schema operations, sometimes raw SQL is needed instead of GORM:
+For cross-schema operations, raw SQL is sometimes needed:
 ```go
 db.Exec(`UPDATE medical_records SET ... WHERE id = ?`, ...)
 ```
 
-### Database Migrations
+### Migrations
 
-Auto-migration runs on startup for tenant schemas. For public schema changes, use SQL migrations in `backend/migrations/`.
+Auto-migration runs on startup for tenant schemas. For public schema changes, add SQL migrations to `backend/migrations/`.
 
 ## Troubleshooting
 
-**403 Forbidden errors**:
-- Check `user_permissions` table
-- Verify module code matches frontend/backend
-- Confirm module is active in `modules` table
+**403 Forbidden**: Check `user_permissions` table, verify module code matches, confirm module is active in `modules` table.
 
-**Database issues**:
-```bash
-docker exec -it $(docker ps -q -f name=postgres) psql -U drcrwell_user -d drcrwell_db
-\dn                    # List schemas
-\dt tenant_1.*         # List tables
-```
-
-**Frontend not updating**:
-- Clear browser cache: Ctrl+Shift+R
-- Check deploy logs: `make logs-frontend`
+**Frontend not updating**: Clear browser cache (Ctrl+Shift+R), check deploy logs.
 
 ## Environment Variables
 
-**Backend** (`.env`):
-- `DB_*`: PostgreSQL connection
-- `JWT_SECRET`: 256+ bits for production
-- `CORS_ORIGINS`: Comma-separated allowed origins
+**Backend** (`.env`): `DB_*`, `JWT_SECRET`, `CORS_ORIGINS`, `REDIS_*`, `STRIPE_*`
 
-**Frontend**:
-- `VITE_API_URL`: Backend API URL (https://api.odowell.pro)
+**Frontend**: `VITE_API_URL`
 
 ## Docker Images
 
 - `tomautomations/drcrwell-backend:latest`
 - `tomautomations/drcrwell-frontend:latest`
-
-Multi-stage builds:
-- Backend: `golang:1.21-alpine` → `alpine:latest` (~15MB)
-- Frontend: `node:18-alpine` → `nginx:alpine`
