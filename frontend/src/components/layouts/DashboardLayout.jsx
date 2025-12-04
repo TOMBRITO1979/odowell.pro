@@ -24,6 +24,7 @@ import {
   CrownOutlined,
   CreditCardOutlined,
   TagsOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI } from '../../services/api';
@@ -152,6 +153,7 @@ const DashboardLayout = () => {
         { key: '/budgets', label: 'Orçamentos', permission: 'budgets' },
         { key: '/treatments', label: 'Tratamentos', permission: 'budgets' },
         { key: '/payments', label: 'Pagamentos', permission: 'payments' },
+        { key: '/expenses', label: 'Contas a Pagar', permission: 'payments' },
         { key: '/plans', label: 'Planos', permission: 'plans' },
       ],
     },

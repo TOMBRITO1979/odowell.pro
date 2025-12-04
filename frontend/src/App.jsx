@@ -53,6 +53,8 @@ import WaitingListForm from './pages/waiting-list/WaitingListForm';
 import ConsentTemplates from './pages/consents/ConsentTemplates';
 import Treatments from './pages/treatments/Treatments';
 import TreatmentDetails from './pages/treatments/TreatmentDetails';
+import Expenses from './pages/financial/Expenses';
+import ExpenseForm from './pages/financial/ExpenseForm';
 import Attendance from './pages/attendance/Attendance';
 
 // Admin pages
@@ -185,6 +187,11 @@ function App() {
         <Route path="payments/:id/edit" element={<PaymentForm />} />
         <Route path="treatments" element={<Treatments />} />
         <Route path="treatments/:id" element={<TreatmentDetails />} />
+
+        {/* Expenses (Contas a Pagar) */}
+        <Route path="expenses" element={<Expenses />} />
+        <Route path="expenses/new" element={<ExpenseForm />} />
+        <Route path="expenses/:id/edit" element={<ExpenseForm />} />
 
         {/* Inventory */}
         <Route path="products" element={<Products />} />
