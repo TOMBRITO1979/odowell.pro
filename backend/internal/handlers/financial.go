@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/models"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -127,20 +128,30 @@ func UpdateBudget(c *gin.Context) {
 	// If status changed to approved, auto-create treatment
 	var treatment *models.Treatment
 	if currentBudget.Status != "approved" && input.Status == "approved" {
-		// Check if treatment already exists
-		var existingTreatment models.Treatment
-		if err := db.Where("budget_id = ?", budget.ID).First(&existingTreatment).Error; err != nil {
+		log.Printf("DEBUG: Budget %d status changed to approved, checking for existing treatment...", budget.ID)
+
+		// Check if treatment already exists using raw SQL to avoid GORM model contamination
+		var existingTreatmentID uint
+		err := db.Raw("SELECT id FROM treatments WHERE budget_id = ? AND deleted_at IS NULL LIMIT 1", budget.ID).Scan(&existingTreatmentID).Error
+
+		if err != nil || existingTreatmentID == 0 {
+			log.Printf("DEBUG: No existing treatment found for budget %d, creating new treatment...", budget.ID)
+
 			// Treatment doesn't exist, create it
 			totalInstallments := input.TotalInstallments
 			if totalInstallments <= 0 {
 				totalInstallments = 1
 			}
 
-			newTreatment, err := CreateTreatmentFromBudget(db, &budget, totalInstallments)
-			if err == nil {
+			newTreatment, createErr := CreateTreatmentFromBudgetRaw(db, &budget, totalInstallments)
+			if createErr != nil {
+				log.Printf("ERROR: Failed to create treatment for budget %d: %v", budget.ID, createErr)
+			} else {
+				log.Printf("DEBUG: Treatment %d created successfully for budget %d", newTreatment.ID, budget.ID)
 				treatment = newTreatment
-				db.Preload("Patient").Preload("Dentist").First(treatment, treatment.ID)
 			}
+		} else {
+			log.Printf("DEBUG: Treatment %d already exists for budget %d", existingTreatmentID, budget.ID)
 		}
 	}
 

@@ -147,6 +147,13 @@ const Treatments = () => {
 
   const columns = [
     {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 70,
+      sorter: true,
+    },
+    {
       title: 'Data',
       dataIndex: 'start_date',
       key: 'start_date',

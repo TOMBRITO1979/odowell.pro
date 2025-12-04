@@ -836,3 +836,42 @@ func CreateTreatmentFromBudget(db *gorm.DB, budget *models.Budget, totalInstallm
 
 	return &treatment, nil
 }
+
+// CreateTreatmentFromBudgetRaw - Uses raw SQL to avoid GORM model contamination issues
+func CreateTreatmentFromBudgetRaw(db *gorm.DB, budget *models.Budget, totalInstallments int) (*models.Treatment, error) {
+	if totalInstallments <= 0 {
+		totalInstallments = 1
+	}
+
+	installmentValue := budget.TotalValue / float64(totalInstallments)
+	startDate := time.Now()
+	status := models.TreatmentStatusInProgress
+
+	// Insert using raw SQL to avoid GORM contamination
+	result := db.Exec(`
+		INSERT INTO treatments
+		(created_at, updated_at, budget_id, patient_id, dentist_id, description,
+		 total_value, paid_value, total_installments, installment_value, status, start_date)
+		VALUES (NOW(), NOW(), ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+	`, budget.ID, budget.PatientID, budget.DentistID, budget.Description,
+		budget.TotalValue, totalInstallments, installmentValue, status, startDate)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	// Get the created treatment ID
+	var treatmentID uint
+	db.Raw("SELECT id FROM treatments WHERE budget_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1", budget.ID).Scan(&treatmentID)
+
+	// Load the treatment with relationships
+	var treatment models.Treatment
+	db.Raw("SELECT * FROM treatments WHERE id = ?", treatmentID).Scan(&treatment)
+
+	// Load patient
+	var patient models.Patient
+	db.Raw("SELECT * FROM patients WHERE id = ?", treatment.PatientID).Scan(&patient)
+	treatment.Patient = &patient
+
+	return &treatment, nil
+}

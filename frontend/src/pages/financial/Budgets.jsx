@@ -232,6 +232,13 @@ const Budgets = () => {
 
   const columns = [
     {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 70,
+      sorter: true,
+    },
+    {
       title: 'Data',
       dataIndex: 'created_at',
       key: 'created_at',
