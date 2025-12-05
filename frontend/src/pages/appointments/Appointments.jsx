@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Table, Button, message, Tag, Space, Popconfirm, Card, Row, Col, Select, DatePicker } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FileExcelOutlined, FilePdfOutlined, FilterOutlined, ClearOutlined } from '@ant-design/icons';
 import { appointmentsAPI, usersAPI } from '../../services/api';
@@ -25,6 +25,7 @@ const Appointments = () => {
     total: 0,
   });
   const navigate = useNavigate();
+  const location = useLocation();
   const { canCreate, canEdit, canDelete } = usePermission();
 
   useEffect(() => {
@@ -33,7 +34,7 @@ const Appointments = () => {
 
   useEffect(() => {
     fetchAppointments();
-  }, [pagination.current, filters]);
+  }, [pagination.current, filters, location.key]); // location.key força atualização ao navegar
 
   const fetchDentists = async () => {
     try {

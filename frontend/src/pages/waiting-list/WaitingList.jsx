@@ -24,7 +24,7 @@ import {
   EditOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import { actionColors, statusColors, brandColors, spacing, shadows } from '../../theme/designSystem';
@@ -34,6 +34,7 @@ const { Option } = Select;
 
 const WaitingList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { canCreate, canEdit, canDelete } = usePermission();
 
   const [entries, setEntries] = useState([]);
@@ -55,7 +56,7 @@ const WaitingList = () => {
   useEffect(() => {
     fetchWaitingList();
     fetchStats();
-  }, [pagination.current, filters]);
+  }, [pagination.current, filters, location.key]); // location.key força atualização ao navegar
 
   const fetchWaitingList = async () => {
     setLoading(true);

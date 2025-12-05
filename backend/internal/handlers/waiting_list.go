@@ -151,6 +151,9 @@ func GetWaitingList(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		whereConditions = append(whereConditions, "wl.status = ?")
 		whereArgs = append(whereArgs, status)
+	} else {
+		// Por padrão, mostrar apenas 'waiting' e 'contacted' (excluir 'scheduled' e 'cancelled')
+		whereConditions = append(whereConditions, "wl.status IN ('waiting', 'contacted')")
 	}
 	if priority := c.Query("priority"); priority != "" {
 		whereConditions = append(whereConditions, "wl.priority = ?")
