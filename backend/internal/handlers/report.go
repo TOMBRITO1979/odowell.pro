@@ -568,10 +568,46 @@ func GetAdvancedDashboard(c *gin.Context) {
 	}
 	newPatientsQuery.Count(&newPatients)
 
+	// Revenue by dentist (from approved budgets)
+	type RevenueByDentist struct {
+		Professional   string  `json:"professional"`
+		TotalBudgets   int64   `json:"total_budgets"`
+		TotalRevenue   float64 `json:"total_revenue"`
+		PaidRevenue    float64 `json:"paid_revenue"`
+		PendingRevenue float64 `json:"pending_revenue"`
+	}
+
+	var revenueByDentist []RevenueByDentist
+	revenueQuery := db.Session(&gorm.Session{NewDB: true}).
+		Table("budgets b").
+		Select(`
+			u.name as professional,
+			COUNT(DISTINCT b.id) as total_budgets,
+			COALESCE(SUM(b.total_value), 0) as total_revenue,
+			COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) as paid_revenue,
+			COALESCE(SUM(b.total_value), 0) - COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) as pending_revenue
+		`).
+		Joins("JOIN public.users u ON b.dentist_id = u.id").
+		Joins("LEFT JOIN payments p ON p.budget_id = b.id").
+		Where("b.status = ?", "approved")
+
+	if startDate != "" {
+		revenueQuery = revenueQuery.Where("DATE(b.created_at) >= ?", startDate)
+	}
+	if endDate != "" {
+		revenueQuery = revenueQuery.Where("DATE(b.created_at) <= ?", endDate)
+	}
+
+	revenueQuery.
+		Group("u.name").
+		Order("total_revenue DESC").
+		Scan(&revenueByDentist)
+
 	c.JSON(http.StatusOK, gin.H{
 		"daily_appointments":        dailyAppointments,
 		"professional_appointments": professionalAppointments,
 		"procedures_by_dentist":     proceduresByDentist,
+		"revenue_by_dentist":        revenueByDentist,
 		"total_appointments":        totalAppointments,
 		"completed_appointments":    completedCount,
 		"cancelled_appointments":    cancelledCount,

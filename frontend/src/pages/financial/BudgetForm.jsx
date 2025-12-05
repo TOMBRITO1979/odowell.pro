@@ -23,7 +23,7 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { budgetsAPI, patientsAPI } from '../../services/api';
+import { budgetsAPI, patientsAPI, usersAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { TextArea } = Input;
@@ -35,6 +35,7 @@ const BudgetForm = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
+  const [dentists, setDentists] = useState([]);
   const [items, setItems] = useState([]);
   const [totalValue, setTotalValue] = useState(0);
 
@@ -47,6 +48,7 @@ const BudgetForm = () => {
 
   useEffect(() => {
     fetchPatients();
+    fetchDentists();
     if (id) {
       fetchBudget();
     }
@@ -62,6 +64,19 @@ const BudgetForm = () => {
       setPatients(response.data.patients || []);
     } catch (error) {
       message.error('Erro ao carregar pacientes');
+    }
+  };
+
+  const fetchDentists = async () => {
+    try {
+      const response = await usersAPI.getAll();
+      // Filtrar apenas dentistas e admins (profissionais que podem ser responsáveis)
+      const professionals = (response.data.users || []).filter(
+        u => u.role === 'dentist' || u.role === 'admin'
+      );
+      setDentists(professionals);
+    } catch (error) {
+      console.error('Error fetching dentists:', error);
     }
   };
 
@@ -213,7 +228,6 @@ const BudgetForm = () => {
     try {
       const data = {
         ...values,
-        dentist_id: user.id,
         total_value: totalValue,
         items: JSON.stringify(items),
       };
@@ -291,7 +305,36 @@ const BudgetForm = () => {
               </Form.Item>
             </Col>
 
-            <Col xs={24} md={6}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="dentist_id"
+                label="Profissional Responsável"
+                rules={[
+                  { required: true, message: 'Selecione o profissional' },
+                ]}
+                initialValue={user?.id}
+              >
+                <Select
+                  placeholder="Selecione o profissional"
+                  showSearch
+                  filterOption={(input, option) =>
+                    option.children
+                      .toLowerCase()
+                      .includes(input.toLowerCase())
+                  }
+                >
+                  {dentists.map((dentist) => (
+                    <Select.Option key={dentist.id} value={dentist.id}>
+                      {dentist.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
               <Form.Item
                 name="status"
                 label="Status"
@@ -310,7 +353,7 @@ const BudgetForm = () => {
               </Form.Item>
             </Col>
 
-            <Col xs={24} md={6}>
+            <Col xs={24} md={8}>
               <Form.Item
                 name="valid_until"
                 label="Válido Até"

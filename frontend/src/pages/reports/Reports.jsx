@@ -12,6 +12,7 @@ import {
   Empty,
   Progress,
   Tag,
+  Divider,
 } from 'antd';
 import {
   BarChartOutlined,
@@ -1151,6 +1152,111 @@ const Reports = () => {
                     </div>
                   </Col>
                 </Row>
+              )}
+
+              {/* Receita Financeira por Profissional */}
+              <Divider>Receita Financeira por Profissional</Divider>
+
+              {dentistStatsData.revenue_by_dentist && dentistStatsData.revenue_by_dentist.length > 0 ? (
+                <>
+                  <Row gutter={16}>
+                    <Col xs={24} lg={12}>
+                      <h4>Receita Total por Profissional (Orçamentos Aprovados)</h4>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={dentistStatsData.revenue_by_dentist}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="professional" angle={-45} textAnchor="end" height={80} />
+                          <YAxis tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
+                          <Tooltip formatter={(value) => formatCurrency(value)} />
+                          <Legend />
+                          <Bar dataKey="total_revenue" fill={statusColors.success} name="Valor Total" />
+                          <Bar dataKey="paid_revenue" fill={actionColors.approve} name="Valor Recebido" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Col>
+                    <Col xs={24} lg={12}>
+                      <h4>Distribuição de Receita</h4>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={dentistStatsData.revenue_by_dentist}
+                            dataKey="total_revenue"
+                            nameKey="professional"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            label={(entry) => `${entry.professional}: ${formatCurrency(entry.total_revenue)}`}
+                          >
+                            {dentistStatsData.revenue_by_dentist.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => formatCurrency(value)} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </Col>
+                  </Row>
+
+                  <Row gutter={16} style={{ marginTop: 24 }}>
+                    <Col span={24}>
+                      <h4>Detalhamento Financeiro por Profissional</h4>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#fafafa' }}>
+                              <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #e8e8e8' }}>Profissional</th>
+                              <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e8e8e8' }}>Orçamentos</th>
+                              <th style={{ padding: '12px 8px', textAlign: 'right', borderBottom: '1px solid #e8e8e8' }}>Valor Total</th>
+                              <th style={{ padding: '12px 8px', textAlign: 'right', borderBottom: '1px solid #e8e8e8' }}>Recebido</th>
+                              <th style={{ padding: '12px 8px', textAlign: 'right', borderBottom: '1px solid #e8e8e8' }}>A Receber</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dentistStatsData.revenue_by_dentist.map((item, index) => (
+                              <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa' }}>
+                                <td style={{ padding: '10px 8px', borderBottom: '1px solid #e8e8e8', fontWeight: 'bold' }}>
+                                  {item.professional}
+                                </td>
+                                <td style={{ padding: '10px 8px', textAlign: 'center', borderBottom: '1px solid #e8e8e8' }}>
+                                  {item.total_budgets}
+                                </td>
+                                <td style={{ padding: '10px 8px', textAlign: 'right', borderBottom: '1px solid #e8e8e8', color: statusColors.success, fontWeight: 'bold' }}>
+                                  {formatCurrency(item.total_revenue)}
+                                </td>
+                                <td style={{ padding: '10px 8px', textAlign: 'right', borderBottom: '1px solid #e8e8e8', color: actionColors.approve }}>
+                                  {formatCurrency(item.paid_revenue)}
+                                </td>
+                                <td style={{ padding: '10px 8px', textAlign: 'right', borderBottom: '1px solid #e8e8e8', color: item.pending_revenue > 0 ? statusColors.error : statusColors.success }}>
+                                  {formatCurrency(item.pending_revenue)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr style={{ backgroundColor: '#e6f7ff', fontWeight: 'bold' }}>
+                              <td style={{ padding: '12px 8px', borderTop: '2px solid #1890ff' }}>TOTAL</td>
+                              <td style={{ padding: '12px 8px', textAlign: 'center', borderTop: '2px solid #1890ff' }}>
+                                {dentistStatsData.revenue_by_dentist.reduce((sum, item) => sum + item.total_budgets, 0)}
+                              </td>
+                              <td style={{ padding: '12px 8px', textAlign: 'right', borderTop: '2px solid #1890ff', color: statusColors.success }}>
+                                {formatCurrency(dentistStatsData.revenue_by_dentist.reduce((sum, item) => sum + item.total_revenue, 0))}
+                              </td>
+                              <td style={{ padding: '12px 8px', textAlign: 'right', borderTop: '2px solid #1890ff', color: actionColors.approve }}>
+                                {formatCurrency(dentistStatsData.revenue_by_dentist.reduce((sum, item) => sum + item.paid_revenue, 0))}
+                              </td>
+                              <td style={{ padding: '12px 8px', textAlign: 'right', borderTop: '2px solid #1890ff', color: statusColors.error }}>
+                                {formatCurrency(dentistStatsData.revenue_by_dentist.reduce((sum, item) => sum + item.pending_revenue, 0))}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </Col>
+                  </Row>
+                </>
+              ) : (
+                <Empty description="Nenhum orçamento aprovado no período" />
               )}
             </div>
           ) : (
