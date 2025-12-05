@@ -165,12 +165,8 @@ const AppointmentDetails = () => {
               ? `${dayjs(appointment.end_time).diff(dayjs(appointment.start_time), 'minute')} minutos`
               : 'N/A'}
           </Descriptions.Item>
-          <Descriptions.Item label="Confirmado">
-            {appointment.confirmed ? (
-              <Tag color="green">Sim</Tag>
-            ) : (
-              <Tag color="orange">Não</Tag>
-            )}
+          <Descriptions.Item label="Sala">
+            {appointment.room || '-'}
           </Descriptions.Item>
           <Descriptions.Item label="Criado em">
             {appointment.created_at
