@@ -1,7 +1,6 @@
-const CACHE_NAME = 'drcrwell-v4-odowell';
+const CACHE_NAME = 'drcrwell-v5-odowell'; // Incrementado para forçar atualização
 const urlsToCache = [
-  '/',
-  '/index.html',
+  // Apenas arquivos estáticos essenciais - NÃO cachear JS/CSS
   '/manifest.json',
 ];
 
@@ -29,7 +28,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - NÃO cachear JS/CSS para garantir código atualizado
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -40,36 +39,17 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension requests
   if (event.request.url.startsWith('chrome-extension://')) return;
 
+  // NÃO cachear arquivos JS, CSS e HTML - sempre buscar da rede
+  const url = event.request.url;
+  if (url.endsWith('.js') || url.endsWith('.css') || url.endsWith('.html') || url.includes('/assets/')) {
+    return; // Let browser handle normally without SW interference
+  }
+
+  // Apenas cachear recursos estáticos (imagens, fontes)
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-
-        // Clone the request
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then((response) => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          // Clone the response
-          const responseToCache = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-
-          return response;
-        }).catch(() => {
-          // Network failed, return offline page if available
-          return caches.match('/index.html');
-        });
-      })
+    fetch(event.request).catch(() => {
+      // Network failed, try cache only for static assets
+      return caches.match(event.request);
+    })
   );
 });
