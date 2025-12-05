@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Form,
   Input,
@@ -19,7 +19,7 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { appointmentsAPI, patientsAPI, usersAPI } from '../../services/api';
+import { appointmentsAPI, patientsAPI, usersAPI, waitingListAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { TextArea } = Input;
@@ -28,11 +28,16 @@ const AppointmentForm = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
   const [dentists, setDentists] = useState([]);
   const isEditing = !!id;
+
+  // Get patient_id from URL params (from waiting list)
+  const patientIdFromUrl = searchParams.get('patient_id');
+  const waitingListId = searchParams.get('waiting_list_id');
 
   const statusOptions = [
     { value: 'scheduled', label: 'Agendado' },
@@ -77,6 +82,12 @@ const AppointmentForm = () => {
     try {
       const response = await patientsAPI.getAll({ page: 1, page_size: 1000 });
       setPatients(response.data.patients || []);
+
+      // Pre-select patient if coming from waiting list
+      if (patientIdFromUrl && !isEditing) {
+        const patientId = parseInt(patientIdFromUrl, 10);
+        form.setFieldValue('patient_id', patientId);
+      }
     } catch (error) {
       console.error('Error fetching patients:', error);
     }
@@ -152,8 +163,18 @@ const AppointmentForm = () => {
         await appointmentsAPI.update(id, data);
         message.success('Agendamento atualizado com sucesso!');
       } else {
-        await appointmentsAPI.create(data);
+        const response = await appointmentsAPI.create(data);
         message.success('Agendamento criado com sucesso!');
+
+        // If coming from waiting list, update the waiting list entry
+        if (waitingListId && response.data?.appointment?.id) {
+          try {
+            await waitingListAPI.schedule(waitingListId, response.data.appointment.id);
+          } catch (err) {
+            console.error('Failed to update waiting list:', err);
+            // Don't fail the whole operation if this fails
+          }
+        }
       }
 
       navigate('/appointments');

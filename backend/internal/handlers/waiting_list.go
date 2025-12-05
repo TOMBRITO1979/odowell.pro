@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"net/http"
@@ -41,17 +42,17 @@ func CreateWaitingListEntry(c *gin.Context) {
 		entry.Priority = "normal"
 	}
 
-	// Validate patient exists
-	var patient models.Patient
-	if err := db.First(&patient, entry.PatientID).Error; err != nil {
+	// Validate patient exists using raw SQL to avoid GORM contamination
+	var patientCount int64
+	if err := db.Raw("SELECT COUNT(*) FROM patients WHERE id = ? AND deleted_at IS NULL", entry.PatientID).Scan(&patientCount).Error; err != nil || patientCount == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Patient not found"})
 		return
 	}
 
-	// Validate dentist if provided
+	// Validate dentist if provided using raw SQL
 	if entry.DentistID != nil {
-		var dentist models.User
-		if err := db.First(&dentist, *entry.DentistID).Error; err != nil {
+		var dentistCount int64
+		if err := db.Raw("SELECT COUNT(*) FROM public.users WHERE id = ? AND deleted_at IS NULL", *entry.DentistID).Scan(&dentistCount).Error; err != nil || dentistCount == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Dentist not found"})
 			return
 		}
@@ -102,6 +103,35 @@ func CreateWaitingListEntry(c *gin.Context) {
 	c.JSON(http.StatusCreated, entry)
 }
 
+// WaitingListEntry represents a waiting list entry with patient and dentist info
+type WaitingListEntry struct {
+	ID             uint       `json:"id"`
+	PatientID      uint       `json:"patient_id"`
+	DentistID      *uint      `json:"dentist_id,omitempty"`
+	Procedure      string     `json:"procedure"`
+	PreferredDates string     `json:"preferred_dates,omitempty"`
+	Priority       string     `json:"priority"`
+	Status         string     `json:"status"`
+	ContactedAt    *time.Time `json:"contacted_at,omitempty"`
+	ContactedBy    *uint      `json:"contacted_by,omitempty"`
+	ScheduledAt    *time.Time `json:"scheduled_at,omitempty"`
+	AppointmentID  *uint      `json:"appointment_id,omitempty"`
+	Notes          string     `json:"notes,omitempty"`
+	CreatedBy      uint       `json:"created_by"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	Patient        *struct {
+		ID    uint   `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email,omitempty"`
+		Phone string `json:"phone,omitempty"`
+	} `json:"patient,omitempty"`
+	Dentist *struct {
+		ID   uint   `json:"id"`
+		Name string `json:"name"`
+	} `json:"dentist,omitempty"`
+}
+
 // GetWaitingList retrieves waiting list entries with filters
 func GetWaitingList(c *gin.Context) {
 	db, ok := middleware.GetDBFromContextSafe(c)
@@ -114,42 +144,186 @@ func GetWaitingList(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	offset := (page - 1) * pageSize
 
-	query := db.Model(&models.WaitingList{})
+	// Build WHERE conditions
+	whereConditions := []string{"wl.deleted_at IS NULL"}
+	whereArgs := []interface{}{}
 
-	// Filters
 	if status := c.Query("status"); status != "" {
-		query = query.Where("status = ?", status)
+		whereConditions = append(whereConditions, "wl.status = ?")
+		whereArgs = append(whereArgs, status)
 	}
 	if priority := c.Query("priority"); priority != "" {
-		query = query.Where("priority = ?", priority)
+		whereConditions = append(whereConditions, "wl.priority = ?")
+		whereArgs = append(whereArgs, priority)
 	}
 	if patientID := c.Query("patient_id"); patientID != "" {
-		query = query.Where("patient_id = ?", patientID)
+		whereConditions = append(whereConditions, "wl.patient_id = ?")
+		whereArgs = append(whereArgs, patientID)
 	}
 	if dentistID := c.Query("dentist_id"); dentistID != "" {
 		if dentistID == "any" {
-			query = query.Where("dentist_id IS NULL")
+			whereConditions = append(whereConditions, "wl.dentist_id IS NULL")
 		} else {
-			query = query.Where("dentist_id = ?", dentistID)
+			whereConditions = append(whereConditions, "wl.dentist_id = ?")
+			whereArgs = append(whereArgs, dentistID)
 		}
 	}
 	if procedure := c.Query("procedure"); procedure != "" {
-		query = query.Where("procedure ILIKE ?", "%"+procedure+"%")
+		whereConditions = append(whereConditions, "wl.procedure ILIKE ?")
+		whereArgs = append(whereArgs, "%"+procedure+"%")
+	}
+
+	whereClause := ""
+	if len(whereConditions) > 0 {
+		whereClause = "WHERE " + whereConditions[0]
+		for i := 1; i < len(whereConditions); i++ {
+			whereClause += " AND " + whereConditions[i]
+		}
 	}
 
 	// Count total
+	countSQL := "SELECT COUNT(*) FROM waiting_lists wl " + whereClause
 	var total int64
-	query.Count(&total)
+	db.Raw(countSQL, whereArgs...).Scan(&total)
 
-	// Get entries
-	var entries []models.WaitingList
-	if err := query.
-		Order("priority DESC, created_at ASC"). // Urgent first, then oldest first
-		Offset(offset).
-		Limit(pageSize).
-		Find(&entries).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch waiting list"})
+	// Get entries with patient and dentist info
+	selectSQL := `
+		SELECT
+			wl.id, wl.patient_id, wl.dentist_id, wl.procedure, wl.preferred_dates,
+			wl.priority, wl.status, wl.contacted_at, wl.contacted_by,
+			wl.scheduled_at, wl.appointment_id, wl.notes, wl.created_by,
+			wl.created_at, wl.updated_at,
+			p.id as patient_db_id, p.name as patient_name, p.email as patient_email, p.phone as patient_phone,
+			u.id as dentist_db_id, u.name as dentist_name
+		FROM waiting_lists wl
+		LEFT JOIN patients p ON p.id = wl.patient_id
+		LEFT JOIN public.users u ON u.id = wl.dentist_id
+		` + whereClause + `
+		ORDER BY
+			CASE WHEN wl.priority = 'urgent' THEN 0 ELSE 1 END,
+			wl.created_at ASC
+		LIMIT ? OFFSET ?
+	`
+
+	queryArgs := append(whereArgs, pageSize, offset)
+
+	rows, err := db.Raw(selectSQL, queryArgs...).Rows()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch waiting list", "details": err.Error()})
 		return
+	}
+	defer rows.Close()
+
+	var entries []WaitingListEntry
+	for rows.Next() {
+		var entry WaitingListEntry
+
+		// All fields that can be NULL need sql.Null* types
+		var id, patientID, createdBy sql.NullInt64
+		var preferredDates, procedure, notes, priority, status sql.NullString
+		var dentistID, contactedBy, appointmentID sql.NullInt64
+		var contactedAt, scheduledAt, createdAt, updatedAt sql.NullTime
+
+		// Patient info (from LEFT JOIN - could be null if patient deleted)
+		var patientDbID sql.NullInt64
+		var patientName, patientEmail, patientPhone sql.NullString
+
+		// Dentist info (from LEFT JOIN - null if no dentist specified)
+		var dentistDbID sql.NullInt64
+		var dentistName sql.NullString
+
+		err := rows.Scan(
+			&id, &patientID, &dentistID, &procedure, &preferredDates,
+			&priority, &status, &contactedAt, &contactedBy,
+			&scheduledAt, &appointmentID, &notes, &createdBy,
+			&createdAt, &updatedAt,
+			&patientDbID, &patientName, &patientEmail, &patientPhone,
+			&dentistDbID, &dentistName,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to scan waiting list entry", "details": err.Error()})
+			return
+		}
+
+		// Map required fields
+		if id.Valid {
+			entry.ID = uint(id.Int64)
+		}
+		if patientID.Valid {
+			entry.PatientID = uint(patientID.Int64)
+		}
+		if priority.Valid {
+			entry.Priority = priority.String
+		}
+		if status.Valid {
+			entry.Status = status.String
+		}
+		if createdBy.Valid {
+			entry.CreatedBy = uint(createdBy.Int64)
+		}
+		if createdAt.Valid {
+			entry.CreatedAt = createdAt.Time
+		}
+		if updatedAt.Valid {
+			entry.UpdatedAt = updatedAt.Time
+		}
+
+		// Map optional fields
+		if dentistID.Valid {
+			did := uint(dentistID.Int64)
+			entry.DentistID = &did
+		}
+		if procedure.Valid {
+			entry.Procedure = procedure.String
+		}
+		if preferredDates.Valid {
+			entry.PreferredDates = preferredDates.String
+		}
+		if contactedAt.Valid {
+			entry.ContactedAt = &contactedAt.Time
+		}
+		if contactedBy.Valid {
+			cb := uint(contactedBy.Int64)
+			entry.ContactedBy = &cb
+		}
+		if scheduledAt.Valid {
+			entry.ScheduledAt = &scheduledAt.Time
+		}
+		if appointmentID.Valid {
+			aid := uint(appointmentID.Int64)
+			entry.AppointmentID = &aid
+		}
+		if notes.Valid {
+			entry.Notes = notes.String
+		}
+
+		// Attach patient info
+		if patientDbID.Valid && patientName.Valid {
+			entry.Patient = &struct {
+				ID    uint   `json:"id"`
+				Name  string `json:"name"`
+				Email string `json:"email,omitempty"`
+				Phone string `json:"phone,omitempty"`
+			}{
+				ID:    uint(patientDbID.Int64),
+				Name:  patientName.String,
+				Email: patientEmail.String,
+				Phone: patientPhone.String,
+			}
+		}
+
+		// Attach dentist info if exists
+		if dentistDbID.Valid && dentistName.Valid {
+			entry.Dentist = &struct {
+				ID   uint   `json:"id"`
+				Name string `json:"name"`
+			}{
+				ID:   uint(dentistDbID.Int64),
+				Name: dentistName.String,
+			}
+		}
+
+		entries = append(entries, entry)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

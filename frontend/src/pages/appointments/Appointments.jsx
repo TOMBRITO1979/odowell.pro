@@ -17,7 +17,7 @@ const Appointments = () => {
     dentist_id: null,
     procedure: null,
     status: null,
-    dateRange: null,
+    dateRange: null, // Will default to today in fetchAppointments
   });
   const [pagination, setPagination] = useState({
     current: 1,
@@ -59,8 +59,13 @@ const Appointments = () => {
     if (filters.dentist_id) params.dentist_id = filters.dentist_id;
     if (filters.procedure) params.procedure = filters.procedure;
     if (filters.status) params.status = filters.status;
+
+    // Filtro de data: se range selecionado usa ele, senão usa hoje como padrão
     if (filters.dateRange && filters.dateRange[0]) {
       params.start_date = filters.dateRange[0].startOf('day').toISOString();
+    } else {
+      // Default: mostrar de hoje em diante
+      params.start_date = dayjs().startOf('day').toISOString();
     }
     if (filters.dateRange && filters.dateRange[1]) {
       params.end_date = filters.dateRange[1].endOf('day').toISOString();
@@ -88,7 +93,7 @@ const Appointments = () => {
       dentist_id: null,
       procedure: null,
       status: null,
-      dateRange: null,
+      dateRange: null, // Will default to today in fetchAppointments
     });
     setPagination(prev => ({ ...prev, current: 1 }));
   };
@@ -212,6 +217,8 @@ const Appointments = () => {
       dataIndex: 'start_time',
       key: 'start_time',
       render: (text) => text ? dayjs(text).format('DD/MM/YYYY HH:mm') : 'N/A',
+      sorter: (a, b) => dayjs(a.start_time).unix() - dayjs(b.start_time).unix(),
+      defaultSortOrder: 'ascend',
     },
     {
       title: 'Procedimento',
@@ -377,7 +384,7 @@ const Appointments = () => {
                 format="DD/MM/YYYY"
                 value={filters.dateRange}
                 onChange={(dates) => handleFilterChange('dateRange', dates)}
-                placeholder={['Data Início', 'Data Fim']}
+                placeholder={['Hoje (padrão)', 'Data Fim']}
               />
             </Col>
             <Col xs={24} sm={24} md={2}>
