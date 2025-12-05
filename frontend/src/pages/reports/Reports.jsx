@@ -99,6 +99,7 @@ const Reports = () => {
   const [revenueDateRange, setRevenueDateRange] = useState(null);
   const [attendanceDateRange, setAttendanceDateRange] = useState(null);
   const [budgetConversionDateRange, setBudgetConversionDateRange] = useState(null);
+  const [dentistStatsDateRange, setDentistStatsDateRange] = useState(null);
 
   // Data for each report
   const [revenueData, setRevenueData] = useState(null);
@@ -106,6 +107,7 @@ const Reports = () => {
   const [proceduresData, setProceduresData] = useState(null);
   const [budgetConversionData, setBudgetConversionData] = useState(null);
   const [overduePaymentsData, setOverduePaymentsData] = useState(null);
+  const [dentistStatsData, setDentistStatsData] = useState(null);
 
   // Loading states
   const [loadingRevenue, setLoadingRevenue] = useState(false);
@@ -113,6 +115,7 @@ const Reports = () => {
   const [loadingProcedures, setLoadingProcedures] = useState(false);
   const [loadingBudgetConversion, setLoadingBudgetConversion] = useState(false);
   const [loadingOverduePayments, setLoadingOverduePayments] = useState(false);
+  const [loadingDentistStats, setLoadingDentistStats] = useState(false);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -207,6 +210,24 @@ const Reports = () => {
     }
   };
 
+  const fetchDentistStatsReport = async () => {
+    setLoadingDentistStats(true);
+    try {
+      const params = {};
+      if (dentistStatsDateRange && dentistStatsDateRange[0] && dentistStatsDateRange[1]) {
+        params.start_date = dentistStatsDateRange[0].format('YYYY-MM-DD');
+        params.end_date = dentistStatsDateRange[1].format('YYYY-MM-DD');
+      }
+      const response = await reportsAPI.getAdvancedDashboard(params);
+      setDentistStatsData(response.data);
+    } catch (error) {
+      message.error('Erro ao carregar estatísticas dos profissionais');
+      console.error('Error:', error);
+    } finally {
+      setLoadingDentistStats(false);
+    }
+  };
+
   useEffect(() => {
     fetchDashboard();
     fetchRevenueReport();
@@ -214,6 +235,7 @@ const Reports = () => {
     fetchProceduresReport();
     fetchBudgetConversionReport();
     fetchOverduePaymentsReport();
+    fetchDentistStatsReport();
   }, []);
 
   const formatCurrency = (value) => {
@@ -969,6 +991,167 @@ const Reports = () => {
                   </Space>
                 </Col>
               </Row>
+            </div>
+          ) : (
+            <Empty description="Nenhum dado disponível" />
+          )}
+        </Spin>
+      </Card>
+
+      {/* Dentist Productivity Report */}
+      <Card
+        title={
+          <Space>
+            <UserOutlined style={{ color: actionColors.create }} />
+            <span>Produtividade por Profissional</span>
+          </Space>
+        }
+        style={{ boxShadow: shadows.small, marginBottom: 24 }}
+        extra={
+          <Space>
+            <RangePicker
+              format="DD/MM/YYYY"
+              placeholder={['Data Inicial', 'Data Final']}
+              onChange={(dates) => {
+                setDentistStatsDateRange(dates);
+                if (dates) fetchDentistStatsReport();
+              }}
+              value={dentistStatsDateRange}
+              size="small"
+            />
+            <Button
+              size="small"
+              icon={<UserOutlined />}
+              onClick={fetchDentistStatsReport}
+              loading={loadingDentistStats}
+            >
+              Atualizar
+            </Button>
+          </Space>
+        }
+      >
+        <Spin spinning={loadingDentistStats}>
+          {dentistStatsData ? (
+            <div>
+              <Row gutter={16} style={{ marginBottom: 24 }}>
+                <Col xs={24} md={8}>
+                  <Card style={{ textAlign: 'center' }}>
+                    <Statistic
+                      title="Total de Atendimentos"
+                      value={dentistStatsData.completed_appointments || 0}
+                      valueStyle={{ color: statusColors.success }}
+                    />
+                  </Card>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Card style={{ textAlign: 'center' }}>
+                    <Statistic
+                      title="Taxa de Comparecimento"
+                      value={dentistStatsData.attendance_rate?.toFixed(1) || 0}
+                      suffix="%"
+                      valueStyle={{ color: statusColors.success }}
+                    />
+                  </Card>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Card style={{ textAlign: 'center' }}>
+                    <Statistic
+                      title="Faltas"
+                      value={dentistStatsData.no_shows || 0}
+                      valueStyle={{ color: statusColors.error }}
+                    />
+                  </Card>
+                </Col>
+              </Row>
+
+              <Row gutter={16}>
+                <Col xs={24} lg={12}>
+                  <h4>Atendimentos por Profissional</h4>
+                  {dentistStatsData.professional_appointments && dentistStatsData.professional_appointments.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={dentistStatsData.professional_appointments}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="professional" angle={-45} textAnchor="end" height={80} />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="count" fill={actionColors.create} name="Atendimentos" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Empty description="Nenhum atendimento concluído no período" />
+                  )}
+                </Col>
+                <Col xs={24} lg={12}>
+                  <h4>Procedimentos por Profissional</h4>
+                  {dentistStatsData.procedures_by_dentist && dentistStatsData.procedures_by_dentist.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart
+                        data={(() => {
+                          // Agrupar procedimentos por profissional para exibição
+                          const grouped = {};
+                          dentistStatsData.procedures_by_dentist.forEach(item => {
+                            if (!grouped[item.professional]) {
+                              grouped[item.professional] = { professional: item.professional };
+                            }
+                            grouped[item.professional][item.procedure] = item.count;
+                          });
+                          return Object.values(grouped);
+                        })()}
+                        layout="vertical"
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" />
+                        <YAxis dataKey="professional" type="category" width={100} />
+                        <Tooltip />
+                        <Legend />
+                        {(() => {
+                          // Obter lista única de procedimentos
+                          const procedures = [...new Set(dentistStatsData.procedures_by_dentist.map(p => p.procedure))];
+                          return procedures.slice(0, 6).map((proc, idx) => (
+                            <Bar key={proc} dataKey={proc} stackId="a" fill={COLORS[idx % COLORS.length]} name={proc} />
+                          ));
+                        })()}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Empty description="Nenhum procedimento registrado no período" />
+                  )}
+                </Col>
+              </Row>
+
+              {/* Tabela detalhada de procedimentos por profissional */}
+              {dentistStatsData.procedures_by_dentist && dentistStatsData.procedures_by_dentist.length > 0 && (
+                <Row gutter={16} style={{ marginTop: 24 }}>
+                  <Col span={24}>
+                    <h4>Detalhamento de Procedimentos por Profissional</h4>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#fafafa' }}>
+                            <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #e8e8e8' }}>Profissional</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #e8e8e8' }}>Procedimento</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e8e8e8' }}>Quantidade</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dentistStatsData.procedures_by_dentist.map((item, index) => (
+                            <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa' }}>
+                              <td style={{ padding: '10px 8px', borderBottom: '1px solid #e8e8e8' }}>{item.professional}</td>
+                              <td style={{ padding: '10px 8px', borderBottom: '1px solid #e8e8e8' }}>
+                                <Tag color={COLORS[index % COLORS.length]}>{item.procedure}</Tag>
+                              </td>
+                              <td style={{ padding: '10px 8px', textAlign: 'center', borderBottom: '1px solid #e8e8e8', fontWeight: 'bold' }}>
+                                {item.count}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Col>
+                </Row>
+              )}
             </div>
           ) : (
             <Empty description="Nenhum dado disponível" />

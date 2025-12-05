@@ -423,6 +423,32 @@ func GetAdvancedDashboard(c *gin.Context) {
 		Order("count DESC").
 		Scan(&professionalAppointments)
 
+	// Procedures by dentist (for detailed breakdown)
+	type ProceduresByDentist struct {
+		Professional string `json:"professional"`
+		Procedure    string `json:"procedure"`
+		Count        int64  `json:"count"`
+	}
+
+	var proceduresByDentist []ProceduresByDentist
+	proceduresQuery := db.Session(&gorm.Session{NewDB: true}).
+		Table("appointments a").
+		Select("u.name as professional, a.procedure, COUNT(*) as count").
+		Joins("JOIN public.users u ON a.dentist_id = u.id").
+		Where("a.status = ? AND a.procedure != ''", "completed")
+
+	if startDate != "" {
+		proceduresQuery = proceduresQuery.Where("DATE(a.start_time) >= ?", startDate)
+	}
+	if endDate != "" {
+		proceduresQuery = proceduresQuery.Where("DATE(a.start_time) <= ?", endDate)
+	}
+
+	proceduresQuery.
+		Group("u.name, a.procedure").
+		Order("u.name, count DESC").
+		Scan(&proceduresByDentist)
+
 	// Reschedules count - counting appointments with notes containing "remarcad" or similar
 	// Since there's no rescheduled field, we'll set this to 0 for now
 	var reschedulesCount int64 = 0
@@ -545,6 +571,7 @@ func GetAdvancedDashboard(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"daily_appointments":        dailyAppointments,
 		"professional_appointments": professionalAppointments,
+		"procedures_by_dentist":     proceduresByDentist,
 		"total_appointments":        totalAppointments,
 		"completed_appointments":    completedCount,
 		"cancelled_appointments":    cancelledCount,
