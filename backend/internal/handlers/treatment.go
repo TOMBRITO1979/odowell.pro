@@ -233,7 +233,21 @@ func UpdateTreatment(c *gin.Context) {
 		}
 	}
 
-	if err := db.Save(&treatment).Error; err != nil {
+	// Use raw SQL to avoid GORM model contamination issue
+	result := db.Exec(`
+		UPDATE treatments SET
+			updated_at = NOW(),
+			total_installments = ?,
+			installment_value = ?,
+			status = ?,
+			completed_date = ?,
+			notes = ?,
+			expected_end_date = ?
+		WHERE id = ? AND deleted_at IS NULL
+	`, treatment.TotalInstallments, treatment.InstallmentValue, treatment.Status,
+		treatment.CompletedDate, treatment.Notes, treatment.ExpectedEndDate, treatment.ID)
+
+	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar tratamento"})
 		return
 	}
@@ -499,7 +513,17 @@ func UpdateTreatmentPayment(c *gin.Context) {
 		payment.Status = input.Status
 	}
 
-	if err := db.Save(&payment).Error; err != nil {
+	// Use raw SQL to avoid GORM model contamination issue
+	result := db.Exec(`
+		UPDATE treatment_payments SET
+			updated_at = NOW(),
+			payment_method = ?,
+			notes = ?,
+			status = ?
+		WHERE id = ? AND deleted_at IS NULL
+	`, payment.PaymentMethod, payment.Notes, payment.Status, payment.ID)
+
+	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar pagamento"})
 		return
 	}
@@ -507,7 +531,7 @@ func UpdateTreatmentPayment(c *gin.Context) {
 	// Update treatment paid value if status changed
 	if oldStatus != payment.Status {
 		var treatment models.Treatment
-		if err := db.First(&treatment, payment.TreatmentID).Error; err == nil {
+		if err := db.Raw("SELECT * FROM treatments WHERE id = ? AND deleted_at IS NULL", payment.TreatmentID).Scan(&treatment).Error; err == nil && treatment.ID != 0 {
 			if payment.Status == models.TreatmentPaymentStatusCancelled || payment.Status == models.TreatmentPaymentStatusRefunded {
 				treatment.PaidValue -= oldAmount
 				if treatment.Status == models.TreatmentStatusCompleted {
@@ -522,11 +546,13 @@ func UpdateTreatmentPayment(c *gin.Context) {
 					treatment.CompletedDate = &now
 				}
 			}
-			db.Save(&treatment)
+			// Use raw SQL to update treatment
+			db.Exec(`UPDATE treatments SET updated_at = NOW(), paid_value = ?, status = ?, completed_date = ? WHERE id = ? AND deleted_at IS NULL`,
+				treatment.PaidValue, treatment.Status, treatment.CompletedDate, treatment.ID)
 		}
 	}
 
-	db.Preload("ReceivedBy").First(&payment, payment.ID)
+	db.Raw("SELECT * FROM treatment_payments WHERE id = ?", payment.ID).Scan(&payment)
 
 	c.JSON(http.StatusOK, gin.H{"payment": payment})
 }
@@ -545,25 +571,28 @@ func DeleteTreatmentPayment(c *gin.Context) {
 	}
 
 	var payment models.TreatmentPayment
-	if err := db.First(&payment, uint(id)).Error; err != nil {
+	if err := db.Raw("SELECT * FROM treatment_payments WHERE id = ? AND deleted_at IS NULL", uint(id)).Scan(&payment).Error; err != nil || payment.ID == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Pagamento não encontrado"})
 		return
 	}
 
 	// Update treatment paid value
 	var treatment models.Treatment
-	if err := db.First(&treatment, payment.TreatmentID).Error; err == nil {
+	if err := db.Raw("SELECT * FROM treatments WHERE id = ? AND deleted_at IS NULL", payment.TreatmentID).Scan(&treatment).Error; err == nil && treatment.ID != 0 {
 		if payment.Status == models.TreatmentPaymentStatusPaid {
 			treatment.PaidValue -= payment.Amount
 			if treatment.Status == models.TreatmentStatusCompleted {
 				treatment.Status = models.TreatmentStatusInProgress
 				treatment.CompletedDate = nil
 			}
-			db.Save(&treatment)
+			// Use raw SQL to update treatment
+			db.Exec(`UPDATE treatments SET updated_at = NOW(), paid_value = ?, status = ?, completed_date = ? WHERE id = ? AND deleted_at IS NULL`,
+				treatment.PaidValue, treatment.Status, treatment.CompletedDate, treatment.ID)
 		}
 	}
 
-	if err := db.Delete(&payment).Error; err != nil {
+	// Soft delete the payment
+	if err := db.Exec("UPDATE treatment_payments SET deleted_at = NOW() WHERE id = ?", payment.ID).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao deletar pagamento"})
 		return
 	}
