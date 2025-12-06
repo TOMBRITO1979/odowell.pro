@@ -32,7 +32,7 @@ import {
   LinkOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { patientSubscriptionsAPI, patientsAPI, settingsAPI } from '../../services/api';
+import { patientSubscriptionsAPI, patientsAPI, stripeSettingsAPI } from '../../services/api';
 import { statusColors, shadows } from '../../theme/designSystem';
 import { usePermission } from '../../contexts/AuthContext';
 
@@ -85,7 +85,7 @@ const Plans = () => {
 
   const checkStripeConnection = async () => {
     try {
-      const response = await settingsAPI.getStripeSettings();
+      const response = await stripeSettingsAPI.get();
       setStripeConnected(response.data.stripe_connected || false);
     } catch (error) {
       console.error('Error checking Stripe connection:', error);

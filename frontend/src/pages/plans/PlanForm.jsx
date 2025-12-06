@@ -23,7 +23,7 @@ import {
   LinkOutlined,
   SendOutlined,
 } from '@ant-design/icons';
-import { patientSubscriptionsAPI, patientsAPI, settingsAPI } from '../../services/api';
+import { patientSubscriptionsAPI, patientsAPI, stripeSettingsAPI } from '../../services/api';
 import { shadows } from '../../theme/designSystem';
 
 const { Title, Text, Paragraph } = Typography;
@@ -49,7 +49,7 @@ const PlanForm = () => {
     setLoadingData(true);
     try {
       // Check Stripe connection
-      const stripeRes = await settingsAPI.getStripeSettings();
+      const stripeRes = await stripeSettingsAPI.get();
       const isConnected = stripeRes.data.stripe_connected || false;
       setStripeConnected(isConnected);
 
