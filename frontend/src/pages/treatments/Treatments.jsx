@@ -168,6 +168,13 @@ const Treatments = () => {
       ellipsis: true,
     },
     {
+      title: 'Profissional',
+      dataIndex: ['dentist', 'name'],
+      key: 'dentist',
+      ellipsis: true,
+      render: (text) => text || '-',
+    },
+    {
       title: 'Descrição',
       dataIndex: 'description',
       key: 'description',

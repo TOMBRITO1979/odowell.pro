@@ -337,6 +337,9 @@ const TreatmentDetails = () => {
               <Descriptions.Item label="Telefone">
                 {treatment.patient?.phone || '-'}
               </Descriptions.Item>
+              <Descriptions.Item label={<><MedicineBoxOutlined /> Profissional</>}>
+                {treatment.dentist?.name || '-'}
+              </Descriptions.Item>
               <Descriptions.Item label="Descrição" span={2}>
                 {treatment.description || '-'}
               </Descriptions.Item>
