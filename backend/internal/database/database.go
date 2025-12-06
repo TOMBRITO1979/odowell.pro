@@ -30,9 +30,14 @@ func getEnvInt(key string, defaultValue int) int {
 // Connect establishes connection to PostgreSQL database
 func Connect() error {
 	// Determinar SSL mode baseado no ambiente
-	sslMode := "require" // Padrão seguro para produção
-	if os.Getenv("ENV") == "development" || os.Getenv("DB_SSL_MODE") == "disable" {
-		sslMode = "disable"
+	sslMode := os.Getenv("DB_SSL_MODE")
+	if sslMode == "" {
+		// Default to require in production, disable in development
+		if os.Getenv("ENV") == "development" {
+			sslMode = "disable"
+		} else {
+			sslMode = "prefer"
+		}
 	}
 
 	dsn := fmt.Sprintf(

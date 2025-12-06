@@ -119,7 +119,7 @@ services:
       DB_USER: ${DB_USER:-drcrwell_user}
       DB_PASSWORD: ${DB_PASSWORD:-change_this_password}
       DB_NAME: ${DB_NAME:-drcrwell_db}
-      DB_SSL_MODE: ${DB_SSL_MODE:-require}
+      DB_SSL_MODE: ${DB_SSL_MODE:-prefer}
       # Encryption Key for sensitive data
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       # Stripe
