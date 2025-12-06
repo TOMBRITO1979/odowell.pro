@@ -20,7 +20,7 @@ const Patients = () => {
 
   useEffect(() => {
     loadPatients();
-  }, [pagination.current, search]);
+  }, [pagination.current, pagination.pageSize, search]);
 
   const loadPatients = async () => {
     setLoading(true);

@@ -28,6 +28,16 @@ cd backend && go run cmd/api/main.go
 cd frontend && npm install && npm run dev
 ```
 
+### Build & Test
+
+```bash
+# Backend - verify compilation
+cd backend && go build ./...
+
+# Frontend - build for production
+cd frontend && npm run build
+```
+
 ### Deployment
 
 ```bash
@@ -60,24 +70,36 @@ Each tenant gets an isolated PostgreSQL schema (`tenant_X`).
 
 **Public schema** (shared): `tenants`, `users`, `modules`, `permissions`, `user_permissions`
 
-**Tenant schemas** (isolated): `patients`, `appointments`, `medical_records`, `prescriptions`, `exams`, `budgets`, `payments`, `products`, `suppliers`, `stock_movements`, `campaigns`, `attachments`, `tasks`, `settings`, `waiting_list`, `treatment_protocols`
+**Tenant schemas** (isolated): `patients`, `appointments`, `medical_records`, `prescriptions`, `exams`, `budgets`, `payments`, `expenses`, `products`, `suppliers`, `stock_movements`, `campaigns`, `attachments`, `tasks`, `settings`, `waiting_list`, `treatment_protocols`, `consent_templates`, `patient_consents`, `patient_subscriptions`, `audit_logs`
 
 **Schema switching**: `TenantMiddleware` executes `SET search_path TO tenant_X` based on JWT `tenant_id`.
 
 ### Backend Structure
 
-- **Entry point**: `cmd/api/main.go` - All routes defined here
-- **Handlers**: `internal/handlers/` - HTTP controllers
-- **Models**: `internal/models/` - GORM models
+- **Entry point**: `cmd/api/main.go` - All routes defined here (~536 lines)
+- **Handlers**: `internal/handlers/` - HTTP controllers (44 files)
+- **Models**: `internal/models/` - GORM models (24 files)
+- **Middleware**: `internal/middleware/` - Auth, Tenant, Permission, RateLimit, Subscription
+- **Helpers**: `internal/helpers/` - Email, crypto, validation, audit
 - **Middleware chain**: `AuthMiddleware() → TenantMiddleware() → SubscriptionMiddleware() → PermissionMiddleware(module, action)`
+
+### Key Backend Patterns
+
+- Business logic is in handlers (no separate service layer)
+- GORM with PostgreSQL, soft deletes via `deleted_at`
+- JSONB fields for flexible data: `odontogram`, `settings`, `procedures`
+- S3 for file uploads (exams, attachments)
+- Stripe webhooks for subscription billing
 
 ### Frontend Structure
 
 - **Entry point**: `src/main.jsx`
 - **Routes**: `src/App.jsx`
-- **Layout/Menu**: `src/components/layouts/DashboardLayout.jsx`
-- **API client**: `src/services/api.js` - Axios with JWT interceptor
+- **Layout/Menu**: `src/components/layouts/DashboardLayout.jsx` (~422 lines, permission-filtered menu)
+- **API client**: `src/services/api.js` - Axios with JWT interceptor (20+ API modules)
 - **Auth/Permissions**: `src/contexts/AuthContext.jsx` - `usePermission()` hook
+- **Pages**: `src/pages/` - Organized by domain (patients, appointments, financial, etc.)
+- **Locale**: Portuguese (pt_BR) via Ant Design ConfigProvider
 
 ## RBAC (Role-Based Access Control)
 
@@ -99,6 +121,12 @@ Each tenant gets an isolated PostgreSQL schema (`tenant_X`).
 
 **Admin bypass**: Users with `role = 'admin'` skip all permission checks.
 
+**Available modules** (from `002_seed_permissions.sql`): `dashboard`, `patients`, `appointments`, `medical_records`, `prescriptions`, `exams`, `budgets`, `payments`, `expenses`, `products`, `suppliers`, `stock_movements`, `campaigns`, `reports`, `users`, `settings`, `tasks`, `waiting_list`, `treatment_protocols`, `consents`, `treatments`, `plans`
+
+**Actions**: `view`, `create`, `edit`, `delete`
+
+**User roles**: `admin` (full access), `dentist` (clinical focus), `receptionist` (front desk)
+
 ## Adding New Features
 
 ### Backend
@@ -113,7 +141,13 @@ Each tenant gets an isolated PostgreSQL schema (`tenant_X`).
 1. Add API methods: `src/services/api.js`
 2. Create page: `src/pages/feature/Feature.jsx`
 3. Add route: `src/App.jsx`
-4. Add menu item: `src/components/layouts/DashboardLayout.jsx` (with `canView()`)
+4. Add menu item: `src/components/layouts/DashboardLayout.jsx` (wrap with `canView('module_code')`)
+
+### Adding New Permission Module
+
+1. Insert into `modules` table: `INSERT INTO public.modules (code, name, description, icon, active) VALUES ('new_module', 'Display Name', 'Description', 'IconOutlined', true);`
+2. Permissions auto-created via migration script or manually add to `permissions` table
+3. Assign to users via `user_permissions` table
 
 ## Important Implementation Details
 
@@ -145,15 +179,33 @@ Auto-migration runs on startup for tenant schemas. For public schema changes, ad
 
 **403 Forbidden**: Check `user_permissions` table, verify module code matches, confirm module is active in `modules` table.
 
-**Frontend not updating**: Clear browser cache (Ctrl+Shift+R), check deploy logs.
+**Frontend not updating**: Clear browser cache (Ctrl+Shift+R), check deploy logs. Note: Service Worker is disabled to prevent caching issues.
+
+**402 Payment Required**: Tenant subscription expired. Check `tenants.subscription_status` and `tenants.expires_at`.
+
+**Tenant context issues**: Ensure request has valid JWT with `tenant_id` claim.
 
 ## Environment Variables
 
-**Backend** (`.env`): `DB_*`, `JWT_SECRET`, `CORS_ORIGINS`, `REDIS_*`, `STRIPE_*`
+**Backend** (`.env`): `DB_*`, `JWT_SECRET`, `CORS_ORIGINS`, `REDIS_*`, `STRIPE_*`, `AWS_*` (S3), `SMTP_*`
 
 **Frontend**: `VITE_API_URL`
+
+See `.env.example` for complete list with descriptions.
 
 ## Docker Images
 
 - `tomautomations/drcrwell-backend:latest`
 - `tomautomations/drcrwell-frontend:latest`
+
+## API Response Patterns
+
+- JWT auth via `Authorization: Bearer <token>` header
+- 401 triggers automatic logout on frontend
+- 402 redirects to subscription page
+- Axios interceptors handle token refresh in `src/services/api.js`
+
+## Language
+
+- All user-facing strings are in Portuguese (pt_BR)
+- Error messages, labels, and notifications are hardcoded Portuguese

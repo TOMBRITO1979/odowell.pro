@@ -92,7 +92,7 @@ const Payments = () => {
     fetchPayments();
     fetchPatients();
     fetchStatistics();
-  }, [pagination.current, filters]);
+  }, [pagination.current, pagination.pageSize, filters]);
 
   const fetchPatients = async () => {
     try {

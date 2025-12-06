@@ -20,7 +20,7 @@ const Tasks = () => {
 
   useEffect(() => {
     loadTasks();
-  }, [pagination.current, search, statusFilter, priorityFilter]);
+  }, [pagination.current, pagination.pageSize, search, statusFilter, priorityFilter]);
 
   const loadTasks = async () => {
     setLoading(true);

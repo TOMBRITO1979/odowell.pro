@@ -86,7 +86,7 @@ const Expenses = () => {
 
   useEffect(() => {
     fetchExpenses();
-  }, [pagination.current, filters]);
+  }, [pagination.current, pagination.pageSize, filters]);
 
   const fetchExpenses = async () => {
     setLoading(true);

@@ -67,7 +67,7 @@ const StockMovements = () => {
   useEffect(() => {
     fetchMovements();
     fetchProducts();
-  }, [pagination.current, filters]);
+  }, [pagination.current, pagination.pageSize, filters]);
 
   const fetchMovements = async () => {
     setLoading(true);

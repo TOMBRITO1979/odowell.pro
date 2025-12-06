@@ -55,7 +55,7 @@ const Campaigns = () => {
 
   useEffect(() => {
     fetchCampaigns();
-  }, [pagination.current, filters]);
+  }, [pagination.current, pagination.pageSize, filters]);
 
   const fetchCampaigns = async () => {
     setLoading(true);

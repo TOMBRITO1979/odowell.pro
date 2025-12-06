@@ -64,7 +64,7 @@ const Budgets = () => {
   useEffect(() => {
     fetchBudgets();
     fetchPatients();
-  }, [pagination.current, filters]);
+  }, [pagination.current, pagination.pageSize, filters]);
 
   const fetchPatients = async () => {
     try {

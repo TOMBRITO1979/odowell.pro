@@ -54,7 +54,7 @@ const Exams = () => {
     if (selectedPatient) {
       fetchExams();
     }
-  }, [selectedPatient, pagination.current]);
+  }, [selectedPatient, pagination.current, pagination.pageSize]);
 
   const fetchPatients = async () => {
     try {

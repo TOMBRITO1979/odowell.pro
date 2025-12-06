@@ -56,7 +56,7 @@ const WaitingList = () => {
   useEffect(() => {
     fetchWaitingList();
     fetchStats();
-  }, [pagination.current, filters, location.key]); // location.key força atualização ao navegar
+  }, [pagination.current, pagination.pageSize, filters, location.key]); // location.key força atualização ao navegar
 
   const fetchWaitingList = async () => {
     setLoading(true);

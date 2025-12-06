@@ -61,7 +61,7 @@ const Products = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [pagination.current, filters]);
+  }, [pagination.current, pagination.pageSize, filters]);
 
   const fetchProducts = async () => {
     setLoading(true);
