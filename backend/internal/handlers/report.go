@@ -286,7 +286,7 @@ func GetBudgetConversionReport(c *gin.Context) {
 	if endDate != "" {
 		approvedAmountQuery = approvedAmountQuery.Where("DATE(created_at) <= ?", endDate)
 	}
-	approvedAmountQuery.Select("COALESCE(SUM(total_amount), 0)").Scan(&totalApproved)
+	approvedAmountQuery.Select("COALESCE(SUM(total_value), 0)").Scan(&totalApproved)
 
 	c.JSON(http.StatusOK, gin.H{
 		"total_budgets":    totalBudgets,
@@ -351,9 +351,9 @@ func GetOverduePaymentsReport(c *gin.Context) {
 		Table("payments").
 		Select(`
 			CASE
-				WHEN CURRENT_DATE - due_date <= 30 THEN '0-30 dias'
-				WHEN CURRENT_DATE - due_date <= 60 THEN '31-60 dias'
-				WHEN CURRENT_DATE - due_date <= 90 THEN '61-90 dias'
+				WHEN (CURRENT_DATE - due_date::date) <= 30 THEN '0-30 dias'
+				WHEN (CURRENT_DATE - due_date::date) <= 60 THEN '31-60 dias'
+				WHEN (CURRENT_DATE - due_date::date) <= 90 THEN '61-90 dias'
 				ELSE 'Mais de 90 dias'
 			END as age_range,
 			COUNT(*) as count,
