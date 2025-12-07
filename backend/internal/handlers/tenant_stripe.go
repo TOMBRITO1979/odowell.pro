@@ -120,15 +120,27 @@ func UpdateStripeCredentials(c *gin.Context) {
 		settings.StripeWebhookSecret = encrypted
 	}
 
-	// Save settings (explicit public schema)
+	// Save settings using raw SQL to avoid GORM table name issues
 	if settings.ID == 0 {
-		if err := database.DB.Table("public.tenant_settings").Create(&settings).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create settings"})
+		// Insert new record
+		if err := database.DB.Exec(`
+			INSERT INTO public.tenant_settings
+			(tenant_id, stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_connected, stripe_account_name, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+			tenantID, settings.StripeSecretKey, settings.StripePublishableKey, settings.StripeWebhookSecret, settings.StripeConnected, settings.StripeAccountName,
+		).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create settings: " + err.Error()})
 			return
 		}
 	} else {
-		if err := database.DB.Table("public.tenant_settings").Save(&settings).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
+		// Update existing record
+		if err := database.DB.Exec(`
+			UPDATE public.tenant_settings
+			SET stripe_secret_key = ?, stripe_publishable_key = ?, stripe_webhook_secret = ?, stripe_connected = ?, stripe_account_name = ?, updated_at = NOW()
+			WHERE tenant_id = ?`,
+			settings.StripeSecretKey, settings.StripePublishableKey, settings.StripeWebhookSecret, settings.StripeConnected, settings.StripeAccountName, tenantID,
+		).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings: " + err.Error()})
 			return
 		}
 	}
@@ -147,22 +159,19 @@ func UpdateStripeCredentials(c *gin.Context) {
 func DisconnectStripe(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 
-	var settings models.TenantSettings
-	// Use explicit public schema
-	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Settings not found"})
+	// Clear Stripe fields using raw SQL
+	result := database.DB.Exec(`
+		UPDATE public.tenant_settings
+		SET stripe_secret_key = '', stripe_publishable_key = '', stripe_webhook_secret = '', stripe_connected = false, stripe_account_name = '', updated_at = NOW()
+		WHERE tenant_id = ?`,
+		tenantID,
+	)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 		return
 	}
-
-	// Clear Stripe fields
-	settings.StripeSecretKey = ""
-	settings.StripePublishableKey = ""
-	settings.StripeWebhookSecret = ""
-	settings.StripeConnected = false
-	settings.StripeAccountName = ""
-
-	if err := database.DB.Table("public.tenant_settings").Save(&settings).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Settings not found"})
 		return
 	}
 
