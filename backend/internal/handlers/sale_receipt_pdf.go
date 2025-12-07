@@ -24,9 +24,9 @@ func GenerateSaleReceiptPDF(c *gin.Context) {
 		return
 	}
 
-	// Get movement with product
+	// Get movement with product (User preload removed - not needed for receipt)
 	var movement models.StockMovement
-	if err := db.Preload("Product").Preload("User").Where("id = ?", movementID).First(&movement).Error; err != nil {
+	if err := db.Preload("Product").Where("id = ?", movementID).First(&movement).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Movement not found"})
 		return
 	}
