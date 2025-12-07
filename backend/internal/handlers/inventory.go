@@ -641,9 +641,12 @@ func GetStockMovementStats(c *gin.Context) {
 		totalSalesRevenue = 0
 	}
 
-	// Get total exits count
+	// Get total exits count - using raw SQL for reliability
 	var totalExits int64
-	totalExitsQuery := db.Model(&models.StockMovement{}).Where("type = ?", "exit")
+	totalExitsQuery := db.Table("stock_movements").
+		Select("COUNT(*)").
+		Where("type = ?", "exit").
+		Where("deleted_at IS NULL")
 	if startDate != "" {
 		totalExitsQuery = totalExitsQuery.Where("created_at >= ?", startDate)
 	}
@@ -653,15 +656,18 @@ func GetStockMovementStats(c *gin.Context) {
 	if productID != "" {
 		totalExitsQuery = totalExitsQuery.Where("product_id = ?", productID)
 	}
-	if err := totalExitsQuery.Count(&totalExits).Error; err != nil {
+	if err := totalExitsQuery.Scan(&totalExits).Error; err != nil {
 		log.Printf("GetStockMovementStats: Failed to count exits: %v", err)
 		totalExits = 0
 	}
 	log.Printf("GetStockMovementStats: totalExits=%d (startDate=%s, endDate=%s)", totalExits, startDate, endDate)
 
-	// Get total entries count
+	// Get total entries count - using raw SQL for reliability
 	var totalEntries int64
-	totalEntriesQuery := db.Model(&models.StockMovement{}).Where("type = ?", "entry")
+	totalEntriesQuery := db.Table("stock_movements").
+		Select("COUNT(*)").
+		Where("type = ?", "entry").
+		Where("deleted_at IS NULL")
 	if startDate != "" {
 		totalEntriesQuery = totalEntriesQuery.Where("created_at >= ?", startDate)
 	}
@@ -671,15 +677,18 @@ func GetStockMovementStats(c *gin.Context) {
 	if productID != "" {
 		totalEntriesQuery = totalEntriesQuery.Where("product_id = ?", productID)
 	}
-	if err := totalEntriesQuery.Count(&totalEntries).Error; err != nil {
+	if err := totalEntriesQuery.Scan(&totalEntries).Error; err != nil {
 		log.Printf("GetStockMovementStats: Failed to count entries: %v", err)
 		totalEntries = 0
 	}
 	log.Printf("GetStockMovementStats: totalEntries=%d", totalEntries)
 
-	// Get total sales count (number of sale transactions)
+	// Get total sales count (number of sale transactions) - using raw SQL for reliability
 	var totalSalesCount int64
-	salesCountQuery := db.Model(&models.StockMovement{}).Where("type = ? AND reason = ?", "exit", "sale")
+	salesCountQuery := db.Table("stock_movements").
+		Select("COUNT(*)").
+		Where("type = ? AND reason = ?", "exit", "sale").
+		Where("deleted_at IS NULL")
 	if startDate != "" {
 		salesCountQuery = salesCountQuery.Where("created_at >= ?", startDate)
 	}
@@ -689,7 +698,7 @@ func GetStockMovementStats(c *gin.Context) {
 	if productID != "" {
 		salesCountQuery = salesCountQuery.Where("product_id = ?", productID)
 	}
-	if err := salesCountQuery.Count(&totalSalesCount).Error; err != nil {
+	if err := salesCountQuery.Scan(&totalSalesCount).Error; err != nil {
 		log.Printf("GetStockMovementStats: Failed to count sales: %v", err)
 		totalSalesCount = 0
 	}
