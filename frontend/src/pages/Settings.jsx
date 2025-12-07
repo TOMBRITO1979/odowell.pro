@@ -24,7 +24,9 @@ const Settings = () => {
 
   // Stripe state
   const [stripeStatus, setStripeStatus] = useState({ stripe_connected: false, has_secret_key: false, has_webhook_secret: false });
-  const [stripeForm] = Form.useForm();
+  const [stripeSecretKey, setStripeSecretKey] = useState('');
+  const [stripePublishableKey, setStripePublishableKey] = useState('');
+  const [stripeWebhookSecret, setStripeWebhookSecret] = useState('');
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeTesting, setStripeTesting] = useState(false);
 
@@ -92,23 +94,32 @@ const Settings = () => {
       const response = await stripeSettingsAPI.get();
       setStripeStatus(response.data);
       if (response.data.stripe_publishable_key) {
-        stripeForm.setFieldsValue({
-          stripe_publishable_key: response.data.stripe_publishable_key,
-        });
+        setStripePublishableKey(response.data.stripe_publishable_key);
       }
     } catch (error) {
       // Could not fetch Stripe status - ignore
     }
   };
 
-  const handleSaveStripe = async (values) => {
+  const handleSaveStripe = async () => {
+    const values = {
+      stripe_secret_key: stripeSecretKey,
+      stripe_publishable_key: stripePublishableKey,
+      stripe_webhook_secret: stripeWebhookSecret,
+    };
+    console.log('handleSaveStripe called with values:', values);
     setStripeLoading(true);
     try {
+      console.log('Calling stripeSettingsAPI.update...');
       const response = await stripeSettingsAPI.update(values);
+      console.log('stripeSettingsAPI.update response:', response);
       setStripeStatus(response.data);
       message.success('Credenciais do Stripe salvas com sucesso!');
-      stripeForm.resetFields(['stripe_secret_key', 'stripe_webhook_secret']);
+      // Clear sensitive fields after save
+      setStripeSecretKey('');
+      setStripeWebhookSecret('');
     } catch (error) {
+      console.error('stripeSettingsAPI.update error:', error);
       message.error(error.response?.data?.error || 'Erro ao salvar credenciais do Stripe');
     } finally {
       setStripeLoading(false);
@@ -142,7 +153,9 @@ const Settings = () => {
         try {
           await stripeSettingsAPI.disconnect();
           setStripeStatus({ stripe_connected: false, has_secret_key: false, has_webhook_secret: false });
-          stripeForm.resetFields();
+          setStripeSecretKey('');
+          setStripePublishableKey('');
+          setStripeWebhookSecret('');
           message.success('Stripe desconectado com sucesso');
         } catch (error) {
           message.error('Erro ao desconectar Stripe');
@@ -702,51 +715,50 @@ const Settings = () => {
         </Row>
       </Card>
 
-      <Form
-        form={stripeForm}
-        layout="vertical"
-        onFinish={handleSaveStripe}
-      >
+      {/* Using div wrapper to avoid nested forms issue */}
+      <div>
         <Divider>Credenciais do Stripe</Divider>
 
         <Row gutter={16}>
           <Col xs={24}>
-            <Form.Item
-              label="Secret Key"
-              name="stripe_secret_key"
-              extra="Encontre em: Dashboard Stripe > Developers > API Keys"
-            >
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Secret Key</label>
               <Input.Password
+                value={stripeSecretKey}
+                onChange={(e) => setStripeSecretKey(e.target.value)}
                 placeholder={stripeStatus.has_secret_key ? "••••••••••••••••" : "sk_live_... ou sk_test_..."}
               />
-            </Form.Item>
+              <div style={{ marginTop: 4, fontSize: 12, color: '#888' }}>Encontre em: Dashboard Stripe &gt; Developers &gt; API Keys</div>
+            </div>
           </Col>
 
           <Col xs={24}>
-            <Form.Item
-              label="Publishable Key"
-              name="stripe_publishable_key"
-              extra="Opcional - usada para componentes do frontend"
-            >
-              <Input placeholder="pk_live_... ou pk_test_..." />
-            </Form.Item>
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Publishable Key</label>
+              <Input
+                value={stripePublishableKey}
+                onChange={(e) => setStripePublishableKey(e.target.value)}
+                placeholder="pk_live_... ou pk_test_..."
+              />
+              <div style={{ marginTop: 4, fontSize: 12, color: '#888' }}>Opcional - usada para componentes do frontend</div>
+            </div>
           </Col>
 
           <Col xs={24}>
-            <Form.Item
-              label="Webhook Secret"
-              name="stripe_webhook_secret"
-              extra="Configure o webhook no Stripe e cole o secret aqui"
-            >
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Webhook Secret</label>
               <Input.Password
+                value={stripeWebhookSecret}
+                onChange={(e) => setStripeWebhookSecret(e.target.value)}
                 placeholder={stripeStatus.has_webhook_secret ? "••••••••••••••••" : "whsec_..."}
               />
-            </Form.Item>
+              <div style={{ marginTop: 4, fontSize: 12, color: '#888' }}>Configure o webhook no Stripe e cole o secret aqui</div>
+            </div>
           </Col>
         </Row>
 
         <Space wrap>
-          <Button type="primary" htmlType="submit" loading={stripeLoading}>
+          <Button type="primary" loading={stripeLoading} onClick={handleSaveStripe}>
             Salvar Credenciais
           </Button>
           {stripeStatus.stripe_connected && (
@@ -760,7 +772,7 @@ const Settings = () => {
             </>
           )}
         </Space>
-      </Form>
+      </div>
     </div>
   );
 

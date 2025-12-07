@@ -276,6 +276,8 @@ func main() {
 			// Export
 			stockMovements.GET("/export/csv", middleware.PermissionMiddleware("stock_movements", "view"), handlers.ExportStockMovementsCSV)
 			stockMovements.GET("/export/pdf", middleware.PermissionMiddleware("stock_movements", "view"), handlers.GenerateStockMovementsListPDF)
+			// Sale receipt
+			stockMovements.GET("/:id/sale-receipt", middleware.PermissionMiddleware("stock_movements", "view"), handlers.GenerateSaleReceiptPDF)
 		}
 
 		// Dashboard and Reports

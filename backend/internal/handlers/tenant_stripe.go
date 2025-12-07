@@ -4,6 +4,7 @@ import (
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -49,12 +50,16 @@ func GetStripeSettings(c *gin.Context) {
 // UpdateStripeCredentials updates the Stripe credentials for the tenant
 func UpdateStripeCredentials(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
+	log.Printf("UpdateStripeCredentials: Starting for tenant %d", tenantID)
 
 	var req StripeCredentialsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("UpdateStripeCredentials: JSON bind error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	log.Printf("UpdateStripeCredentials: Request received - has secret: %v, has pub: %v, has webhook: %v",
+		req.StripeSecretKey != "", req.StripePublishableKey != "", req.StripeWebhookSecret != "")
 
 	// Get or create tenant settings (explicit public schema)
 	var settings models.TenantSettings
@@ -76,6 +81,7 @@ func UpdateStripeCredentials(c *gin.Context) {
 
 	// Validate credentials by making a test API call (use plain key for validation)
 	plainSecretKey := settings.StripeSecretKey
+	log.Printf("UpdateStripeCredentials: plainSecretKey length: %d", len(plainSecretKey))
 	if plainSecretKey != "" {
 		// Decrypt if already encrypted (for re-validation)
 		decrypted, err := helpers.DecryptIfNeeded(plainSecretKey)
@@ -84,13 +90,16 @@ func UpdateStripeCredentials(c *gin.Context) {
 		}
 
 		stripe.Key = plainSecretKey
+		log.Printf("UpdateStripeCredentials: Validating Stripe key...")
 
 		// Try to get account info to validate the key
 		acct, err := account.Get()
 		if err != nil {
+			log.Printf("UpdateStripeCredentials: Stripe validation FAILED: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Stripe secret key: " + err.Error()})
 			return
 		}
+		log.Printf("UpdateStripeCredentials: Stripe validation SUCCESS - account: %s", acct.ID)
 
 		settings.StripeConnected = true
 		if acct.BusinessProfile != nil && acct.BusinessProfile.Name != "" {
@@ -121,28 +130,35 @@ func UpdateStripeCredentials(c *gin.Context) {
 	}
 
 	// Save settings using raw SQL to avoid GORM table name issues
+	log.Printf("UpdateStripeCredentials: Saving settings, ID=%d", settings.ID)
 	if settings.ID == 0 {
 		// Insert new record
+		log.Printf("UpdateStripeCredentials: Inserting new record...")
 		if err := database.DB.Exec(`
 			INSERT INTO public.tenant_settings
 			(tenant_id, stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_connected, stripe_account_name, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
 			tenantID, settings.StripeSecretKey, settings.StripePublishableKey, settings.StripeWebhookSecret, settings.StripeConnected, settings.StripeAccountName,
 		).Error; err != nil {
+			log.Printf("UpdateStripeCredentials: INSERT FAILED: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create settings: " + err.Error()})
 			return
 		}
+		log.Printf("UpdateStripeCredentials: INSERT SUCCESS")
 	} else {
 		// Update existing record
+		log.Printf("UpdateStripeCredentials: Updating existing record...")
 		if err := database.DB.Exec(`
 			UPDATE public.tenant_settings
 			SET stripe_secret_key = ?, stripe_publishable_key = ?, stripe_webhook_secret = ?, stripe_connected = ?, stripe_account_name = ?, updated_at = NOW()
 			WHERE tenant_id = ?`,
 			settings.StripeSecretKey, settings.StripePublishableKey, settings.StripeWebhookSecret, settings.StripeConnected, settings.StripeAccountName, tenantID,
 		).Error; err != nil {
+			log.Printf("UpdateStripeCredentials: UPDATE FAILED: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings: " + err.Error()})
 			return
 		}
+		log.Printf("UpdateStripeCredentials: UPDATE SUCCESS")
 	}
 
 	c.JSON(http.StatusOK, gin.H{

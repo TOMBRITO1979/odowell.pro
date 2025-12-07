@@ -90,8 +90,9 @@ func migrateNewTablesOnly(schema string) error {
 		&models.TreatmentPayment{},
 		&models.ConsentTemplate{},
 		&models.PatientConsent{},
-		&models.Prescription{}, // Added for new signer fields
-		&models.Appointment{},  // Added for new room field
+		&models.Prescription{},   // Added for new signer fields
+		&models.Appointment{},    // Added for new room field
+		&models.StockMovement{},  // Added for sale buyer fields
 	)
 
 	return err
@@ -134,8 +135,8 @@ func autoMigrateTenantSchema(db *gorm.DB) error {
 
 		// Utility tables
 		&models.Task{},
-		&models.TenantSettings{},
 		&models.WaitingList{},
+		// Note: TenantSettings is in public schema, not tenant schemas
 	)
 }
 
@@ -175,6 +176,7 @@ func MigratePublicSchema() error {
 		&models.AuditLog{},
 		&models.EmailVerification{},
 		&models.PasswordReset{},
+		&models.TenantSettings{}, // Settings stored in public schema per tenant
 	)
 
 	if err != nil {

@@ -12,9 +12,10 @@ import {
   Select,
   Row,
   Col,
-  DatePicker,
   InputNumber,
-  Statistic,
+  Divider,
+  Typography,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -24,12 +25,15 @@ import {
   InboxOutlined,
   FileExcelOutlined,
   FilePdfOutlined,
+  PrinterOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { stockMovementsAPI, productsAPI } from '../../services/api';
 import { actionColors } from '../../theme/designSystem';
 
 const { TextArea } = Input;
+const { Text } = Typography;
 
 const StockMovements = () => {
   const [loading, setLoading] = useState(false);
@@ -47,9 +51,14 @@ const StockMovements = () => {
     type: undefined,
   });
 
+  // State for sale-specific display
+  const [isSale, setIsSale] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [saleTotal, setSaleTotal] = useState(0);
+
   const typeOptions = [
     { value: 'entry', label: 'Entrada', color: 'success', icon: <ArrowUpOutlined /> },
-    { value: 'exit', label: 'Saída', color: 'error', icon: <ArrowDownOutlined /> },
+    { value: 'exit', label: 'Saida', color: 'error', icon: <ArrowDownOutlined /> },
     { value: 'adjustment', label: 'Ajuste', color: 'warning', icon: <SwapOutlined /> },
   ];
 
@@ -58,9 +67,9 @@ const StockMovements = () => {
     { value: 'sale', label: 'Venda' },
     { value: 'usage', label: 'Uso em Procedimento' },
     { value: 'loss', label: 'Perda/Dano' },
-    { value: 'adjustment', label: 'Ajuste de Inventário' },
-    { value: 'return', label: 'Devolução' },
-    { value: 'donation', label: 'Doação' },
+    { value: 'adjustment', label: 'Ajuste de Inventario' },
+    { value: 'return', label: 'Devolucao' },
+    { value: 'donation', label: 'Doacao' },
     { value: 'other', label: 'Outro' },
   ];
 
@@ -85,7 +94,7 @@ const StockMovements = () => {
         total: response.data.total || 0,
       });
     } catch (error) {
-      message.error('Erro ao carregar movimentações');
+      message.error('Erro ao carregar movimentacoes');
       console.error('Error:', error);
     } finally {
       setLoading(false);
@@ -103,25 +112,65 @@ const StockMovements = () => {
 
   const showModal = () => {
     form.resetFields();
+    setIsSale(false);
+    setSelectedProduct(null);
+    setSaleTotal(0);
     setModalVisible(true);
   };
 
   const handleCancel = () => {
     setModalVisible(false);
     form.resetFields();
+    setIsSale(false);
+    setSelectedProduct(null);
+    setSaleTotal(0);
+  };
+
+  const handleReasonChange = (value) => {
+    setIsSale(value === 'sale');
+    // Auto-set type to 'exit' when sale is selected
+    if (value === 'sale') {
+      form.setFieldsValue({ type: 'exit' });
+    }
+    calculateSaleTotal();
+  };
+
+  const handleProductChange = (productId) => {
+    const product = products.find(p => p.id === productId);
+    setSelectedProduct(product);
+    calculateSaleTotal();
+  };
+
+  const handleQuantityChange = () => {
+    calculateSaleTotal();
+  };
+
+  const calculateSaleTotal = () => {
+    const productId = form.getFieldValue('product_id');
+    const quantity = form.getFieldValue('quantity') || 0;
+    const product = products.find(p => p.id === productId);
+
+    if (product && quantity > 0) {
+      setSaleTotal(product.sale_price * quantity);
+    } else {
+      setSaleTotal(0);
+    }
   };
 
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
       await stockMovementsAPI.create(values);
-      message.success('Movimentação registrada com sucesso!');
+      message.success('Movimentacao registrada com sucesso!');
       setModalVisible(false);
       form.resetFields();
+      setIsSale(false);
+      setSelectedProduct(null);
+      setSaleTotal(0);
       fetchMovements();
     } catch (error) {
       message.error(
-        error.response?.data?.error || 'Erro ao registrar movimentação'
+        error.response?.data?.error || 'Erro ao registrar movimentacao'
       );
     } finally {
       setLoading(false);
@@ -166,6 +215,25 @@ const StockMovements = () => {
     }
   };
 
+  const handleDownloadSaleReceipt = async (movementId) => {
+    try {
+      const response = await stockMovementsAPI.downloadSaleReceipt(movementId);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `recibo_venda_${movementId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      message.success('Recibo gerado com sucesso');
+    } catch (error) {
+      message.error('Erro ao gerar recibo');
+      console.error('Receipt error:', error);
+    }
+  };
+
   const getTypeTag = (type) => {
     const typeObj = typeOptions.find((t) => t.value === type);
     if (!typeObj) return <Tag>{type}</Tag>;
@@ -185,6 +253,13 @@ const StockMovements = () => {
   const getProductName = (productId) => {
     const product = products.find((p) => p.id === productId);
     return product ? product.name : `Produto #${productId}`;
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value || 0);
   };
 
   const columns = [
@@ -227,14 +302,42 @@ const StockMovements = () => {
       dataIndex: 'reason',
       key: 'reason',
       width: 150,
-      render: (reason) => getReasonLabel(reason),
+      render: (reason) => (
+        <Space>
+          {getReasonLabel(reason)}
+          {reason === 'sale' && <DollarOutlined style={{ color: '#52c41a' }} />}
+        </Space>
+      ),
     },
     {
-      title: 'Observações',
-      dataIndex: 'notes',
-      key: 'notes',
-      ellipsis: true,
-      render: (notes) => notes || '-',
+      title: 'Valor',
+      key: 'total_price',
+      width: 120,
+      render: (_, record) => {
+        if (record.reason === 'sale' && record.total_price > 0) {
+          return <Text strong style={{ color: '#52c41a' }}>{formatCurrency(record.total_price)}</Text>;
+        }
+        return '-';
+      },
+    },
+    {
+      title: 'Acoes',
+      key: 'actions',
+      width: 100,
+      render: (_, record) => {
+        if (record.reason === 'sale') {
+          return (
+            <Tooltip title="Gerar Recibo">
+              <Button
+                type="text"
+                icon={<PrinterOutlined />}
+                onClick={() => handleDownloadSaleReceipt(record.id)}
+              />
+            </Tooltip>
+          );
+        }
+        return null;
+      },
     },
   ];
 
@@ -244,7 +347,7 @@ const StockMovements = () => {
         title={
           <Space>
             <InboxOutlined />
-            <span>Movimentações de Estoque</span>
+            <span>Movimentacoes de Estoque</span>
           </Space>
         }
         extra={
@@ -264,7 +367,7 @@ const StockMovements = () => {
                 color: '#fff'
               }}
             >
-              Nova Movimentação
+              Nova Movimentacao
             </Button>
           </Space>
         }
@@ -293,7 +396,7 @@ const StockMovements = () => {
           </Col>
           <Col xs={24} sm={12} md={6}>
             <Select
-              placeholder="Tipo de Movimentação"
+              placeholder="Tipo de Movimentacao"
               style={{ width: '100%' }}
               allowClear
               value={filters.type}
@@ -325,7 +428,7 @@ const StockMovements = () => {
       </Card>
 
       <Modal
-        title="Nova Movimentação de Estoque"
+        title="Nova Movimentacao de Estoque"
         open={modalVisible}
         onCancel={handleCancel}
         footer={null}
@@ -351,6 +454,7 @@ const StockMovements = () => {
                   filterOption={(input, option) =>
                     option.children.toLowerCase().includes(input.toLowerCase())
                   }
+                  onChange={handleProductChange}
                 >
                   {products.map((product) => (
                     <Select.Option key={product.id} value={product.id}>
@@ -364,12 +468,12 @@ const StockMovements = () => {
             <Col xs={24} md={12}>
               <Form.Item
                 name="type"
-                label="Tipo de Movimentação"
+                label="Tipo de Movimentacao"
                 rules={[
                   { required: true, message: 'Selecione o tipo' },
                 ]}
               >
-                <Select placeholder="Selecione">
+                <Select placeholder="Selecione" disabled={isSale}>
                   {typeOptions.map((type) => (
                     <Select.Option key={type.value} value={type.value}>
                       <Space>
@@ -397,6 +501,7 @@ const StockMovements = () => {
                   min={1}
                   precision={0}
                   placeholder="Quantidade"
+                  onChange={handleQuantityChange}
                 />
               </Form.Item>
             </Col>
@@ -409,7 +514,7 @@ const StockMovements = () => {
                   { required: true, message: 'Selecione o motivo' },
                 ]}
               >
-                <Select placeholder="Selecione o motivo">
+                <Select placeholder="Selecione o motivo" onChange={handleReasonChange}>
                   {reasonOptions.map((reason) => (
                     <Select.Option key={reason.value} value={reason.value}>
                       {reason.label}
@@ -420,13 +525,75 @@ const StockMovements = () => {
             </Col>
           </Row>
 
+          {/* Sale-specific fields */}
+          {isSale && (
+            <>
+              <Divider>Dados da Venda</Divider>
+
+              {/* Price display */}
+              {selectedProduct && (
+                <Row gutter={16} style={{ marginBottom: 16 }}>
+                  <Col xs={12}>
+                    <Card size="small" style={{ backgroundColor: '#f6ffed' }}>
+                      <Text type="secondary">Preco Unitario:</Text>
+                      <br />
+                      <Text strong style={{ fontSize: 18, color: '#52c41a' }}>
+                        {formatCurrency(selectedProduct.sale_price)}
+                      </Text>
+                    </Card>
+                  </Col>
+                  <Col xs={12}>
+                    <Card size="small" style={{ backgroundColor: '#e6f7ff' }}>
+                      <Text type="secondary">Total da Venda:</Text>
+                      <br />
+                      <Text strong style={{ fontSize: 18, color: '#1890ff' }}>
+                        {formatCurrency(saleTotal)}
+                      </Text>
+                    </Card>
+                  </Col>
+                </Row>
+              )}
+
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_name"
+                    label="Nome do Comprador"
+                  >
+                    <Input placeholder="Nome completo do comprador" />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_document"
+                    label="CPF/CNPJ"
+                  >
+                    <Input placeholder="000.000.000-00" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_phone"
+                    label="Telefone"
+                  >
+                    <Input placeholder="(00) 00000-0000" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </>
+          )}
+
           <Form.Item
             name="notes"
-            label="Observações"
+            label="Observacoes"
           >
             <TextArea
               rows={4}
-              placeholder="Descreva detalhes da movimentação..."
+              placeholder="Descreva detalhes da movimentacao..."
               maxLength={500}
             />
           </Form.Item>

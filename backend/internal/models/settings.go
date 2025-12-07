@@ -61,3 +61,9 @@ type TenantSettings struct {
 	StripeConnected      bool   `json:"stripe_connected" gorm:"default:false"`
 	StripeAccountName    string `json:"stripe_account_name,omitempty"`
 }
+
+// TableName specifies the table name for TenantSettings model
+// Settings are stored in public schema, not tenant schemas
+func (TenantSettings) TableName() string {
+	return "public.tenant_settings"
+}

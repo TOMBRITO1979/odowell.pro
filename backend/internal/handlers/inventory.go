@@ -286,6 +286,12 @@ func CreateStockMovement(c *gin.Context) {
 	// Store old quantity for logging
 	oldQuantity := product.Quantity
 
+	// If this is a sale, set the price information
+	if movement.Reason == "sale" {
+		movement.UnitPrice = product.SalePrice
+		movement.TotalPrice = product.SalePrice * float64(movement.Quantity)
+	}
+
 	// Update product quantity based on movement type
 	switch movement.Type {
 	case "entry":

@@ -171,6 +171,7 @@ export const stockMovementsAPI = {
   create: (data) => api.post('/stock-movements', data),
   exportCSV: (params) => api.get(`/stock-movements/export/csv?${params}`, { responseType: 'blob' }),
   exportPDF: (params) => api.get(`/stock-movements/export/pdf?${params}`, { responseType: 'blob' }),
+  downloadSaleReceipt: (id) => api.get(`/stock-movements/${id}/sale-receipt`, { responseType: 'blob' }),
 };
 
 // Campaigns API

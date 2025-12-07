@@ -85,4 +85,11 @@ type StockMovement struct {
 	User      *User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
 
 	Notes     string `gorm:"type:text" json:"notes"`
+
+	// Sale-specific fields (optional, used when reason="sale")
+	BuyerName     string  `json:"buyer_name,omitempty"`
+	BuyerDocument string  `json:"buyer_document,omitempty"` // CPF or CNPJ
+	BuyerPhone    string  `json:"buyer_phone,omitempty"`
+	UnitPrice     float64 `json:"unit_price,omitempty"`  // Price per unit at time of sale
+	TotalPrice    float64 `json:"total_price,omitempty"` // UnitPrice * Quantity
 }
