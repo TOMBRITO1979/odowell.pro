@@ -3,6 +3,7 @@ package handlers
 import (
 	"drcrwell/backend/internal/models"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -17,17 +18,25 @@ func GenerateSaleReceiptPDF(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 	movementID := c.Param("id")
 
-	// Get tenant info
+	log.Printf("GenerateSaleReceiptPDF: tenant_id=%d, movement_id=%s", tenantID, movementID)
+
+	// Get tenant info using explicit table path (doesn't depend on search_path)
 	var tenant models.Tenant
 	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+		log.Printf("GenerateSaleReceiptPDF: Failed to load tenant: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
 		return
 	}
 
-	// Get movement with product (User preload removed - not needed for receipt)
+	// Get movement with product using same pattern as GetStockMovements
 	var movement models.StockMovement
-	if err := db.Preload("Product").Where("id = ?", movementID).First(&movement).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Movement not found"})
+	if err := db.Model(&models.StockMovement{}).Preload("Product").Where("id = ?", movementID).First(&movement).Error; err != nil {
+		log.Printf("GenerateSaleReceiptPDF: Failed to find movement %s: %v", movementID, err)
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Movement not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		}
 		return
 	}
 
