@@ -261,6 +261,12 @@ const StockMovements = () => {
       buyer_name: record.buyer_name,
       buyer_document: record.buyer_document,
       buyer_phone: record.buyer_phone,
+      buyer_street: record.buyer_street,
+      buyer_number: record.buyer_number,
+      buyer_neighborhood: record.buyer_neighborhood,
+      buyer_city: record.buyer_city,
+      buyer_state: record.buyer_state,
+      buyer_zip_code: record.buyer_zip_code,
     });
     setEditModalVisible(true);
   };
@@ -683,6 +689,93 @@ const StockMovements = () => {
                   </Form.Item>
                 </Col>
               </Row>
+
+              <Divider orientation="left" plain>Endereco do Comprador</Divider>
+
+              <Row gutter={16}>
+                <Col xs={24} md={16}>
+                  <Form.Item
+                    name="buyer_street"
+                    label="Rua"
+                  >
+                    <Input placeholder="Nome da rua" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Form.Item
+                    name="buyer_number"
+                    label="Numero"
+                  >
+                    <Input placeholder="123" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_neighborhood"
+                    label="Bairro"
+                  >
+                    <Input placeholder="Bairro" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_city"
+                    label="Cidade"
+                  >
+                    <Input placeholder="Cidade" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_state"
+                    label="Estado"
+                  >
+                    <Select placeholder="Selecione o estado">
+                      <Select.Option value="AC">Acre</Select.Option>
+                      <Select.Option value="AL">Alagoas</Select.Option>
+                      <Select.Option value="AP">Amapa</Select.Option>
+                      <Select.Option value="AM">Amazonas</Select.Option>
+                      <Select.Option value="BA">Bahia</Select.Option>
+                      <Select.Option value="CE">Ceara</Select.Option>
+                      <Select.Option value="DF">Distrito Federal</Select.Option>
+                      <Select.Option value="ES">Espirito Santo</Select.Option>
+                      <Select.Option value="GO">Goias</Select.Option>
+                      <Select.Option value="MA">Maranhao</Select.Option>
+                      <Select.Option value="MT">Mato Grosso</Select.Option>
+                      <Select.Option value="MS">Mato Grosso do Sul</Select.Option>
+                      <Select.Option value="MG">Minas Gerais</Select.Option>
+                      <Select.Option value="PA">Para</Select.Option>
+                      <Select.Option value="PB">Paraiba</Select.Option>
+                      <Select.Option value="PR">Parana</Select.Option>
+                      <Select.Option value="PE">Pernambuco</Select.Option>
+                      <Select.Option value="PI">Piaui</Select.Option>
+                      <Select.Option value="RJ">Rio de Janeiro</Select.Option>
+                      <Select.Option value="RN">Rio Grande do Norte</Select.Option>
+                      <Select.Option value="RS">Rio Grande do Sul</Select.Option>
+                      <Select.Option value="RO">Rondonia</Select.Option>
+                      <Select.Option value="RR">Roraima</Select.Option>
+                      <Select.Option value="SC">Santa Catarina</Select.Option>
+                      <Select.Option value="SP">Sao Paulo</Select.Option>
+                      <Select.Option value="SE">Sergipe</Select.Option>
+                      <Select.Option value="TO">Tocantins</Select.Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_zip_code"
+                    label="CEP"
+                  >
+                    <Input placeholder="00000-000" />
+                  </Form.Item>
+                </Col>
+              </Row>
             </>
           )}
 
@@ -785,6 +878,22 @@ const StockMovements = () => {
                 <Descriptions.Item label="Telefone">
                   {selectedMovement.buyer_phone || 'Nao informado'}
                 </Descriptions.Item>
+                <Descriptions.Item label="Endereco" span={2}>
+                  {selectedMovement.buyer_street
+                    ? `${selectedMovement.buyer_street}${selectedMovement.buyer_number ? ', ' + selectedMovement.buyer_number : ''}`
+                    : 'Nao informado'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Bairro">
+                  {selectedMovement.buyer_neighborhood || 'Nao informado'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Cidade/UF">
+                  {selectedMovement.buyer_city || selectedMovement.buyer_state
+                    ? `${selectedMovement.buyer_city || ''}${selectedMovement.buyer_city && selectedMovement.buyer_state ? ' - ' : ''}${selectedMovement.buyer_state || ''}`
+                    : 'Nao informado'}
+                </Descriptions.Item>
+                <Descriptions.Item label="CEP">
+                  {selectedMovement.buyer_zip_code || 'Nao informado'}
+                </Descriptions.Item>
               </>
             )}
             <Descriptions.Item label="Usuario">
@@ -807,7 +916,7 @@ const StockMovements = () => {
           editForm.resetFields();
         }}
         footer={null}
-        width={600}
+        width={700}
       >
         <Form
           form={editForm}
@@ -853,6 +962,90 @@ const StockMovements = () => {
                     label="Telefone"
                   >
                     <Input placeholder="(00) 00000-0000" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Divider orientation="left" plain>Endereco</Divider>
+              <Row gutter={16}>
+                <Col xs={24} md={16}>
+                  <Form.Item
+                    name="buyer_street"
+                    label="Rua"
+                  >
+                    <Input placeholder="Nome da rua" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Form.Item
+                    name="buyer_number"
+                    label="Numero"
+                  >
+                    <Input placeholder="123" />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_neighborhood"
+                    label="Bairro"
+                  >
+                    <Input placeholder="Bairro" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_city"
+                    label="Cidade"
+                  >
+                    <Input placeholder="Cidade" />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_state"
+                    label="Estado"
+                  >
+                    <Select placeholder="Selecione" allowClear>
+                      <Select.Option value="AC">AC</Select.Option>
+                      <Select.Option value="AL">AL</Select.Option>
+                      <Select.Option value="AP">AP</Select.Option>
+                      <Select.Option value="AM">AM</Select.Option>
+                      <Select.Option value="BA">BA</Select.Option>
+                      <Select.Option value="CE">CE</Select.Option>
+                      <Select.Option value="DF">DF</Select.Option>
+                      <Select.Option value="ES">ES</Select.Option>
+                      <Select.Option value="GO">GO</Select.Option>
+                      <Select.Option value="MA">MA</Select.Option>
+                      <Select.Option value="MT">MT</Select.Option>
+                      <Select.Option value="MS">MS</Select.Option>
+                      <Select.Option value="MG">MG</Select.Option>
+                      <Select.Option value="PA">PA</Select.Option>
+                      <Select.Option value="PB">PB</Select.Option>
+                      <Select.Option value="PR">PR</Select.Option>
+                      <Select.Option value="PE">PE</Select.Option>
+                      <Select.Option value="PI">PI</Select.Option>
+                      <Select.Option value="RJ">RJ</Select.Option>
+                      <Select.Option value="RN">RN</Select.Option>
+                      <Select.Option value="RS">RS</Select.Option>
+                      <Select.Option value="RO">RO</Select.Option>
+                      <Select.Option value="RR">RR</Select.Option>
+                      <Select.Option value="SC">SC</Select.Option>
+                      <Select.Option value="SP">SP</Select.Option>
+                      <Select.Option value="SE">SE</Select.Option>
+                      <Select.Option value="TO">TO</Select.Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_zip_code"
+                    label="CEP"
+                  >
+                    <Input placeholder="00000-000" />
                   </Form.Item>
                 </Col>
               </Row>

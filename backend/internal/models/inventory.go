@@ -92,4 +92,12 @@ type StockMovement struct {
 	BuyerPhone    string  `json:"buyer_phone,omitempty"`
 	UnitPrice     float64 `json:"unit_price,omitempty"`  // Price per unit at time of sale
 	TotalPrice    float64 `json:"total_price,omitempty"` // UnitPrice * Quantity
+
+	// Buyer address fields
+	BuyerStreet       string `json:"buyer_street,omitempty"`
+	BuyerNumber       string `json:"buyer_number,omitempty"`
+	BuyerNeighborhood string `json:"buyer_neighborhood,omitempty"`
+	BuyerCity         string `json:"buyer_city,omitempty"`
+	BuyerState        string `json:"buyer_state,omitempty"`
+	BuyerZipCode      string `json:"buyer_zip_code,omitempty"`
 }

@@ -122,6 +122,53 @@ func GenerateSaleReceiptPDF(c *gin.Context) {
 	}
 	pdf.CellFormat(50, 6, tr("Telefone:"), "1", 0, "L", false, 0, "")
 	pdf.CellFormat(130, 6, tr(buyerPhone), "1", 0, "L", false, 0, "")
+	pdf.Ln(-1)
+
+	// Address fields (only show if at least one is filled)
+	hasAddress := movement.BuyerStreet != "" || movement.BuyerCity != "" || movement.BuyerState != ""
+	if hasAddress {
+		// Street and number
+		address := movement.BuyerStreet
+		if movement.BuyerNumber != "" {
+			address += ", " + movement.BuyerNumber
+		}
+		if address == "" {
+			address = "Nao informado"
+		}
+		pdf.CellFormat(50, 6, tr("Endereco:"), "1", 0, "L", false, 0, "")
+		pdf.CellFormat(130, 6, tr(address), "1", 0, "L", false, 0, "")
+		pdf.Ln(-1)
+
+		// Neighborhood
+		neighborhood := movement.BuyerNeighborhood
+		if neighborhood == "" {
+			neighborhood = "Nao informado"
+		}
+		pdf.CellFormat(50, 6, tr("Bairro:"), "1", 0, "L", false, 0, "")
+		pdf.CellFormat(130, 6, tr(neighborhood), "1", 0, "L", false, 0, "")
+		pdf.Ln(-1)
+
+		// City, State, ZIP
+		cityStateZip := movement.BuyerCity
+		if movement.BuyerState != "" {
+			if cityStateZip != "" {
+				cityStateZip += " - "
+			}
+			cityStateZip += movement.BuyerState
+		}
+		if movement.BuyerZipCode != "" {
+			if cityStateZip != "" {
+				cityStateZip += " - CEP: "
+			}
+			cityStateZip += movement.BuyerZipCode
+		}
+		if cityStateZip == "" {
+			cityStateZip = "Nao informado"
+		}
+		pdf.CellFormat(50, 6, tr("Cidade/UF/CEP:"), "1", 0, "L", false, 0, "")
+		pdf.CellFormat(130, 6, tr(cityStateZip), "1", 0, "L", false, 0, "")
+		pdf.Ln(-1)
+	}
 	pdf.Ln(12)
 
 	// Product info section

@@ -412,10 +412,16 @@ func UpdateStockMovement(c *gin.Context) {
 
 	// Only allow updating notes and buyer info (not quantity/type/product)
 	updates := map[string]interface{}{
-		"notes":          input.Notes,
-		"buyer_name":     input.BuyerName,
-		"buyer_document": input.BuyerDocument,
-		"buyer_phone":    input.BuyerPhone,
+		"notes":              input.Notes,
+		"buyer_name":         input.BuyerName,
+		"buyer_document":     input.BuyerDocument,
+		"buyer_phone":        input.BuyerPhone,
+		"buyer_street":       input.BuyerStreet,
+		"buyer_number":       input.BuyerNumber,
+		"buyer_neighborhood": input.BuyerNeighborhood,
+		"buyer_city":         input.BuyerCity,
+		"buyer_state":        input.BuyerState,
+		"buyer_zip_code":     input.BuyerZipCode,
 	}
 
 	if err := db.Model(&existingMovement).Updates(updates).Error; err != nil {
