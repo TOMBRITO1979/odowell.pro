@@ -311,33 +311,62 @@ func GetCashFlow(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 
-	// Build base query conditions for date filtering
-	// Each statistic needs its own fresh query to avoid GORM query accumulation
-	buildBaseQuery := func() *gorm.DB {
-		q := db.Model(&models.Payment{})
-		if startDate != "" {
-			q = q.Where("created_at >= ?", startDate)
-		}
-		if endDate != "" {
-			q = q.Where("created_at <= ?", endDate+" 23:59:59")
-		}
-		return q
+	log.Printf("GetCashFlow: startDate=%s, endDate=%s", startDate, endDate)
+
+	// Result struct for aggregation
+	type SumResult struct {
+		Total float64
 	}
 
-	// Calculate income (paid income payments)
-	var income float64
-	buildBaseQuery().Where("type = ? AND status = ?", "income", "paid").
-		Select("COALESCE(SUM(amount), 0)").Scan(&income)
+	// Build date filter conditions
+	dateConditions := ""
+	dateArgs := []interface{}{}
+	if startDate != "" {
+		dateConditions += " AND created_at >= ?"
+		dateArgs = append(dateArgs, startDate)
+	}
+	if endDate != "" {
+		dateConditions += " AND created_at <= ?"
+		dateArgs = append(dateArgs, endDate+" 23:59:59")
+	}
+
+	// Calculate income (paid income payments) using Table() to ensure proper schema
+	var incomeResult SumResult
+	incomeArgs := append([]interface{}{"income", "paid"}, dateArgs...)
+	if err := db.Table("payments").
+		Where("type = ? AND status = ? AND deleted_at IS NULL"+dateConditions, incomeArgs...).
+		Select("COALESCE(SUM(amount), 0) as total").
+		Scan(&incomeResult).Error; err != nil {
+		log.Printf("GetCashFlow: income query error: %v", err)
+	}
+	income := incomeResult.Total
+	log.Printf("GetCashFlow: income=%f", income)
 
 	// Calculate expenses (paid expense payments)
-	var expenses float64
-	buildBaseQuery().Where("type = ? AND status = ?", "expense", "paid").
-		Select("COALESCE(SUM(amount), 0)").Scan(&expenses)
+	var expensesResult SumResult
+	expensesArgs := append([]interface{}{"expense", "paid"}, dateArgs...)
+	if err := db.Table("payments").
+		Where("type = ? AND status = ? AND deleted_at IS NULL"+dateConditions, expensesArgs...).
+		Select("COALESCE(SUM(amount), 0) as total").
+		Scan(&expensesResult).Error; err != nil {
+		log.Printf("GetCashFlow: expenses query error: %v", err)
+	}
+	expenses := expensesResult.Total
+	log.Printf("GetCashFlow: expenses=%f", expenses)
 
 	// Calculate pending (pending income payments - receivables)
-	var pending float64
-	buildBaseQuery().Where("type = ? AND status = ?", "income", "pending").
-		Select("COALESCE(SUM(amount), 0)").Scan(&pending)
+	var pendingResult SumResult
+	pendingArgs := append([]interface{}{"income", "pending"}, dateArgs...)
+	if err := db.Table("payments").
+		Where("type = ? AND status = ? AND deleted_at IS NULL"+dateConditions, pendingArgs...).
+		Select("COALESCE(SUM(amount), 0) as total").
+		Scan(&pendingResult).Error; err != nil {
+		log.Printf("GetCashFlow: pending query error: %v", err)
+	}
+	pending := pendingResult.Total
+	log.Printf("GetCashFlow: pending=%f", pending)
+
+	log.Printf("GetCashFlow: returning income=%f, expenses=%f, balance=%f, pending=%f", income, expenses, income-expenses, pending)
 
 	c.JSON(http.StatusOK, gin.H{
 		"income":   income,
