@@ -295,7 +295,7 @@ func DeleteTask(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Tarefa excluída com sucesso"})
 }
 
-// GetPendingCount - Retorna quantidade de tarefas pendentes do usuário logado
+// GetPendingCount - Retorna quantidade de tarefas pendentes/em andamento que vencem hoje ou estão atrasadas
 func GetPendingCount(c *gin.Context) {
 	db, ok := middleware.GetDBFromContextSafe(c)
 	if !ok {
@@ -310,10 +310,12 @@ func GetPendingCount(c *gin.Context) {
 	}
 
 	var count int64
+	// Count tasks that are pending/in_progress and due today or overdue
 	db.Model(&models.Task{}).
 		Joins("JOIN task_users ON task_users.task_id = tasks.id").
 		Where("task_users.user_id = ? AND task_users.deleted_at IS NULL", userID).
 		Where("tasks.status IN (?)", []string{"pending", "in_progress"}).
+		Where("tasks.due_date IS NOT NULL AND DATE(tasks.due_date) <= CURRENT_DATE").
 		Count(&count)
 
 	c.JSON(http.StatusOK, gin.H{"count": count})
