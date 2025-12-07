@@ -146,42 +146,6 @@ const Payments = () => {
     }
   };
 
-  const handleRefundPayment = async (id) => {
-    Modal.confirm({
-      title: 'Estornar Pagamento',
-      content: (
-        <div>
-          <p>Tem certeza que deseja estornar este pagamento?</p>
-          <Input.TextArea
-            id="refund-reason"
-            placeholder="Motivo do estorno (obrigatório)"
-            rows={3}
-          />
-        </div>
-      ),
-      okText: 'Estornar',
-      cancelText: 'Cancelar',
-      onOk: async () => {
-        const reason = document.getElementById('refund-reason').value;
-        if (!reason || reason.trim() === '') {
-          message.error('Por favor, informe o motivo do estorno');
-          return Promise.reject();
-        }
-
-        try {
-          await paymentsAPI.refund(id, reason);
-          message.success('Pagamento estornado com sucesso');
-          fetchPayments();
-          fetchStatistics();
-        } catch (error) {
-          message.error('Erro ao estornar pagamento');
-          console.error('Refund error:', error);
-          return Promise.reject();
-        }
-      }
-    });
-  };
-
   const handleDownloadPDF = async () => {
     try {
       const params = { ...filters };
@@ -405,16 +369,6 @@ const Payments = () => {
               title="Editar"
               style={{ color: actionColors.edit }}
             />
-          )}
-          {canEdit('payments') && record.status === 'paid' && (
-            <Button
-              type="text"
-              onClick={() => handleRefundPayment(record.id)}
-              title="Estornar"
-              style={{ color: statusColors.error }}
-            >
-              Estornar
-            </Button>
           )}
           {canDelete('payments') && (
             <Popconfirm
