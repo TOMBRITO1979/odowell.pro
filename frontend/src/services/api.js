@@ -128,6 +128,7 @@ export const paymentsAPI = {
   delete: (id) => api.delete(`/payments/${id}`),
   refund: (id, reason) => api.post(`/payments/${id}/refund`, { reason }),
   getCashFlow: (params) => api.get('/payments/cashflow', { params }),
+  getOverdueCount: () => api.get('/payments/overdue-count'),
   downloadPDF: (params) => api.get('/payments/pdf/export', { params, responseType: 'blob' }),
   downloadReceipt: (budgetId, paymentId) => api.get(`/budgets/${budgetId}/payment/${paymentId}/receipt`, { responseType: 'blob' }),
   exportCSV: (params) => api.get(`/payments/export/csv?${params}`, { responseType: 'blob' }),

@@ -233,6 +233,7 @@ func main() {
 			payments.DELETE("/:id", middleware.PermissionMiddleware("payments", "delete"), handlers.DeletePayment)
 			payments.POST("/:id/refund", middleware.PermissionMiddleware("payments", "edit"), handlers.RefundPayment)
 			payments.GET("/cashflow", middleware.PermissionMiddleware("payments", "view"), handlers.GetCashFlow)
+			payments.GET("/overdue-count", middleware.PermissionMiddleware("payments", "view"), handlers.GetOverduePaymentsCount)
 			payments.GET("/pdf/export", middleware.PermissionMiddleware("payments", "view"), handlers.GeneratePaymentsPDF)
 			// Export/Import
 			payments.GET("/export/csv", middleware.PermissionMiddleware("payments", "view"), handlers.ExportPaymentsCSV)

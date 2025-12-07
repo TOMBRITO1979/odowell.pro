@@ -377,6 +377,27 @@ func GetCashFlow(c *gin.Context) {
 	})
 }
 
+// GetOverduePaymentsCount returns the count of overdue expense payments
+func GetOverduePaymentsCount(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	var count int64
+	// Count expense payments that are pending/overdue and past due date
+	err := db.Session(&gorm.Session{}).Table("payments").
+		Where("type = ? AND status IN (?, ?) AND due_date < NOW() AND deleted_at IS NULL", "expense", "pending", "overdue").
+		Count(&count).Error
+
+	if err != nil {
+		log.Printf("GetOverduePaymentsCount error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count overdue payments"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"count": count,
+	})
+}
+
 // CancelBudget cancels an approved budget
 func CancelBudget(c *gin.Context) {
 	id := c.Param("id")

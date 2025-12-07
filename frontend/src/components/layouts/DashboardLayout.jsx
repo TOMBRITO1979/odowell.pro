@@ -27,7 +27,7 @@ import {
   WalletOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
-import { tasksAPI } from '../../services/api';
+import { tasksAPI, paymentsAPI } from '../../services/api';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -39,6 +39,7 @@ const DashboardLayout = () => {
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
+  const [overduePaymentsCount, setOverduePaymentsCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, tenant, logout } = useAuth();
@@ -70,12 +71,30 @@ const DashboardLayout = () => {
     }
   }, [canView]);
 
+  useEffect(() => {
+    if (canView('payments')) {
+      loadOverduePaymentsCount();
+      // Reload count every 2 minutes
+      const interval = setInterval(loadOverduePaymentsCount, 120000);
+      return () => clearInterval(interval);
+    }
+  }, [canView]);
+
   const loadPendingTasksCount = async () => {
     try {
       const response = await tasksAPI.getPendingCount();
       setPendingTasksCount(response.data.count || 0);
     } catch (error) {
       console.error('Erro ao carregar tarefas pendentes:', error);
+    }
+  };
+
+  const loadOverduePaymentsCount = async () => {
+    try {
+      const response = await paymentsAPI.getOverdueCount();
+      setOverduePaymentsCount(response.data.count || 0);
+    } catch (error) {
+      console.error('Erro ao carregar contas vencidas:', error);
     }
   };
 
@@ -153,7 +172,11 @@ const DashboardLayout = () => {
         { key: '/budgets', label: 'Orçamentos', permission: 'budgets' },
         { key: '/treatments', label: 'Tratamentos', permission: 'budgets' },
         { key: '/payments', label: 'Pagamentos', permission: 'payments' },
-        { key: '/expenses', label: 'Contas a Pagar', permission: 'payments' },
+        { key: '/expenses', label: (
+          <Badge count={overduePaymentsCount} offset={[10, 0]} size="small">
+            Contas a Pagar
+          </Badge>
+        ), permission: 'payments' },
         { key: '/plans', label: 'Planos', permission: 'plans' },
       ],
     },
