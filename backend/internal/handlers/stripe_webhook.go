@@ -27,9 +27,9 @@ func HandleStripeWebhook(c *gin.Context) {
 		return
 	}
 
-	// Get tenant settings for webhook secret
+	// Get tenant settings for webhook secret (explicit public schema)
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		log.Printf("Webhook: Tenant settings not found for tenant %d", tenantID)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant settings not found"})
 		return

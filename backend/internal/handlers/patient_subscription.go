@@ -23,7 +23,8 @@ import (
 // getDecryptedStripeKey retrieves and decrypts the Stripe secret key for a tenant
 func getDecryptedStripeKey(tenantID uint) (string, error) {
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	// Use explicit public schema since TenantMiddleware sets search_path to tenant schema
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		return "", err
 	}
 
@@ -114,9 +115,9 @@ func CreatePatientSubscription(c *gin.Context) {
 		return
 	}
 
-	// Get tenant settings for Stripe credentials
+	// Get tenant settings for Stripe credentials (explicit public schema)
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant settings not found"})
 		return
 	}
@@ -288,9 +289,9 @@ func CancelPatientSubscription(c *gin.Context) {
 		return
 	}
 
-	// Get tenant settings for Stripe credentials
+	// Get tenant settings for Stripe credentials (explicit public schema)
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant settings not found"})
 		return
 	}
@@ -339,9 +340,9 @@ func CancelPatientSubscriptionImmediately(c *gin.Context) {
 		return
 	}
 
-	// Get tenant settings for Stripe credentials
+	// Get tenant settings for Stripe credentials (explicit public schema)
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant settings not found"})
 		return
 	}
@@ -374,9 +375,9 @@ func CancelPatientSubscriptionImmediately(c *gin.Context) {
 func GetStripeProducts(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 
-	// Get tenant settings for Stripe credentials
+	// Get tenant settings for Stripe credentials (explicit public schema)
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant settings not found"})
 		return
 	}
@@ -463,9 +464,9 @@ func RefreshSubscriptionStatus(c *gin.Context) {
 		return
 	}
 
-	// Get tenant settings for Stripe credentials
+	// Get tenant settings for Stripe credentials (explicit public schema)
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant settings not found"})
 		return
 	}
@@ -558,9 +559,9 @@ func ResendCheckoutLink(c *gin.Context) {
 		return
 	}
 
-	// Get tenant settings for Stripe credentials
+	// Get tenant settings for Stripe credentials (explicit public schema)
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant settings not found"})
 		return
 	}

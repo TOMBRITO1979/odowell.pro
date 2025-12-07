@@ -23,7 +23,8 @@ func GetStripeSettings(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	// Use explicit public schema since TenantMiddleware sets search_path to tenant schema
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		// Return empty settings if not found
 		c.JSON(http.StatusOK, gin.H{
 			"stripe_connected":       false,
@@ -55,9 +56,9 @@ func UpdateStripeCredentials(c *gin.Context) {
 		return
 	}
 
-	// Get or create tenant settings
+	// Get or create tenant settings (explicit public schema)
 	var settings models.TenantSettings
-	result := database.DB.Where("tenant_id = ?", tenantID).First(&settings)
+	result := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings)
 	if result.Error != nil {
 		settings = models.TenantSettings{TenantID: tenantID}
 	}
@@ -119,14 +120,14 @@ func UpdateStripeCredentials(c *gin.Context) {
 		settings.StripeWebhookSecret = encrypted
 	}
 
-	// Save settings
+	// Save settings (explicit public schema)
 	if settings.ID == 0 {
-		if err := database.DB.Create(&settings).Error; err != nil {
+		if err := database.DB.Table("public.tenant_settings").Create(&settings).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create settings"})
 			return
 		}
 	} else {
-		if err := database.DB.Save(&settings).Error; err != nil {
+		if err := database.DB.Table("public.tenant_settings").Save(&settings).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 			return
 		}
@@ -147,7 +148,8 @@ func DisconnectStripe(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	// Use explicit public schema
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Settings not found"})
 		return
 	}
@@ -159,7 +161,7 @@ func DisconnectStripe(c *gin.Context) {
 	settings.StripeConnected = false
 	settings.StripeAccountName = ""
 
-	if err := database.DB.Save(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Save(&settings).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 		return
 	}
@@ -172,7 +174,8 @@ func TestStripeConnection(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 
 	var settings models.TenantSettings
-	if err := database.DB.Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	// Use explicit public schema
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"connected": false,
 			"error":     "Settings not found",

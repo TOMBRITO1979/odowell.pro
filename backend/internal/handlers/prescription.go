@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/models"
 	"fmt"
 	"net/http"
@@ -31,9 +32,9 @@ func CreatePrescription(c *gin.Context) {
 		return
 	}
 
-	// Get clinic settings (preferred) or fallback to tenant info
+	// Get clinic settings (preferred) or fallback to tenant info (explicit public schema)
 	var settings models.TenantSettings
-	settingsFound := db.Where("tenant_id = ?", tenantID).First(&settings).Error == nil
+	settingsFound := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error == nil
 
 	// Set default values
 	input.DentistID = userID
