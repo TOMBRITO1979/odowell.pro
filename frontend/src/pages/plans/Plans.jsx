@@ -33,7 +33,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { patientSubscriptionsAPI, patientsAPI, stripeSettingsAPI } from '../../services/api';
-import { statusColors, shadows } from '../../theme/designSystem';
+import { statusColors, shadows, actionColors } from '../../theme/designSystem';
 import { usePermission } from '../../contexts/AuthContext';
 
 const { Text } = Typography;
@@ -296,6 +296,7 @@ const Plans = () => {
               type="text"
               icon={<EyeOutlined />}
               onClick={() => handleViewDetails(record)}
+              style={{ color: actionColors.view }}
             />
           </Tooltip>
 
@@ -304,6 +305,7 @@ const Plans = () => {
               type="text"
               icon={<SyncOutlined />}
               onClick={() => handleRefresh(record.id)}
+              style={{ color: actionColors.edit }}
             />
           </Tooltip>
 
@@ -313,6 +315,7 @@ const Plans = () => {
                 type="text"
                 icon={<SendOutlined />}
                 onClick={() => handleResendLink(record.id)}
+                style={{ color: actionColors.save }}
               />
             </Tooltip>
           )}
@@ -326,7 +329,7 @@ const Plans = () => {
               cancelText="Não"
             >
               <Tooltip title="Cancelar ao final do período">
-                <Button type="text" danger icon={<StopOutlined />} />
+                <Button type="text" icon={<StopOutlined />} style={{ color: actionColors.delete }} />
               </Tooltip>
             </Popconfirm>
           )}
@@ -340,7 +343,7 @@ const Plans = () => {
               cancelText="Não"
             >
               <Tooltip title="Cancelar imediatamente">
-                <Button type="text" danger icon={<CloseCircleOutlined />} />
+                <Button type="text" icon={<CloseCircleOutlined />} style={{ color: actionColors.delete }} />
               </Tooltip>
             </Popconfirm>
           )}
@@ -404,6 +407,7 @@ const Plans = () => {
                 type="text"
                 icon={<LinkOutlined />}
                 onClick={() => window.open(record.invoice_url, '_blank')}
+                style={{ color: actionColors.view }}
               />
             </Tooltip>
           )}
@@ -413,6 +417,7 @@ const Plans = () => {
                 type="text"
                 icon={<CreditCardOutlined />}
                 onClick={() => window.open(record.receipt_url, '_blank')}
+                style={{ color: actionColors.print }}
               />
             </Tooltip>
           )}

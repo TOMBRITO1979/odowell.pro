@@ -481,6 +481,7 @@ const StockMovements = () => {
               type="text"
               icon={<EyeOutlined />}
               onClick={() => handleView(record)}
+              style={{ color: actionColors.view }}
             />
           </Tooltip>
           {canEdit('stock_movements') && (
@@ -489,6 +490,7 @@ const StockMovements = () => {
                 type="text"
                 icon={<EditOutlined />}
                 onClick={() => handleEdit(record)}
+                style={{ color: actionColors.edit }}
               />
             </Tooltip>
           )}
@@ -498,6 +500,7 @@ const StockMovements = () => {
                 type="text"
                 icon={<PrinterOutlined />}
                 onClick={() => handleDownloadSaleReceipt(record.id)}
+                style={{ color: actionColors.print }}
               />
             </Tooltip>
           )}
@@ -513,8 +516,8 @@ const StockMovements = () => {
               <Tooltip title="Excluir">
                 <Button
                   type="text"
-                  danger
                   icon={<DeleteOutlined />}
+                  style={{ color: actionColors.delete }}
                 />
               </Tooltip>
             </Popconfirm>
