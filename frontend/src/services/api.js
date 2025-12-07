@@ -172,6 +172,7 @@ export const stockMovementsAPI = {
   create: (data) => api.post('/stock-movements', data),
   update: (id, data) => api.put(`/stock-movements/${id}`, data),
   delete: (id) => api.delete(`/stock-movements/${id}`),
+  getStats: (params) => api.get('/stock-movements/stats', { params }),
   exportCSV: (params) => api.get(`/stock-movements/export/csv?${params}`, { responseType: 'blob' }),
   exportPDF: (params) => api.get(`/stock-movements/export/pdf?${params}`, { responseType: 'blob' }),
   downloadSaleReceipt: (id) => api.get(`/stock-movements/${id}/sale-receipt`, { responseType: 'blob' }),

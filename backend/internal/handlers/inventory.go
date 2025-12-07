@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/models"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -508,5 +509,114 @@ func DeleteStockMovement(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":      "Movement deleted successfully",
 		"new_quantity": product.Quantity,
+	})
+}
+
+// ExitsByReason represents exits grouped by reason
+type ExitsByReason struct {
+	Reason        string `json:"reason"`
+	Count         int64  `json:"count"`
+	TotalQuantity int64  `json:"total_quantity"`
+}
+
+// GetStockMovementStats returns statistics for stock movements
+func GetStockMovementStats(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	// Parse query parameters
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	productID := c.Query("product_id")
+
+	// Build base query for exits (type = 'exit')
+	exitsQuery := db.Model(&models.StockMovement{}).Where("type = ?", "exit")
+
+	// Apply date filters if provided
+	if startDate != "" {
+		exitsQuery = exitsQuery.Where("created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		exitsQuery = exitsQuery.Where("created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		exitsQuery = exitsQuery.Where("product_id = ?", productID)
+	}
+
+	// Get exits grouped by reason
+	var exitsByReason []ExitsByReason
+	if err := exitsQuery.Select("reason, COUNT(*) as count, SUM(quantity) as total_quantity").
+		Group("reason").
+		Scan(&exitsByReason).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to get exits by reason: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get statistics"})
+		return
+	}
+
+	// Get total sales revenue (sum of total_price where reason='sale')
+	var totalSalesRevenue float64
+	salesQuery := db.Model(&models.StockMovement{}).Where("type = ? AND reason = ?", "exit", "sale")
+	if startDate != "" {
+		salesQuery = salesQuery.Where("created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		salesQuery = salesQuery.Where("created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		salesQuery = salesQuery.Where("product_id = ?", productID)
+	}
+	if err := salesQuery.Select("COALESCE(SUM(total_price), 0)").Scan(&totalSalesRevenue).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to get sales revenue: %v", err)
+		// Don't fail, just set to 0
+		totalSalesRevenue = 0
+	}
+
+	// Get total exits count
+	var totalExits int64
+	totalExitsQuery := db.Model(&models.StockMovement{}).Where("type = ?", "exit")
+	if startDate != "" {
+		totalExitsQuery = totalExitsQuery.Where("created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		totalExitsQuery = totalExitsQuery.Where("created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		totalExitsQuery = totalExitsQuery.Where("product_id = ?", productID)
+	}
+	totalExitsQuery.Count(&totalExits)
+
+	// Get total entries count
+	var totalEntries int64
+	totalEntriesQuery := db.Model(&models.StockMovement{}).Where("type = ?", "entry")
+	if startDate != "" {
+		totalEntriesQuery = totalEntriesQuery.Where("created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		totalEntriesQuery = totalEntriesQuery.Where("created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		totalEntriesQuery = totalEntriesQuery.Where("product_id = ?", productID)
+	}
+	totalEntriesQuery.Count(&totalEntries)
+
+	// Get total sales count (number of sale transactions)
+	var totalSalesCount int64
+	salesCountQuery := db.Model(&models.StockMovement{}).Where("type = ? AND reason = ?", "exit", "sale")
+	if startDate != "" {
+		salesCountQuery = salesCountQuery.Where("created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		salesCountQuery = salesCountQuery.Where("created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		salesCountQuery = salesCountQuery.Where("product_id = ?", productID)
+	}
+	salesCountQuery.Count(&totalSalesCount)
+
+	c.JSON(http.StatusOK, gin.H{
+		"exits_by_reason":     exitsByReason,
+		"total_sales_revenue": totalSalesRevenue,
+		"total_sales_count":   totalSalesCount,
+		"total_exits":         totalExits,
+		"total_entries":       totalEntries,
 	})
 }

@@ -18,6 +18,9 @@ import {
   Tooltip,
   Popconfirm,
   Descriptions,
+  DatePicker,
+  Statistic,
+  Spin,
 } from 'antd';
 import {
   PlusOutlined,
@@ -32,7 +35,12 @@ import {
   EyeOutlined,
   EditOutlined,
   DeleteOutlined,
+  BarChartOutlined,
+  ShoppingOutlined,
+  ExportOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import dayjs from 'dayjs';
 import { stockMovementsAPI, productsAPI } from '../../services/api';
 import { actionColors } from '../../theme/designSystem';
@@ -40,6 +48,7 @@ import { usePermission } from '../../contexts/AuthContext';
 
 const { TextArea } = Input;
 const { Text } = Typography;
+const { RangePicker } = DatePicker;
 
 const StockMovements = () => {
   const [loading, setLoading] = useState(false);
@@ -65,6 +74,21 @@ const StockMovements = () => {
   const [isSale, setIsSale] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [saleTotal, setSaleTotal] = useState(0);
+
+  // Dashboard statistics state
+  const [stats, setStats] = useState({
+    exits_by_reason: [],
+    total_sales_revenue: 0,
+    total_sales_count: 0,
+    total_exits: 0,
+    total_entries: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsDateRange, setStatsDateRange] = useState([
+    dayjs().startOf('month'),
+    dayjs().endOf('month'),
+  ]);
+  const [statsProductId, setStatsProductId] = useState(undefined);
 
   // Permissions
   const { canEdit, canDelete } = usePermission();
@@ -122,6 +146,60 @@ const StockMovements = () => {
       console.error('Error fetching products:', error);
     }
   };
+
+  // Fetch stats when date range or product filter changes
+  useEffect(() => {
+    fetchStats();
+  }, [statsDateRange, statsProductId]);
+
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const params = {};
+      if (statsDateRange && statsDateRange[0] && statsDateRange[1]) {
+        params.start_date = statsDateRange[0].format('YYYY-MM-DD');
+        params.end_date = statsDateRange[1].format('YYYY-MM-DD');
+      }
+      if (statsProductId) {
+        params.product_id = statsProductId;
+      }
+
+      const response = await stockMovementsAPI.getStats(params);
+      setStats(response.data);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      message.error('Erro ao carregar estatisticas');
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // Reason labels for chart
+  const reasonLabels = {
+    sale: 'Venda',
+    usage: 'Uso em Procedimento',
+    loss: 'Perda/Dano',
+    return: 'Devolucao',
+    donation: 'Doacao',
+    other: 'Outro',
+  };
+
+  // Colors for chart bars
+  const chartColors = {
+    sale: '#52c41a',
+    usage: '#1890ff',
+    loss: '#ff4d4f',
+    return: '#faad14',
+    donation: '#722ed1',
+    other: '#8c8c8c',
+  };
+
+  // Prepare chart data
+  const chartData = (stats.exits_by_reason || []).map(item => ({
+    reason: reasonLabels[item.reason] || item.reason,
+    quantidade: item.total_quantity || 0,
+    originalReason: item.reason,
+  }));
 
   const showModal = () => {
     form.resetFields();
@@ -448,6 +526,154 @@ const StockMovements = () => {
 
   return (
     <div>
+      {/* Dashboard Statistics */}
+      <Card
+        title={
+          <Space>
+            <BarChartOutlined />
+            <span>Estatisticas de Saidas</span>
+          </Space>
+        }
+        style={{ marginBottom: 16 }}
+        extra={
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={fetchStats}
+            loading={statsLoading}
+          >
+            Atualizar
+          </Button>
+        }
+      >
+        {/* Stats Filters */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>Periodo:</Text>
+            <RangePicker
+              value={statsDateRange}
+              onChange={(dates) => setStatsDateRange(dates)}
+              format="DD/MM/YYYY"
+              style={{ width: '100%' }}
+              allowClear={false}
+              placeholder={['Data inicial', 'Data final']}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>Produto:</Text>
+            <Select
+              placeholder="Todos os produtos"
+              style={{ width: '100%' }}
+              allowClear
+              showSearch
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
+              value={statsProductId}
+              onChange={(value) => setStatsProductId(value)}
+            >
+              {products.map((product) => (
+                <Select.Option key={product.id} value={product.id}>
+                  {product.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Col>
+        </Row>
+
+        <Spin spinning={statsLoading}>
+          <Row gutter={[16, 16]}>
+            {/* Revenue Card */}
+            <Col xs={24} sm={12} md={6}>
+              <Card style={{ backgroundColor: '#f6ffed', borderColor: '#b7eb8f' }}>
+                <Statistic
+                  title={<span style={{ color: '#389e0d' }}>Total Faturado (Vendas)</span>}
+                  value={stats.total_sales_revenue || 0}
+                  precision={2}
+                  prefix="R$"
+                  valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+            {/* Sales Count Card */}
+            <Col xs={24} sm={12} md={6}>
+              <Card style={{ backgroundColor: '#e6f7ff', borderColor: '#91d5ff' }}>
+                <Statistic
+                  title={<span style={{ color: '#096dd9' }}>Vendas Realizadas</span>}
+                  value={stats.total_sales_count || 0}
+                  prefix={<ShoppingOutlined />}
+                  valueStyle={{ color: '#1890ff', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+            {/* Total Exits Card */}
+            <Col xs={24} sm={12} md={6}>
+              <Card style={{ backgroundColor: '#fff2e8', borderColor: '#ffbb96' }}>
+                <Statistic
+                  title={<span style={{ color: '#d4380d' }}>Total de Saidas</span>}
+                  value={stats.total_exits || 0}
+                  prefix={<ExportOutlined />}
+                  valueStyle={{ color: '#fa541c', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+            {/* Total Entries Card */}
+            <Col xs={24} sm={12} md={6}>
+              <Card style={{ backgroundColor: '#f0f5ff', borderColor: '#adc6ff' }}>
+                <Statistic
+                  title={<span style={{ color: '#1d39c4' }}>Total de Entradas</span>}
+                  value={stats.total_entries || 0}
+                  prefix={<ArrowUpOutlined />}
+                  valueStyle={{ color: '#2f54eb', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Chart */}
+          {chartData.length > 0 && (
+            <Row style={{ marginTop: 24 }}>
+              <Col span={24}>
+                <Card title="Quantidade de Saidas por Motivo" size="small">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="reason" />
+                      <YAxis />
+                      <RechartsTooltip
+                        formatter={(value) => [value, 'Quantidade']}
+                        labelFormatter={(label) => `Motivo: ${label}`}
+                      />
+                      <Bar dataKey="quantidade" name="Quantidade" radius={[4, 4, 0, 0]}>
+                        {chartData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={chartColors[entry.originalReason] || '#8884d8'}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+              </Col>
+            </Row>
+          )}
+
+          {chartData.length === 0 && !statsLoading && (
+            <Row style={{ marginTop: 24 }}>
+              <Col span={24}>
+                <Card>
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                    <InboxOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                    <p>Nenhuma saida registrada no periodo selecionado</p>
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+          )}
+        </Spin>
+      </Card>
+
+      {/* Main Movements Table */}
       <Card
         title={
           <Space>

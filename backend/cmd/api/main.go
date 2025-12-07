@@ -273,6 +273,7 @@ func main() {
 		{
 			stockMovements.POST("", middleware.PermissionMiddleware("stock_movements", "create"), handlers.CreateStockMovement)
 			stockMovements.GET("", middleware.PermissionMiddleware("stock_movements", "view"), handlers.GetStockMovements)
+			stockMovements.GET("/stats", middleware.PermissionMiddleware("stock_movements", "view"), handlers.GetStockMovementStats)
 			stockMovements.GET("/:id", middleware.PermissionMiddleware("stock_movements", "view"), handlers.GetStockMovement)
 			stockMovements.PUT("/:id", middleware.PermissionMiddleware("stock_movements", "edit"), handlers.UpdateStockMovement)
 			stockMovements.DELETE("/:id", middleware.PermissionMiddleware("stock_movements", "delete"), handlers.DeleteStockMovement)
