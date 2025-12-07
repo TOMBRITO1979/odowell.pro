@@ -519,6 +519,21 @@ type ExitsByReason struct {
 	TotalQuantity int64  `json:"total_quantity"`
 }
 
+// ExitsByProduct represents exits grouped by product
+type ExitsByProduct struct {
+	ProductID     uint   `json:"product_id"`
+	ProductName   string `json:"product_name"`
+	TotalQuantity int64  `json:"total_quantity"`
+}
+
+// ExitsByProductDate represents exits grouped by product and date (for multi-line chart)
+type ExitsByProductDate struct {
+	ProductID     uint   `json:"product_id"`
+	ProductName   string `json:"product_name"`
+	Date          string `json:"date"`
+	TotalQuantity int64  `json:"total_quantity"`
+}
+
 // GetStockMovementStats returns statistics for stock movements
 func GetStockMovementStats(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
@@ -550,6 +565,62 @@ func GetStockMovementStats(c *gin.Context) {
 		log.Printf("GetStockMovementStats: Failed to get exits by reason: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get statistics"})
 		return
+	}
+
+	// Get exits grouped by product (top 10 products)
+	var exitsByProduct []ExitsByProduct
+	productExitsQuery := db.Table("stock_movements").
+		Select("stock_movements.product_id, products.name as product_name, SUM(stock_movements.quantity) as total_quantity").
+		Joins("JOIN products ON products.id = stock_movements.product_id").
+		Where("stock_movements.type = ?", "exit").
+		Where("stock_movements.deleted_at IS NULL")
+	if startDate != "" {
+		productExitsQuery = productExitsQuery.Where("stock_movements.created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		productExitsQuery = productExitsQuery.Where("stock_movements.created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		productExitsQuery = productExitsQuery.Where("stock_movements.product_id = ?", productID)
+	}
+	if err := productExitsQuery.Group("stock_movements.product_id, products.name").
+		Order("total_quantity DESC").
+		Limit(10).
+		Scan(&exitsByProduct).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to get exits by product: %v", err)
+		// Don't fail, just set empty array
+		exitsByProduct = []ExitsByProduct{}
+	}
+
+	// Get exits grouped by product AND date for multi-line time-series chart (top 10 products)
+	var exitsByProductDate []ExitsByProductDate
+	productDateQuery := db.Table("stock_movements").
+		Select("stock_movements.product_id, products.name as product_name, TO_CHAR(stock_movements.created_at, 'YYYY-MM-DD') as date, SUM(stock_movements.quantity) as total_quantity").
+		Joins("JOIN products ON products.id = stock_movements.product_id").
+		Where("stock_movements.type = ?", "exit").
+		Where("stock_movements.deleted_at IS NULL")
+	if startDate != "" {
+		productDateQuery = productDateQuery.Where("stock_movements.created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		productDateQuery = productDateQuery.Where("stock_movements.created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		productDateQuery = productDateQuery.Where("stock_movements.product_id = ?", productID)
+	}
+	// Only get data for top 10 products (by total quantity)
+	if len(exitsByProduct) > 0 {
+		topProductIDs := make([]uint, 0, len(exitsByProduct))
+		for _, p := range exitsByProduct {
+			topProductIDs = append(topProductIDs, p.ProductID)
+		}
+		productDateQuery = productDateQuery.Where("stock_movements.product_id IN ?", topProductIDs)
+	}
+	if err := productDateQuery.Group("stock_movements.product_id, products.name, TO_CHAR(stock_movements.created_at, 'YYYY-MM-DD')").
+		Order("date ASC, product_name ASC").
+		Scan(&exitsByProductDate).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to get exits by product and date: %v", err)
+		exitsByProductDate = []ExitsByProductDate{}
 	}
 
 	// Get total sales revenue (sum of total_price where reason='sale')
@@ -613,10 +684,12 @@ func GetStockMovementStats(c *gin.Context) {
 	salesCountQuery.Count(&totalSalesCount)
 
 	c.JSON(http.StatusOK, gin.H{
-		"exits_by_reason":     exitsByReason,
-		"total_sales_revenue": totalSalesRevenue,
-		"total_sales_count":   totalSalesCount,
-		"total_exits":         totalExits,
-		"total_entries":       totalEntries,
+		"exits_by_reason":       exitsByReason,
+		"exits_by_product":      exitsByProduct,
+		"exits_by_product_date": exitsByProductDate,
+		"total_sales_revenue":   totalSalesRevenue,
+		"total_sales_count":     totalSalesCount,
+		"total_exits":           totalExits,
+		"total_entries":         totalEntries,
 	})
 }

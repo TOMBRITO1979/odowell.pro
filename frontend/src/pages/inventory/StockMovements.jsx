@@ -40,7 +40,7 @@ import {
   ExportOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import dayjs from 'dayjs';
 import { stockMovementsAPI, productsAPI } from '../../services/api';
 import { actionColors } from '../../theme/designSystem';
@@ -78,6 +78,8 @@ const StockMovements = () => {
   // Dashboard statistics state
   const [stats, setStats] = useState({
     exits_by_reason: [],
+    exits_by_product: [],
+    exits_by_product_date: [],
     total_sales_revenue: 0,
     total_sales_count: 0,
     total_exits: 0,
@@ -194,12 +196,49 @@ const StockMovements = () => {
     other: '#8c8c8c',
   };
 
-  // Prepare chart data
+  // Prepare chart data for exits by reason
   const chartData = (stats.exits_by_reason || []).map(item => ({
     reason: reasonLabels[item.reason] || item.reason,
     quantidade: item.total_quantity || 0,
     originalReason: item.reason,
   }));
+
+  // Colors for product lines (10 distinct colors)
+  const productLineColors = [
+    '#1890ff', // blue
+    '#52c41a', // green
+    '#ff4d4f', // red
+    '#faad14', // gold
+    '#722ed1', // purple
+    '#13c2c2', // cyan
+    '#eb2f96', // magenta
+    '#fa8c16', // orange
+    '#2f54eb', // geekblue
+    '#a0d911', // lime
+  ];
+
+  // Get unique product names from exits_by_product
+  const productNames = (stats.exits_by_product || []).map(p => p.product_name);
+
+  // Transform exits_by_product_date to multi-line chart format
+  // From: [{ product_name, date, total_quantity }, ...]
+  // To: [{ date, "Product A": 10, "Product B": 20 }, ...]
+  const productChartData = React.useMemo(() => {
+    const dataByDate = {};
+    (stats.exits_by_product_date || []).forEach(item => {
+      const formattedDate = dayjs(item.date).format('DD/MM');
+      if (!dataByDate[formattedDate]) {
+        dataByDate[formattedDate] = { date: formattedDate };
+      }
+      dataByDate[formattedDate][item.product_name] = (dataByDate[formattedDate][item.product_name] || 0) + item.total_quantity;
+    });
+    // Convert to array and sort by date
+    return Object.values(dataByDate).sort((a, b) => {
+      const dateA = a.date.split('/').reverse().join('');
+      const dateB = b.date.split('/').reverse().join('');
+      return dateA.localeCompare(dateB);
+    });
+  }, [stats.exits_by_product_date]);
 
   const showModal = () => {
     form.resetFields();
@@ -655,6 +694,38 @@ const StockMovements = () => {
                         dot={{ r: 5, fill: '#52c41a', strokeWidth: 2 }}
                         activeDot={{ r: 7, fill: '#389e0d' }}
                       />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Card>
+              </Col>
+            </Row>
+          )}
+
+          {/* Multi-line chart: Saidas por Produto ao longo do tempo */}
+          {productChartData.length > 0 && productNames.length > 0 && (
+            <Row style={{ marginTop: 24 }}>
+              <Col span={24}>
+                <Card title="Saidas por Produto (por Data)" size="small">
+                  <ResponsiveContainer width="100%" height={350}>
+                    <LineChart data={productChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      {productNames.map((name, idx) => (
+                        <Line
+                          key={name}
+                          type="monotone"
+                          dataKey={name}
+                          name={name}
+                          stroke={productLineColors[idx % productLineColors.length]}
+                          strokeWidth={2}
+                          dot={{ r: 4, fill: productLineColors[idx % productLineColors.length] }}
+                          activeDot={{ r: 6 }}
+                          connectNulls
+                        />
+                      ))}
                     </LineChart>
                   </ResponsiveContainer>
                 </Card>
