@@ -40,7 +40,7 @@ import {
   ExportOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import dayjs from 'dayjs';
 import { stockMovementsAPI, productsAPI } from '../../services/api';
 import { actionColors } from '../../theme/designSystem';
@@ -638,7 +638,7 @@ const StockMovements = () => {
               <Col span={24}>
                 <Card title="Quantidade de Saidas por Motivo" size="small">
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="reason" />
                       <YAxis />
@@ -646,15 +646,16 @@ const StockMovements = () => {
                         formatter={(value) => [value, 'Quantidade']}
                         labelFormatter={(label) => `Motivo: ${label}`}
                       />
-                      <Bar dataKey="quantidade" name="Quantidade" radius={[4, 4, 0, 0]}>
-                        {chartData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={chartColors[entry.originalReason] || '#8884d8'}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
+                      <Line
+                        type="monotone"
+                        dataKey="quantidade"
+                        name="Quantidade"
+                        stroke="#52c41a"
+                        strokeWidth={2}
+                        dot={{ r: 5, fill: '#52c41a', strokeWidth: 2 }}
+                        activeDot={{ r: 7, fill: '#389e0d' }}
+                      />
+                    </LineChart>
                   </ResponsiveContainer>
                 </Card>
               </Col>
