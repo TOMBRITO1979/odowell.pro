@@ -379,3 +379,128 @@ func GetStockMovements(c *gin.Context) {
 		"page_size": pageSize,
 	})
 }
+
+func GetStockMovement(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	var movement models.StockMovement
+	if err := db.Preload("Product").Preload("User").First(&movement, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Movement not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"movement": movement})
+}
+
+func UpdateStockMovement(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	// Check if movement exists
+	var existingMovement models.StockMovement
+	if err := db.First(&existingMovement, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Movement not found"})
+		return
+	}
+
+	var input models.StockMovement
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Only allow updating notes and buyer info (not quantity/type/product)
+	updates := map[string]interface{}{
+		"notes":          input.Notes,
+		"buyer_name":     input.BuyerName,
+		"buyer_document": input.BuyerDocument,
+		"buyer_phone":    input.BuyerPhone,
+	}
+
+	if err := db.Model(&existingMovement).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update movement"})
+		return
+	}
+
+	// Reload with relationships
+	db.Preload("Product").Preload("User").First(&existingMovement, id)
+
+	c.JSON(http.StatusOK, gin.H{"movement": existingMovement})
+}
+
+func DeleteStockMovement(c *gin.Context) {
+	id := c.Param("id")
+	db := c.MustGet("db").(*gorm.DB)
+
+	// Get the movement to reverse the stock change
+	var movement models.StockMovement
+	if err := db.First(&movement, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Movement not found"})
+		return
+	}
+
+	// Start transaction
+	tx := db.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+
+	// Get the product to reverse the quantity change
+	var product models.Product
+	if err := tx.First(&product, movement.ProductID).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	// Reverse the quantity change based on movement type
+	switch movement.Type {
+	case "entry":
+		// Entry added stock, so we subtract
+		if product.Quantity < movement.Quantity {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":     "Cannot delete: would result in negative stock",
+				"available": product.Quantity,
+				"needed":    movement.Quantity,
+			})
+			return
+		}
+		product.Quantity -= movement.Quantity
+	case "exit":
+		// Exit removed stock, so we add back
+		product.Quantity += movement.Quantity
+	case "adjustment":
+		// For adjustments, we cannot reliably reverse
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete adjustment movements"})
+		return
+	}
+
+	// Update product quantity
+	if err := tx.Save(&product).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product quantity"})
+		return
+	}
+
+	// Soft delete the movement
+	if err := tx.Delete(&movement).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete movement"})
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Movement deleted successfully",
+		"new_quantity": product.Quantity,
+	})
+}

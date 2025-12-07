@@ -16,6 +16,8 @@ import {
   Divider,
   Typography,
   Tooltip,
+  Popconfirm,
+  Descriptions,
 } from 'antd';
 import {
   PlusOutlined,
@@ -27,10 +29,14 @@ import {
   FilePdfOutlined,
   PrinterOutlined,
   DollarOutlined,
+  EyeOutlined,
+  EditOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { stockMovementsAPI, productsAPI } from '../../services/api';
 import { actionColors } from '../../theme/designSystem';
+import { usePermission } from '../../contexts/AuthContext';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -40,7 +46,11 @@ const StockMovements = () => {
   const [movements, setMovements] = useState([]);
   const [products, setProducts] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [viewModalVisible, setViewModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedMovement, setSelectedMovement] = useState(null);
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -55,6 +65,9 @@ const StockMovements = () => {
   const [isSale, setIsSale] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [saleTotal, setSaleTotal] = useState(0);
+
+  // Permissions
+  const { canEdit, canDelete } = usePermission();
 
   const typeOptions = [
     { value: 'entry', label: 'Entrada', color: 'success', icon: <ArrowUpOutlined /> },
@@ -234,6 +247,58 @@ const StockMovements = () => {
     }
   };
 
+  // View movement details
+  const handleView = (record) => {
+    setSelectedMovement(record);
+    setViewModalVisible(true);
+  };
+
+  // Edit movement
+  const handleEdit = (record) => {
+    setSelectedMovement(record);
+    editForm.setFieldsValue({
+      notes: record.notes,
+      buyer_name: record.buyer_name,
+      buyer_document: record.buyer_document,
+      buyer_phone: record.buyer_phone,
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleEditSubmit = async (values) => {
+    setLoading(true);
+    try {
+      await stockMovementsAPI.update(selectedMovement.id, values);
+      message.success('Movimentacao atualizada com sucesso!');
+      setEditModalVisible(false);
+      editForm.resetFields();
+      setSelectedMovement(null);
+      fetchMovements();
+    } catch (error) {
+      message.error(
+        error.response?.data?.error || 'Erro ao atualizar movimentacao'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete movement
+  const handleDelete = async (id) => {
+    setLoading(true);
+    try {
+      await stockMovementsAPI.delete(id);
+      message.success('Movimentacao excluida com sucesso!');
+      fetchMovements();
+    } catch (error) {
+      message.error(
+        error.response?.data?.error || 'Erro ao excluir movimentacao'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getTypeTag = (type) => {
     const typeObj = typeOptions.find((t) => t.value === type);
     if (!typeObj) return <Tag>{type}</Tag>;
@@ -323,10 +388,27 @@ const StockMovements = () => {
     {
       title: 'Acoes',
       key: 'actions',
-      width: 100,
-      render: (_, record) => {
-        if (record.reason === 'sale') {
-          return (
+      width: 180,
+      fixed: 'right',
+      render: (_, record) => (
+        <Space size="small">
+          <Tooltip title="Visualizar">
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={() => handleView(record)}
+            />
+          </Tooltip>
+          {canEdit('stock_movements') && (
+            <Tooltip title="Editar">
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
+              />
+            </Tooltip>
+          )}
+          {record.reason === 'sale' && (
             <Tooltip title="Gerar Recibo">
               <Button
                 type="text"
@@ -334,10 +416,27 @@ const StockMovements = () => {
                 onClick={() => handleDownloadSaleReceipt(record.id)}
               />
             </Tooltip>
-          );
-        }
-        return null;
-      },
+          )}
+          {canDelete('stock_movements') && record.type !== 'adjustment' && (
+            <Popconfirm
+              title="Excluir movimentacao?"
+              description="O estoque sera revertido automaticamente."
+              onConfirm={() => handleDelete(record.id)}
+              okText="Sim"
+              cancelText="Nao"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title="Excluir">
+                <Button
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                />
+              </Tooltip>
+            </Popconfirm>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -608,6 +707,172 @@ const StockMovements = () => {
                 Registrar
               </Button>
               <Button onClick={handleCancel}>
+                Cancelar
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* View Modal */}
+      <Modal
+        title="Detalhes da Movimentacao"
+        open={viewModalVisible}
+        onCancel={() => {
+          setViewModalVisible(false);
+          setSelectedMovement(null);
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setViewModalVisible(false);
+            setSelectedMovement(null);
+          }}>
+            Fechar
+          </Button>,
+          selectedMovement?.reason === 'sale' && (
+            <Button
+              key="receipt"
+              type="primary"
+              icon={<PrinterOutlined />}
+              onClick={() => handleDownloadSaleReceipt(selectedMovement.id)}
+            >
+              Gerar Recibo
+            </Button>
+          ),
+        ]}
+        width={700}
+      >
+        {selectedMovement && (
+          <Descriptions bordered column={2}>
+            <Descriptions.Item label="ID">{selectedMovement.id}</Descriptions.Item>
+            <Descriptions.Item label="Data">
+              {dayjs(selectedMovement.created_at).format('DD/MM/YYYY HH:mm')}
+            </Descriptions.Item>
+            <Descriptions.Item label="Produto">
+              {selectedMovement.product?.name || getProductName(selectedMovement.product_id)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Tipo">
+              {getTypeTag(selectedMovement.type)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Quantidade">
+              <span style={{
+                color: selectedMovement.type === 'entry' ? '#81C784' : '#E57373',
+                fontWeight: 'bold'
+              }}>
+                {selectedMovement.type === 'entry' ? '+' : selectedMovement.type === 'exit' ? '-' : ''}
+                {selectedMovement.quantity}
+              </span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Motivo">
+              {getReasonLabel(selectedMovement.reason)}
+            </Descriptions.Item>
+            {selectedMovement.reason === 'sale' && (
+              <>
+                <Descriptions.Item label="Preco Unitario">
+                  {formatCurrency(selectedMovement.unit_price)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Total">
+                  <Text strong style={{ color: '#52c41a' }}>
+                    {formatCurrency(selectedMovement.total_price)}
+                  </Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="Comprador" span={2}>
+                  {selectedMovement.buyer_name || 'Nao informado'}
+                </Descriptions.Item>
+                <Descriptions.Item label="CPF/CNPJ">
+                  {selectedMovement.buyer_document || 'Nao informado'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Telefone">
+                  {selectedMovement.buyer_phone || 'Nao informado'}
+                </Descriptions.Item>
+              </>
+            )}
+            <Descriptions.Item label="Usuario">
+              {selectedMovement.user?.name || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Observacoes" span={2}>
+              {selectedMovement.notes || 'Nenhuma observacao'}
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        title="Editar Movimentacao"
+        open={editModalVisible}
+        onCancel={() => {
+          setEditModalVisible(false);
+          setSelectedMovement(null);
+          editForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={handleEditSubmit}
+        >
+          <Form.Item
+            name="notes"
+            label="Observacoes"
+          >
+            <TextArea
+              rows={4}
+              placeholder="Descreva detalhes da movimentacao..."
+              maxLength={500}
+            />
+          </Form.Item>
+
+          {selectedMovement?.reason === 'sale' && (
+            <>
+              <Divider>Dados do Comprador</Divider>
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_name"
+                    label="Nome do Comprador"
+                  >
+                    <Input placeholder="Nome completo" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_document"
+                    label="CPF/CNPJ"
+                  >
+                    <Input placeholder="000.000.000-00" />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="buyer_phone"
+                    label="Telefone"
+                  >
+                    <Input placeholder="(00) 00000-0000" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </>
+          )}
+
+          <Form.Item>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+              >
+                Salvar
+              </Button>
+              <Button onClick={() => {
+                setEditModalVisible(false);
+                setSelectedMovement(null);
+                editForm.resetFields();
+              }}>
                 Cancelar
               </Button>
             </Space>
