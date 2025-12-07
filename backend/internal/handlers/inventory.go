@@ -653,7 +653,11 @@ func GetStockMovementStats(c *gin.Context) {
 	if productID != "" {
 		totalExitsQuery = totalExitsQuery.Where("product_id = ?", productID)
 	}
-	totalExitsQuery.Count(&totalExits)
+	if err := totalExitsQuery.Count(&totalExits).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to count exits: %v", err)
+		totalExits = 0
+	}
+	log.Printf("GetStockMovementStats: totalExits=%d (startDate=%s, endDate=%s)", totalExits, startDate, endDate)
 
 	// Get total entries count
 	var totalEntries int64
@@ -667,7 +671,11 @@ func GetStockMovementStats(c *gin.Context) {
 	if productID != "" {
 		totalEntriesQuery = totalEntriesQuery.Where("product_id = ?", productID)
 	}
-	totalEntriesQuery.Count(&totalEntries)
+	if err := totalEntriesQuery.Count(&totalEntries).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to count entries: %v", err)
+		totalEntries = 0
+	}
+	log.Printf("GetStockMovementStats: totalEntries=%d", totalEntries)
 
 	// Get total sales count (number of sale transactions)
 	var totalSalesCount int64
@@ -681,7 +689,11 @@ func GetStockMovementStats(c *gin.Context) {
 	if productID != "" {
 		salesCountQuery = salesCountQuery.Where("product_id = ?", productID)
 	}
-	salesCountQuery.Count(&totalSalesCount)
+	if err := salesCountQuery.Count(&totalSalesCount).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to count sales: %v", err)
+		totalSalesCount = 0
+	}
+	log.Printf("GetStockMovementStats: totalSalesCount=%d, exitsByProduct=%d, exitsByProductDate=%d", totalSalesCount, len(exitsByProduct), len(exitsByProductDate))
 
 	c.JSON(http.StatusOK, gin.H{
 		"exits_by_reason":       exitsByReason,
