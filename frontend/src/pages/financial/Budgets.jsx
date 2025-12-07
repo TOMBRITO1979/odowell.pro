@@ -458,7 +458,11 @@ const Budgets = () => {
             dataSource={budgets}
             rowKey="id"
             loading={loading}
-            pagination={pagination}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+            }}
             onChange={handleTableChange}
             scroll={{ x: 'max-content' }}
           />

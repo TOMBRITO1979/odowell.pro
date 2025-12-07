@@ -409,7 +409,9 @@ const Appointments = () => {
             loading={loading}
             pagination={{
               ...pagination,
-              onChange: (page) => setPagination({ ...pagination, current: page }),
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              onChange: (page, pageSize) => setPagination({ ...pagination, current: page, pageSize }),
             }}
             scroll={{ x: 'max-content' }}
           />

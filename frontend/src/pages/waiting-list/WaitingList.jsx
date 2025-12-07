@@ -117,7 +117,8 @@ const WaitingList = () => {
   const handleTableChange = (pag) => {
     setPagination({
       ...pagination,
-      current: pag.current
+      current: pag.current,
+      pageSize: pag.pageSize,
     });
   };
 
@@ -344,7 +345,11 @@ const WaitingList = () => {
           dataSource={entries}
           rowKey="id"
           loading={loading}
-          pagination={pagination}
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+          }}
           onChange={handleTableChange}
           scroll={{ x: 1000 }}
         />

@@ -242,7 +242,11 @@ const Tasks = () => {
           dataSource={tasks}
           rowKey="id"
           loading={loading}
-          pagination={pagination}
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+          }}
           onChange={(newPagination) => setPagination(newPagination)}
           scroll={{ x: 'max-content' }}
         />
