@@ -377,14 +377,15 @@ func GetCashFlow(c *gin.Context) {
 	})
 }
 
-// GetOverduePaymentsCount returns the count of overdue expense payments
+// GetOverduePaymentsCount returns the count of overdue or due today expense payments
 func GetOverduePaymentsCount(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
 	var count int64
-	// Count expense payments that are pending/overdue and past due date
+	// Count expense payments that are pending/overdue and due today or past due date
+	// Using CURRENT_DATE to include payments due today
 	err := db.Session(&gorm.Session{}).Table("payments").
-		Where("type = ? AND status IN (?, ?) AND due_date < NOW() AND deleted_at IS NULL", "expense", "pending", "overdue").
+		Where("type = ? AND status IN (?, ?) AND DATE(due_date) <= CURRENT_DATE AND deleted_at IS NULL", "expense", "pending", "overdue").
 		Count(&count).Error
 
 	if err != nil {
