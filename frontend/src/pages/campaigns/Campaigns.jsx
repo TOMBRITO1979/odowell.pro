@@ -179,6 +179,7 @@ const Campaigns = () => {
               icon={<SendOutlined />}
               onClick={() => handleSend(record.id)}
               title="Enviar"
+              style={{ color: actionColors.save }}
             />
           )}
           <Button
@@ -186,6 +187,7 @@ const Campaigns = () => {
             icon={<EditOutlined />}
             onClick={() => navigate(`/campaigns/${record.id}/edit`)}
             title="Editar"
+            style={{ color: actionColors.edit }}
           />
           <Popconfirm
             title="Tem certeza que deseja excluir?"
@@ -195,9 +197,9 @@ const Campaigns = () => {
           >
             <Button
               type="text"
-              danger
               icon={<DeleteOutlined />}
               title="Excluir"
+              style={{ color: actionColors.delete }}
             />
           </Popconfirm>
         </Space>
