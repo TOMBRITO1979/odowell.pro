@@ -311,11 +311,12 @@ func GetPendingCount(c *gin.Context) {
 
 	var count int64
 	// Count tasks that are pending/in_progress and due today or overdue
+	// Include tasks where user is responsible OR user is creator
 	db.Model(&models.Task{}).
-		Joins("JOIN task_users ON task_users.task_id = tasks.id").
-		Where("task_users.user_id = ? AND task_users.deleted_at IS NULL", userID).
+		Joins("LEFT JOIN task_users ON task_users.task_id = tasks.id AND task_users.deleted_at IS NULL").
 		Where("tasks.status IN (?)", []string{"pending", "in_progress"}).
 		Where("tasks.due_date IS NOT NULL AND DATE(tasks.due_date) <= CURRENT_DATE").
+		Where("task_users.user_id = ? OR tasks.created_by = ?", userID, userID).
 		Count(&count)
 
 	c.JSON(http.StatusOK, gin.H{"count": count})
