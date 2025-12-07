@@ -175,14 +175,12 @@ const PaymentForm = () => {
             <Col xs={24} md={8}>
               <Form.Item
                 name="patient_id"
-                label="Paciente"
-                rules={[
-                  { required: true, message: 'Selecione o paciente' },
-                ]}
+                label="Paciente (Opcional)"
               >
                 <Select
                   placeholder="Selecione o paciente"
                   showSearch
+                  allowClear
                   filterOption={(input, option) =>
                     option.children
                       .toLowerCase()

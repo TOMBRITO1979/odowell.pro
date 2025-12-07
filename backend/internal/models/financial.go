@@ -47,7 +47,7 @@ type Payment struct {
 	BudgetID  *uint   `json:"budget_id"`
 	Budget    *Budget `gorm:"foreignKey:BudgetID" json:"budget,omitempty"`
 
-	PatientID uint     `gorm:"not null;index" json:"patient_id"`
+	PatientID *uint    `gorm:"index" json:"patient_id"`
 	Patient   *Patient `gorm:"foreignKey:PatientID" json:"patient,omitempty"`
 
 	// Payment details

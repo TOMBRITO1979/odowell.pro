@@ -330,10 +330,11 @@ func GetCashFlow(c *gin.Context) {
 		dateArgs = append(dateArgs, endDate+" 23:59:59")
 	}
 
-	// Calculate income (paid income payments) using Table() to ensure proper schema
+	// Calculate income (paid income payments)
+	// Use Session({}) to clone session (keeps search_path) with fresh statement builder
 	var incomeResult SumResult
 	incomeArgs := append([]interface{}{"income", "paid"}, dateArgs...)
-	if err := db.Table("payments").
+	if err := db.Session(&gorm.Session{}).Table("payments").
 		Where("type = ? AND status = ? AND deleted_at IS NULL"+dateConditions, incomeArgs...).
 		Select("COALESCE(SUM(amount), 0) as total").
 		Scan(&incomeResult).Error; err != nil {
@@ -345,7 +346,7 @@ func GetCashFlow(c *gin.Context) {
 	// Calculate expenses (paid expense payments)
 	var expensesResult SumResult
 	expensesArgs := append([]interface{}{"expense", "paid"}, dateArgs...)
-	if err := db.Table("payments").
+	if err := db.Session(&gorm.Session{}).Table("payments").
 		Where("type = ? AND status = ? AND deleted_at IS NULL"+dateConditions, expensesArgs...).
 		Select("COALESCE(SUM(amount), 0) as total").
 		Scan(&expensesResult).Error; err != nil {
@@ -357,7 +358,7 @@ func GetCashFlow(c *gin.Context) {
 	// Calculate pending (pending income payments - receivables)
 	var pendingResult SumResult
 	pendingArgs := append([]interface{}{"income", "pending"}, dateArgs...)
-	if err := db.Table("payments").
+	if err := db.Session(&gorm.Session{}).Table("payments").
 		Where("type = ? AND status = ? AND deleted_at IS NULL"+dateConditions, pendingArgs...).
 		Select("COALESCE(SUM(amount), 0) as total").
 		Scan(&pendingResult).Error; err != nil {

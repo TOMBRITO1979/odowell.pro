@@ -169,11 +169,16 @@ func ImportPaymentsCSV(c *gin.Context) {
 			continue
 		}
 
-		// Parse required fields
-		patientID, err := strconv.ParseUint(record[0], 10, 32)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("Linha %d: ID do paciente inválido", lineNum))
-			continue
+		// Parse optional patient ID
+		var patientID *uint
+		if record[0] != "" {
+			pid, err := strconv.ParseUint(record[0], 10, 32)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("Linha %d: ID do paciente inválido", lineNum))
+				continue
+			}
+			pidVal := uint(pid)
+			patientID = &pidVal
 		}
 
 		amount, err := strconv.ParseFloat(record[5], 64)
@@ -208,7 +213,7 @@ func ImportPaymentsCSV(c *gin.Context) {
 
 		// Create payment
 		payment := models.Payment{
-			PatientID:     uint(patientID),
+			PatientID:     patientID,
 			BudgetID:      budgetID,
 			Type:          paymentType,
 			Category:      category,
