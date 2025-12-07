@@ -20,17 +20,19 @@ func GenerateSaleReceiptPDF(c *gin.Context) {
 
 	log.Printf("GenerateSaleReceiptPDF: tenant_id=%d, movement_id=%s", tenantID, movementID)
 
-	// Get tenant info using explicit table path (doesn't depend on search_path)
+	// Get tenant info - use fresh session to avoid GORM statement accumulation
+	// The db from SetSchema has accumulated state, so we need a clean query builder
 	var tenant models.Tenant
-	if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+	if err := db.Session(&gorm.Session{NewDB: true}).Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
 		log.Printf("GenerateSaleReceiptPDF: Failed to load tenant: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
 		return
 	}
 
-	// Get movement with product using same pattern as GetStockMovements
+	// Get movement with product - use fresh session with NewDB to get clean query builder
+	// but still inherit the search_path from the connection
 	var movement models.StockMovement
-	if err := db.Model(&models.StockMovement{}).Preload("Product").Where("id = ?", movementID).First(&movement).Error; err != nil {
+	if err := db.Session(&gorm.Session{NewDB: true}).Preload("Product").First(&movement, movementID).Error; err != nil {
 		log.Printf("GenerateSaleReceiptPDF: Failed to find movement %s: %v", movementID, err)
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Movement not found"})
