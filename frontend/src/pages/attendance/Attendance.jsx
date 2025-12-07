@@ -27,7 +27,7 @@ const calmColors = {
   statusInProgress: '#f5e0a8',
   statusCompleted: '#a7d7a7',
   statusCancelled: '#e8b8b8',
-  statusNoShow: '#d9d9d9',
+  statusNoShow: '#e8b8b8',
 };
 
 // Mapeamento de cores específicas por procedimento (verde para Restauração)
@@ -114,6 +114,18 @@ const Attendance = () => {
       no_show: 'Faltou',
     };
     return texts[status] || status;
+  };
+
+  const getStatusTextColor = (status) => {
+    const textColors = {
+      scheduled: '#3a5a7a',    // azul escuro para fundo azul claro
+      confirmed: '#2a5a3a',    // verde escuro para fundo verde claro
+      in_progress: '#6a5a2a', // dourado escuro para fundo amarelo
+      completed: '#2a5a3a',    // verde escuro para fundo verde
+      cancelled: '#6a3a3a',    // vermelho escuro para fundo vermelho claro
+      no_show: '#6a3a3a',      // vermelho escuro para fundo vermelho claro
+    };
+    return textColors[status] || '#4a5568';
   };
 
   useEffect(() => {
@@ -323,8 +335,8 @@ const Attendance = () => {
           <Tag
             style={{
               fontSize: 10,
-              backgroundColor: calmColors.softBlue,
-              color: '#4a5568',
+              backgroundColor: getStatusColor(appointment.status),
+              color: getStatusTextColor(appointment.status),
               border: 'none',
             }}
           >
