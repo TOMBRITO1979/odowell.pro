@@ -311,32 +311,39 @@ func GetCashFlow(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 
-	query := db.Model(&models.Payment{})
-
-	if startDate != "" {
-		query = query.Where("created_at >= ?", startDate)
+	// Build base query conditions for date filtering
+	// Each statistic needs its own fresh query to avoid GORM query accumulation
+	buildBaseQuery := func() *gorm.DB {
+		q := db.Model(&models.Payment{})
+		if startDate != "" {
+			q = q.Where("created_at >= ?", startDate)
+		}
+		if endDate != "" {
+			q = q.Where("created_at <= ?", endDate+" 23:59:59")
+		}
+		return q
 	}
-	if endDate != "" {
-		query = query.Where("created_at <= ?", endDate)
-	}
 
+	// Calculate income (paid income payments)
 	var income float64
-	query.Where("type = ? AND status = ?", "income", "paid").
+	buildBaseQuery().Where("type = ? AND status = ?", "income", "paid").
 		Select("COALESCE(SUM(amount), 0)").Scan(&income)
 
+	// Calculate expenses (paid expense payments)
 	var expenses float64
-	query.Where("type = ? AND status = ?", "expense", "paid").
+	buildBaseQuery().Where("type = ? AND status = ?", "expense", "paid").
 		Select("COALESCE(SUM(amount), 0)").Scan(&expenses)
 
+	// Calculate pending (pending income payments - receivables)
 	var pending float64
-	db.Model(&models.Payment{}).Where("status = ?", "pending").
+	buildBaseQuery().Where("type = ? AND status = ?", "income", "pending").
 		Select("COALESCE(SUM(amount), 0)").Scan(&pending)
 
 	c.JSON(http.StatusOK, gin.H{
-		"income":    income,
-		"expenses":  expenses,
-		"balance":   income - expenses,
-		"pending":   pending,
+		"income":   income,
+		"expenses": expenses,
+		"balance":  income - expenses,
+		"pending":  pending,
 	})
 }
 
