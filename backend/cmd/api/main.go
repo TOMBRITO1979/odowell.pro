@@ -110,8 +110,8 @@ func main() {
 	public := r.Group("/api")
 	{
 		public.POST("/tenants", handlers.CreateTenant)
-		// Login with rate limiting: 5 attempts per minute, 15 min block
-		public.POST("/auth/login", middleware.LoginRateLimiter.RateLimitMiddleware(), handlers.Login)
+		// Login with rate limiting: 5 attempts per minute, 15 min block (Redis distributed)
+		public.POST("/auth/login", middleware.RedisLoginRateLimiter.RateLimitMiddleware(), handlers.Login)
 		// Email verification
 		public.GET("/auth/verify-email", handlers.VerifyEmail)
 		public.POST("/auth/resend-verification", handlers.ResendVerificationEmail)
@@ -521,9 +521,9 @@ func main() {
 
 	// WhatsApp/External API routes (API key authentication, tenant-isolated)
 	// These endpoints are for external integrations like WhatsApp bots and AI assistants
-	// Rate limited to 200 requests/minute per API key to prevent abuse
+	// Rate limited to 200 requests/minute per API key to prevent abuse (Redis distributed)
 	whatsappAPI := r.Group("/api/whatsapp")
-	whatsappAPI.Use(middleware.WhatsAppRateLimiter.RateLimitMiddleware())
+	whatsappAPI.Use(middleware.RedisWhatsAppRateLimiter.RateLimitMiddleware())
 	whatsappAPI.Use(middleware.APIKeyMiddleware())
 	{
 		// Patient identity verification
