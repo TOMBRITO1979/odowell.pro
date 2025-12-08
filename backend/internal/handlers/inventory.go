@@ -534,6 +534,13 @@ type ExitsByProductDate struct {
 	TotalQuantity int64  `json:"total_quantity"`
 }
 
+// MovementsByTypeDate represents movements grouped by type (entry/exit) and date
+type MovementsByTypeDate struct {
+	Type          string `json:"type"`
+	Date          string `json:"date"`
+	TotalQuantity int64  `json:"total_quantity"`
+}
+
 // GetStockMovementStats returns statistics for stock movements
 func GetStockMovementStats(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
@@ -623,6 +630,29 @@ func GetStockMovementStats(c *gin.Context) {
 		exitsByProductDate = []ExitsByProductDate{}
 	}
 
+	// Get movements grouped by type (entry/exit) and date for line chart
+	var movementsByTypeDate []MovementsByTypeDate
+	movementsByTypeDateQuery := db.Table("stock_movements").
+		Select("type, TO_CHAR(created_at, 'YYYY-MM-DD') as date, SUM(quantity) as total_quantity").
+		Where("deleted_at IS NULL").
+		Where("type IN ?", []string{"entry", "exit"})
+	if startDate != "" {
+		movementsByTypeDateQuery = movementsByTypeDateQuery.Where("created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		movementsByTypeDateQuery = movementsByTypeDateQuery.Where("created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		movementsByTypeDateQuery = movementsByTypeDateQuery.Where("product_id = ?", productID)
+	}
+	if err := movementsByTypeDateQuery.Group("type, TO_CHAR(created_at, 'YYYY-MM-DD')").
+		Order("date ASC, type ASC").
+		Scan(&movementsByTypeDate).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to get movements by type and date: %v", err)
+		movementsByTypeDate = []MovementsByTypeDate{}
+	}
+	log.Printf("GetStockMovementStats: movementsByTypeDate count=%d", len(movementsByTypeDate))
+
 	// Get total sales revenue (sum of total_price where reason='sale')
 	var totalSalesRevenue float64
 	salesQuery := db.Model(&models.StockMovement{}).Where("type = ? AND reason = ?", "exit", "sale")
@@ -705,12 +735,13 @@ func GetStockMovementStats(c *gin.Context) {
 	log.Printf("GetStockMovementStats: totalSalesCount=%d, exitsByProduct=%d, exitsByProductDate=%d", totalSalesCount, len(exitsByProduct), len(exitsByProductDate))
 
 	c.JSON(http.StatusOK, gin.H{
-		"exits_by_reason":       exitsByReason,
-		"exits_by_product":      exitsByProduct,
-		"exits_by_product_date": exitsByProductDate,
-		"total_sales_revenue":   totalSalesRevenue,
-		"total_sales_count":     totalSalesCount,
-		"total_exits":           totalExits,
-		"total_entries":         totalEntries,
+		"exits_by_reason":         exitsByReason,
+		"exits_by_product":        exitsByProduct,
+		"exits_by_product_date":   exitsByProductDate,
+		"movements_by_type_date":  movementsByTypeDate,
+		"total_sales_revenue":     totalSalesRevenue,
+		"total_sales_count":       totalSalesCount,
+		"total_exits":             totalExits,
+		"total_entries":           totalEntries,
 	})
 }

@@ -80,6 +80,7 @@ const StockMovements = () => {
     exits_by_reason: [],
     exits_by_product: [],
     exits_by_product_date: [],
+    movements_by_type_date: [],
     total_sales_revenue: 0,
     total_sales_count: 0,
     total_exits: 0,
@@ -242,6 +243,30 @@ const StockMovements = () => {
       return dateA.localeCompare(dateB);
     });
   }, [stats.exits_by_product_date]);
+
+  // Transform movements_by_type_date to chart format for Entries vs Exits
+  // From: [{ type: "entry", date: "2025-12-01", total_quantity: 10 }, ...]
+  // To: [{ date: "01/12", Entradas: 10, Saidas: 5 }, ...]
+  const entriesVsExitsChartData = React.useMemo(() => {
+    const dataByDate = {};
+    (stats.movements_by_type_date || []).forEach(item => {
+      const formattedDate = dayjs(item.date).format('DD/MM');
+      if (!dataByDate[formattedDate]) {
+        dataByDate[formattedDate] = { date: formattedDate, Entradas: 0, Saidas: 0 };
+      }
+      if (item.type === 'entry') {
+        dataByDate[formattedDate].Entradas = item.total_quantity;
+      } else if (item.type === 'exit') {
+        dataByDate[formattedDate].Saidas = item.total_quantity;
+      }
+    });
+    // Convert to array and sort by date
+    return Object.values(dataByDate).sort((a, b) => {
+      const dateA = a.date.split('/').reverse().join('');
+      const dateB = b.date.split('/').reverse().join('');
+      return dateA.localeCompare(dateB);
+    });
+  }, [stats.movements_by_type_date]);
 
   const showModal = () => {
     form.resetFields();
@@ -674,61 +699,36 @@ const StockMovements = () => {
             </Col>
           </Row>
 
-          {/* Chart */}
-          {chartData.length > 0 && (
+          {/* Chart: Entradas vs Saidas ao longo do tempo */}
+          {entriesVsExitsChartData.length > 0 && (
             <Row style={{ marginTop: 24 }}>
               <Col span={24}>
-                <Card title="Quantidade de Saidas por Motivo" size="small">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="reason" />
-                      <YAxis />
-                      <RechartsTooltip
-                        formatter={(value) => [value, 'Quantidade']}
-                        labelFormatter={(label) => `Motivo: ${label}`}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="quantidade"
-                        name="Quantidade"
-                        stroke="#52c41a"
-                        strokeWidth={2}
-                        dot={{ r: 5, fill: '#52c41a', strokeWidth: 2 }}
-                        activeDot={{ r: 7, fill: '#389e0d' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </Card>
-              </Col>
-            </Row>
-          )}
-
-          {/* Multi-line chart: Saidas por Produto ao longo do tempo */}
-          {productChartData.length > 0 && productNames.length > 0 && (
-            <Row style={{ marginTop: 24 }}>
-              <Col span={24}>
-                <Card title="Saidas por Produto (por Data)" size="small">
+                <Card title="Movimentacoes: Entradas vs Saidas (por Data)" size="small">
                   <ResponsiveContainer width="100%" height={350}>
-                    <LineChart data={productChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <LineChart data={entriesVsExitsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" />
                       <YAxis />
                       <RechartsTooltip />
                       <Legend />
-                      {productNames.map((name, idx) => (
-                        <Line
-                          key={name}
-                          type="monotone"
-                          dataKey={name}
-                          name={name}
-                          stroke={productLineColors[idx % productLineColors.length]}
-                          strokeWidth={2}
-                          dot={{ r: 4, fill: productLineColors[idx % productLineColors.length] }}
-                          activeDot={{ r: 6 }}
-                          connectNulls
-                        />
-                      ))}
+                      <Line
+                        type="monotone"
+                        dataKey="Entradas"
+                        name="Entradas"
+                        stroke="#52c41a"
+                        strokeWidth={3}
+                        dot={{ r: 5, fill: '#52c41a' }}
+                        activeDot={{ r: 7 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="Saidas"
+                        name="Saidas"
+                        stroke="#ff4d4f"
+                        strokeWidth={3}
+                        dot={{ r: 5, fill: '#ff4d4f' }}
+                        activeDot={{ r: 7 }}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </Card>
@@ -736,13 +736,13 @@ const StockMovements = () => {
             </Row>
           )}
 
-          {chartData.length === 0 && !statsLoading && (
+          {entriesVsExitsChartData.length === 0 && !statsLoading && (
             <Row style={{ marginTop: 24 }}>
               <Col span={24}>
                 <Card>
                   <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
                     <InboxOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                    <p>Nenhuma saida registrada no periodo selecionado</p>
+                    <p>Nenhuma movimentacao registrada no periodo selecionado</p>
                   </div>
                 </Card>
               </Col>
