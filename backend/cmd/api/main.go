@@ -546,6 +546,10 @@ func main() {
 		// Leads (CRM - verificar contato e criar lead)
 		whatsappAPI.GET("/leads/check/:phone", handlers.CheckLeadByPhone)
 		whatsappAPI.POST("/leads", handlers.WhatsAppCreateLead)
+		whatsappAPI.POST("/leads/:id/convert", handlers.ConvertLeadToPatient)
+
+		// Patients (criar paciente via API externa)
+		whatsappAPI.POST("/patients", handlers.CreatePatient)
 
 		// Reference data
 		whatsappAPI.GET("/procedures", handlers.WhatsAppGetProcedures)
