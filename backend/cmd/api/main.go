@@ -354,6 +354,19 @@ func main() {
 			waitingList.DELETE("/:id", middleware.PermissionMiddleware("appointments", "delete"), handlers.DeleteWaitingListEntry)
 		}
 
+		// Leads CRUD (CRM para WhatsApp e outras fontes)
+		leads := tenanted.Group("/leads")
+		{
+			leads.GET("/check/:phone", middleware.PermissionMiddleware("leads", "view"), handlers.CheckLeadByPhone)
+			leads.GET("/stats", middleware.PermissionMiddleware("leads", "view"), handlers.GetLeadStats)
+			leads.POST("", middleware.PermissionMiddleware("leads", "create"), handlers.CreateLead)
+			leads.GET("", middleware.PermissionMiddleware("leads", "view"), handlers.GetLeads)
+			leads.GET("/:id", middleware.PermissionMiddleware("leads", "view"), handlers.GetLead)
+			leads.PUT("/:id", middleware.PermissionMiddleware("leads", "edit"), handlers.UpdateLead)
+			leads.DELETE("/:id", middleware.PermissionMiddleware("leads", "delete"), handlers.DeleteLead)
+			leads.POST("/:id/convert", middleware.PermissionMiddleware("leads", "edit"), handlers.ConvertLeadToPatient)
+		}
+
 		// Treatment Protocols CRUD
 		protocols := tenanted.Group("/treatment-protocols")
 		{
@@ -527,6 +540,10 @@ func main() {
 		whatsappAPI.POST("/waiting-list", handlers.WhatsAppAddToWaitingList)
 		whatsappAPI.GET("/waiting-list", handlers.WhatsAppGetWaitingListStatus)
 		whatsappAPI.DELETE("/waiting-list/:id", handlers.WhatsAppRemoveFromWaitingList)
+
+		// Leads (CRM - verificar contato e criar lead)
+		whatsappAPI.GET("/leads/check/:phone", handlers.CheckLeadByPhone)
+		whatsappAPI.POST("/leads", handlers.CreateLead)
 
 		// Reference data
 		whatsappAPI.GET("/procedures", handlers.WhatsAppGetProcedures)

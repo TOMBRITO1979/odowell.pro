@@ -93,6 +93,7 @@ func migrateNewTablesOnly(schema string) error {
 		&models.Prescription{},   // Added for new signer fields
 		&models.Appointment{},    // Added for new room field
 		&models.StockMovement{},  // Added for sale buyer fields
+		&models.Lead{},           // CRM leads for WhatsApp integration
 	)
 
 	return err
@@ -136,6 +137,9 @@ func autoMigrateTenantSchema(db *gorm.DB) error {
 		// Utility tables
 		&models.Task{},
 		&models.WaitingList{},
+
+		// CRM tables
+		&models.Lead{},
 		// Note: TenantSettings is in public schema, not tenant schemas
 	)
 }

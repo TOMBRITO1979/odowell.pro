@@ -25,6 +25,7 @@ import {
   CreditCardOutlined,
   TagsOutlined,
   WalletOutlined,
+  UsergroupAddOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI, paymentsAPI } from '../../services/api';
@@ -123,6 +124,12 @@ const DashboardLayout = () => {
       icon: <ClockCircleOutlined />,
       label: 'Lista de Espera',
       permission: 'appointments',
+    },
+    {
+      key: '/leads',
+      icon: <UsergroupAddOutlined />,
+      label: 'Leads',
+      permission: 'leads',
     },
     {
       key: '/tasks',

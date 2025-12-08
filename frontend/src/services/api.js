@@ -303,6 +303,18 @@ export const waitingListAPI = {
   getStats: () => api.get('/waiting-list/stats'),
 };
 
+// Leads API (CRM para WhatsApp)
+export const leadsAPI = {
+  getAll: (params) => api.get('/leads', { params }),
+  getOne: (id) => api.get(`/leads/${id}`),
+  create: (data) => api.post('/leads', data),
+  update: (id, data) => api.put(`/leads/${id}`, data),
+  delete: (id) => api.delete(`/leads/${id}`),
+  checkByPhone: (phone) => api.get(`/leads/check/${encodeURIComponent(phone)}`),
+  convert: (id, additionalData) => api.post(`/leads/${id}/convert`, additionalData),
+  getStats: () => api.get('/leads/stats'),
+};
+
 // Consent Templates API
 export const consentTemplatesAPI = {
   getAll: (params) => api.get('/consent-templates', { params }),

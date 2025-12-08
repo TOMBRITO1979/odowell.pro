@@ -50,6 +50,7 @@ import TaskForm from './pages/tasks/TaskForm';
 import TaskDetails from './pages/tasks/TaskDetails';
 import WaitingList from './pages/waiting-list/WaitingList';
 import WaitingListForm from './pages/waiting-list/WaitingListForm';
+import { Leads, LeadForm } from './pages/leads';
 import ConsentTemplates from './pages/consents/ConsentTemplates';
 import Treatments from './pages/treatments/Treatments';
 import TreatmentDetails from './pages/treatments/TreatmentDetails';
@@ -226,6 +227,11 @@ function App() {
         <Route path="waiting-list" element={<WaitingList />} />
         <Route path="waiting-list/new" element={<WaitingListForm />} />
         <Route path="waiting-list/:id/edit" element={<WaitingListForm />} />
+
+        {/* Leads (CRM) */}
+        <Route path="leads" element={<Leads />} />
+        <Route path="leads/new" element={<LeadForm />} />
+        <Route path="leads/:id/edit" element={<LeadForm />} />
 
         {/* Consent Templates */}
         <Route path="consent-templates" element={<ConsentTemplates />} />
