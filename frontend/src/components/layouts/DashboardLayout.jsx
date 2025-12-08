@@ -126,12 +126,6 @@ const DashboardLayout = () => {
       permission: 'appointments',
     },
     {
-      key: '/leads',
-      icon: <UsergroupAddOutlined />,
-      label: 'Leads',
-      permission: 'leads',
-    },
-    {
       key: '/tasks',
       icon: <CheckSquareOutlined />,
       label: (
@@ -146,6 +140,12 @@ const DashboardLayout = () => {
       icon: <UserOutlined />,
       label: 'Pacientes',
       permission: 'patients',
+    },
+    {
+      key: '/leads',
+      icon: <UsergroupAddOutlined />,
+      label: 'Leads',
+      permission: 'leads',
     },
     {
       key: '/medical-records',
