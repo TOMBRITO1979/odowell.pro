@@ -355,17 +355,16 @@ func uploadExamLocal(c *gin.Context, db *gorm.DB, userID uint, patientID uint, n
 func GetExams(c *gin.Context) {
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
 
-	patientID := c.Query("patient_id")
-	if patientID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "patient_id is required"})
-		return
-	}
-
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
 	offset := (page - 1) * pageSize
 
-	query := db.Model(&models.Exam{}).Where("patient_id = ?", patientID)
+	query := db.Model(&models.Exam{})
+
+	// Filter by patient_id if provided (optional)
+	if patientID := c.Query("patient_id"); patientID != "" {
+		query = query.Where("patient_id = ?", patientID)
+	}
 
 	// Filters
 	if examType := c.Query("exam_type"); examType != "" {

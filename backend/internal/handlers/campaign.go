@@ -21,6 +21,11 @@ func CreateCampaign(c *gin.Context) {
 	campaign.CreatedByID = c.GetUint("user_id")
 	campaign.Status = "draft"
 
+	// Set default empty JSON for JSONB field if empty (PostgreSQL requires valid JSON)
+	if campaign.Filters == "" {
+		campaign.Filters = "{}"
+	}
+
 	db := c.MustGet("db").(*gorm.DB)
 	if err := db.Create(&campaign).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create campaign"})

@@ -755,9 +755,9 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 		return
 	}
 
-	// Check if patient exists
+	// Check if patient exists (using fresh session to avoid GORM contamination)
 	var patient models.Patient
-	if err := db.First(&patient, patientID).Error; err != nil {
+	if err := db.Session(&gorm.Session{}).First(&patient, patientID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":   true,
 			"message": "Paciente não encontrado",
@@ -765,9 +765,9 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 		return
 	}
 
-	// Check if patient is already on waiting list for the same procedure
+	// Check if patient is already on waiting list for the same procedure (using fresh session)
 	var existingEntry models.WaitingList
-	result := db.Where("patient_id = ? AND procedure = ? AND status = ?", patientID, req.Procedure, "waiting").First(&existingEntry)
+	result := db.Session(&gorm.Session{}).Where("patient_id = ? AND procedure = ? AND status = ?", patientID, req.Procedure, "waiting").First(&existingEntry)
 	if result.Error == nil {
 		c.JSON(http.StatusConflict, gin.H{
 			"error":   true,
@@ -796,9 +796,20 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 		entry.DentistID = req.DentistID
 	}
 
-	// Convert preferred dates to JSON string
+	// Convert preferred dates to valid JSON (PostgreSQL JSONB requires valid JSON, not empty string)
 	if len(req.PreferredDates) > 0 {
-		entry.PreferredDates = fmt.Sprintf("%v", req.PreferredDates)
+		// Convert array to JSON format
+		jsonDates := "["
+		for i, date := range req.PreferredDates {
+			if i > 0 {
+				jsonDates += ","
+			}
+			jsonDates += fmt.Sprintf("\"%s\"", date)
+		}
+		jsonDates += "]"
+		entry.PreferredDates = jsonDates
+	} else {
+		entry.PreferredDates = "[]"
 	}
 
 	// Add note about WhatsApp origin
@@ -807,7 +818,8 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 	}
 	entry.Notes += fmt.Sprintf("[Adicionado via WhatsApp em %s]", time.Now().Format("02/01/2006 15:04"))
 
-	if err := db.Create(&entry).Error; err != nil {
+	// Use fresh session for create to avoid GORM contamination
+	if err := db.Session(&gorm.Session{}).Create(&entry).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
 			"message": "Erro ao adicionar à lista de espera",
