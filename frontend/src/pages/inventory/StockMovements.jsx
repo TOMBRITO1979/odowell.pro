@@ -247,7 +247,7 @@ const StockMovements = () => {
 
   // Transform movements_by_product_type to bar chart format
   // From: [{ product_name: "Luva", type: "entry", total_quantity: 10 }, ...]
-  // To: [{ produto: "Luva", Entradas: 10, Saidas: 5 }, ...]
+  // To: [{ produto: "Luva", numero: 1, Entradas: 10, Saidas: 5 }, ...]
   const productTypeChartData = React.useMemo(() => {
     const dataByProduct = {};
     (stats.movements_by_product_type || []).forEach(item => {
@@ -260,9 +260,15 @@ const StockMovements = () => {
         dataByProduct[item.product_name].Saidas = item.total_quantity;
       }
     });
-    // Convert to array and sort by product name
-    return Object.values(dataByProduct).sort((a, b) => a.produto.localeCompare(b.produto));
+    // Convert to array, sort by product name, and add numbers
+    const sorted = Object.values(dataByProduct).sort((a, b) => a.produto.localeCompare(b.produto));
+    return sorted.map((item, index) => ({ ...item, numero: index + 1 }));
   }, [stats.movements_by_product_type]);
+
+  // Create product index legend
+  const productIndexLegend = React.useMemo(() => {
+    return productTypeChartData.map(item => `${item.numero} = ${item.produto}`).join('; ');
+  }, [productTypeChartData]);
 
   const showModal = () => {
     form.resetFields();
@@ -700,34 +706,50 @@ const StockMovements = () => {
             <Row style={{ marginTop: 24 }}>
               <Col span={24}>
                 <Card title="Movimentacoes por Produto: Entradas vs Saidas" size="small">
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={productTypeChartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={productTypeChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                       <XAxis
-                        dataKey="produto"
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
+                        dataKey="numero"
                         interval={0}
-                        tick={{ fontSize: 11 }}
+                        tick={{ fontSize: 12, fill: '#666' }}
                       />
-                      <YAxis />
-                      <RechartsTooltip />
+                      <YAxis tick={{ fill: '#666' }} />
+                      <RechartsTooltip
+                        formatter={(value, name) => [value, name]}
+                        labelFormatter={(label) => {
+                          const item = productTypeChartData.find(p => p.numero === label);
+                          return item ? item.produto : label;
+                        }}
+                      />
                       <Legend />
                       <Bar
                         dataKey="Entradas"
                         name="Entradas"
-                        fill="#52c41a"
+                        fill="#7cb77c"
                         radius={[4, 4, 0, 0]}
                       />
                       <Bar
                         dataKey="Saidas"
                         name="Saidas"
-                        fill="#ff4d4f"
+                        fill="#c9736c"
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
                   </ResponsiveContainer>
+                  {/* Product Index Legend */}
+                  <div style={{
+                    marginTop: 16,
+                    padding: '12px 16px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    color: '#555',
+                    lineHeight: 1.8
+                  }}>
+                    <Text strong style={{ color: '#444', marginRight: 8 }}>Índice:</Text>
+                    {productIndexLegend}
+                  </div>
                 </Card>
               </Col>
             </Row>

@@ -558,8 +558,8 @@ func GetStockMovementStats(c *gin.Context) {
 	endDate := c.Query("end_date")
 	productID := c.Query("product_id")
 
-	// Build base query for exits (type = 'exit')
-	exitsQuery := db.Model(&models.StockMovement{}).Where("type = ?", "exit")
+	// Build base query for exits (type = 'exit') - use fresh session
+	exitsQuery := db.Session(&gorm.Session{}).Model(&models.StockMovement{}).Where("type = ?", "exit")
 
 	// Apply date filters if provided
 	if startDate != "" {
@@ -582,9 +582,9 @@ func GetStockMovementStats(c *gin.Context) {
 		return
 	}
 
-	// Get exits grouped by product (top 10 products)
+	// Get exits grouped by product (top 10 products) - use fresh session
 	var exitsByProduct []ExitsByProduct
-	productExitsQuery := db.Table("stock_movements").
+	productExitsQuery := db.Session(&gorm.Session{}).Table("stock_movements").
 		Select("stock_movements.product_id, products.name as product_name, SUM(stock_movements.quantity) as total_quantity").
 		Joins("JOIN products ON products.id = stock_movements.product_id").
 		Where("stock_movements.type = ?", "exit").
@@ -609,7 +609,7 @@ func GetStockMovementStats(c *gin.Context) {
 
 	// Get exits grouped by product AND date for multi-line time-series chart (top 10 products)
 	var exitsByProductDate []ExitsByProductDate
-	productDateQuery := db.Table("stock_movements").
+	productDateQuery := db.Session(&gorm.Session{}).Table("stock_movements").
 		Select("stock_movements.product_id, products.name as product_name, TO_CHAR(stock_movements.created_at, 'YYYY-MM-DD') as date, SUM(stock_movements.quantity) as total_quantity").
 		Joins("JOIN products ON products.id = stock_movements.product_id").
 		Where("stock_movements.type = ?", "exit").
@@ -640,7 +640,7 @@ func GetStockMovementStats(c *gin.Context) {
 
 	// Get movements grouped by type (entry/exit) and date for line chart
 	var movementsByTypeDate []MovementsByTypeDate
-	movementsByTypeDateQuery := db.Table("stock_movements").
+	movementsByTypeDateQuery := db.Session(&gorm.Session{}).Table("stock_movements").
 		Select("type, TO_CHAR(created_at, 'YYYY-MM-DD') as date, SUM(quantity) as total_quantity").
 		Where("deleted_at IS NULL").
 		Where("type IN ?", []string{"entry", "exit"})
@@ -663,7 +663,7 @@ func GetStockMovementStats(c *gin.Context) {
 
 	// Get movements grouped by product and type for bar chart
 	var movementsByProductType []MovementsByProductType
-	movementsByProductTypeQuery := db.Table("stock_movements").
+	movementsByProductTypeQuery := db.Session(&gorm.Session{}).Table("stock_movements").
 		Select("stock_movements.product_id, products.name as product_name, stock_movements.type, SUM(stock_movements.quantity) as total_quantity").
 		Joins("JOIN products ON products.id = stock_movements.product_id").
 		Where("stock_movements.deleted_at IS NULL").
@@ -687,7 +687,7 @@ func GetStockMovementStats(c *gin.Context) {
 
 	// Get total sales revenue (sum of total_price where reason='sale')
 	var totalSalesRevenue float64
-	salesQuery := db.Model(&models.StockMovement{}).Where("type = ? AND reason = ?", "exit", "sale")
+	salesQuery := db.Session(&gorm.Session{}).Model(&models.StockMovement{}).Where("type = ? AND reason = ?", "exit", "sale")
 	if startDate != "" {
 		salesQuery = salesQuery.Where("created_at >= ?", startDate)
 	}
