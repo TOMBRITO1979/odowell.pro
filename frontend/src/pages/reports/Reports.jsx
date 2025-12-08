@@ -99,6 +99,7 @@ const Reports = () => {
   // Individual date ranges for each report
   const [revenueDateRange, setRevenueDateRange] = useState(null);
   const [attendanceDateRange, setAttendanceDateRange] = useState(null);
+  const [proceduresDateRange, setProceduresDateRange] = useState(null);
   const [budgetConversionDateRange, setBudgetConversionDateRange] = useState(null);
   const [dentistStatsDateRange, setDentistStatsDateRange] = useState(null);
 
@@ -170,7 +171,12 @@ const Reports = () => {
   const fetchProceduresReport = async () => {
     setLoadingProcedures(true);
     try {
-      const response = await reportsAPI.getProcedures();
+      const params = {};
+      if (proceduresDateRange && proceduresDateRange[0] && proceduresDateRange[1]) {
+        params.start_date = proceduresDateRange[0].format('YYYY-MM-DD');
+        params.end_date = proceduresDateRange[1].format('YYYY-MM-DD');
+      }
+      const response = await reportsAPI.getProcedures(params);
       setProceduresData(response.data);
     } catch (error) {
       message.error('Erro ao carregar relatório de procedimentos');
@@ -707,27 +713,55 @@ const Reports = () => {
         }
         style={{ boxShadow: shadows.small, marginBottom: 24 }}
         extra={
-          <Button
-            size="small"
-            icon={<FileTextOutlined />}
-            onClick={fetchProceduresReport}
-            loading={loadingProcedures}
-          >
-            Atualizar
-          </Button>
+          <Space>
+            <RangePicker
+              format="DD/MM/YYYY"
+              placeholder={['Data Inicial', 'Data Final']}
+              onChange={(dates) => {
+                setProceduresDateRange(dates);
+                if (dates) fetchProceduresReport();
+              }}
+              value={proceduresDateRange}
+              size="small"
+            />
+            <Button
+              size="small"
+              icon={<FileTextOutlined />}
+              onClick={fetchProceduresReport}
+              loading={loadingProcedures}
+            >
+              Atualizar
+            </Button>
+          </Space>
         }
       >
         <Spin spinning={loadingProcedures}>
           {proceduresData && proceduresData.procedures ? (
             <div>
+              <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col xs={24} sm={12}>
+                  <Statistic
+                    title="Total de Procedimentos Realizados"
+                    value={proceduresData.total_procedures || 0}
+                    valueStyle={{ color: statusColors.success }}
+                  />
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Statistic
+                    title="Tipos Diferentes de Procedimentos"
+                    value={proceduresData.distinct_procedures || 0}
+                    valueStyle={{ color: statusColors.inProgress }}
+                  />
+                </Col>
+              </Row>
               <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={proceduresData.procedures.slice(0, 10)}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="procedure" angle={-45} textAnchor="end" height={100} />
+                <BarChart data={proceduresData.procedures.slice(0, 15)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                  <XAxis dataKey="procedure" angle={-45} textAnchor="end" height={120} tick={{ fontSize: 11 }} />
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="count" fill={actionColors.view} name="Quantidade" />
+                  <Bar dataKey="count" fill="#7986CB" name="Quantidade" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               <Row gutter={16} style={{ marginTop: 16 }}>
@@ -735,7 +769,7 @@ const Reports = () => {
                   <Space>
                     <Button
                       icon={<FilePdfOutlined />}
-                      onClick={() => handleDownloadPDF('procedures')}
+                      onClick={() => handleDownloadPDF('procedures', proceduresDateRange)}
                       style={{
                         backgroundColor: actionColors.exportPDF,
                         borderColor: actionColors.exportPDF,
@@ -746,7 +780,7 @@ const Reports = () => {
                     </Button>
                     <Button
                       icon={<FileExcelOutlined />}
-                      onClick={() => handleDownloadExcel('procedures')}
+                      onClick={() => handleDownloadExcel('procedures', proceduresDateRange)}
                       style={{
                         backgroundColor: actionColors.exportExcel,
                         borderColor: actionColors.exportExcel,

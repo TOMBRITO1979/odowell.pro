@@ -141,22 +141,62 @@ func GetRevenueReport(c *gin.Context) {
 func GetProceduresReport(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
 	type ProcedureCount struct {
 		Procedure string `json:"procedure"`
 		Count     int64  `json:"count"`
 	}
 
+	// Query for procedures list
 	var procedures []ProcedureCount
-	db.Table("appointments").
-		Where("status = ? AND procedure != ''", "completed").
-		Select("procedure, COUNT(*) as count").
+	proceduresQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments").
+		Where("status = ? AND procedure != ''", "completed")
+
+	if startDate != "" {
+		proceduresQuery = proceduresQuery.Where("DATE(start_time) >= ?", startDate)
+	}
+	if endDate != "" {
+		proceduresQuery = proceduresQuery.Where("DATE(start_time) <= ?", endDate)
+	}
+
+	proceduresQuery.Select("procedure, COUNT(*) as count").
 		Group("procedure").
 		Order("count DESC").
-		Limit(10).
+		Limit(20).
 		Scan(&procedures)
 
+	// Total count of all procedures (not grouped)
+	var totalProcedures int64
+	totalQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments").
+		Where("status = ? AND procedure != ''", "completed")
+
+	if startDate != "" {
+		totalQuery = totalQuery.Where("DATE(start_time) >= ?", startDate)
+	}
+	if endDate != "" {
+		totalQuery = totalQuery.Where("DATE(start_time) <= ?", endDate)
+	}
+	totalQuery.Count(&totalProcedures)
+
+	// Count distinct procedures
+	var distinctProcedures int64
+	distinctQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments").
+		Where("status = ? AND procedure != ''", "completed")
+
+	if startDate != "" {
+		distinctQuery = distinctQuery.Where("DATE(start_time) >= ?", startDate)
+	}
+	if endDate != "" {
+		distinctQuery = distinctQuery.Where("DATE(start_time) <= ?", endDate)
+	}
+	distinctQuery.Select("COUNT(DISTINCT procedure)").Scan(&distinctProcedures)
+
 	c.JSON(http.StatusOK, gin.H{
-		"procedures": procedures,
+		"procedures":          procedures,
+		"total_procedures":    totalProcedures,
+		"distinct_procedures": distinctProcedures,
 	})
 }
 
