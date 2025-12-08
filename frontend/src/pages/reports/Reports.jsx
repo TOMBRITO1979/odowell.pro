@@ -87,6 +87,35 @@ const translateBudgetStatus = (status) => {
   return translations[status] || status;
 };
 
+// Tradução de procedimentos odontológicos
+const translateProcedure = (procedure) => {
+  const translations = {
+    'cleaning': 'Limpeza',
+    'consultation': 'Consulta',
+    'extraction': 'Extração',
+    'filling': 'Obturação',
+    'orthodontics': 'Ortodontia',
+    'root_canal': 'Canal',
+    'whitening': 'Clareamento',
+    'checkup': 'Check-up',
+    'implant': 'Implante',
+    'crown': 'Coroa',
+    'bridge': 'Ponte',
+    'veneer': 'Faceta',
+    'denture': 'Prótese',
+    'braces': 'Aparelho',
+    'scaling': 'Raspagem',
+    'fluoride': 'Flúor',
+    'sealant': 'Selante',
+    'x_ray': 'Raio-X',
+    'surgery': 'Cirurgia',
+    'profilaxia': 'Profilaxia',
+    'endodontia': 'Endodontia',
+    'periodontia': 'Periodontia',
+  };
+  return translations[procedure] || procedure;
+};
+
 const Reports = () => {
   const [loading, setLoading] = useState(false);
   const [dashboard, setDashboard] = useState({
@@ -755,13 +784,20 @@ const Reports = () => {
                 </Col>
               </Row>
               <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={proceduresData.procedures.slice(0, 15)}>
+                <BarChart data={proceduresData.procedures.slice(0, 15).map(p => ({
+                  ...p,
+                  procedureName: translateProcedure(p.procedure)
+                }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                  <XAxis dataKey="procedure" angle={-45} textAnchor="end" height={120} tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="procedureName" angle={-45} textAnchor="end" height={120} tick={{ fontSize: 11 }} />
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="count" fill="#7986CB" name="Quantidade" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
+                    {proceduresData.procedures.slice(0, 15).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
               <Row gutter={16} style={{ marginTop: 16 }}>
