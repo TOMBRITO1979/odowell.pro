@@ -126,16 +126,6 @@ const DashboardLayout = () => {
       permission: 'appointments',
     },
     {
-      key: '/tasks',
-      icon: <CheckSquareOutlined />,
-      label: (
-        <Badge count={pendingTasksCount} offset={[10, 0]} size="small">
-          Tarefas
-        </Badge>
-      ),
-      permission: 'tasks',
-    },
-    {
       key: '/patients',
       icon: <UserOutlined />,
       label: 'Pacientes',
@@ -170,6 +160,16 @@ const DashboardLayout = () => {
       icon: <FileTextOutlined />,
       label: 'Termos de Consentimento',
       permission: 'clinical_records',
+    },
+    {
+      key: '/tasks',
+      icon: <CheckSquareOutlined />,
+      label: (
+        <Badge count={pendingTasksCount} offset={[10, 0]} size="small">
+          Tarefas
+        </Badge>
+      ),
+      permission: 'tasks',
     },
     {
       key: 'financial',
