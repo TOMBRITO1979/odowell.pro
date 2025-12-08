@@ -997,3 +997,89 @@ func WhatsAppGetDentists(c *gin.Context) {
 		"total":    len(dentists),
 	})
 }
+
+// WhatsAppCreateLeadRequest represents a lead creation request via WhatsApp API
+type WhatsAppCreateLeadRequest struct {
+	Name          string `json:"name" binding:"required"`
+	Phone         string `json:"phone" binding:"required"`
+	Email         string `json:"email"`
+	Source        string `json:"source"`
+	ContactReason string `json:"contact_reason"`
+	Notes         string `json:"notes"`
+}
+
+// WhatsAppCreateLead creates a new lead via WhatsApp API (without user authentication)
+// POST /api/whatsapp/leads
+func WhatsAppCreateLead(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	var req WhatsAppCreateLeadRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   true,
+			"message": "Nome e telefone são obrigatórios",
+		})
+		return
+	}
+
+	// Clean phone number
+	phone := strings.ReplaceAll(req.Phone, " ", "")
+	phone = strings.ReplaceAll(phone, "-", "")
+	phone = strings.ReplaceAll(phone, "(", "")
+	phone = strings.ReplaceAll(phone, ")", "")
+	phone = strings.ReplaceAll(phone, "+", "")
+
+	// Check if lead already exists with this phone (using fresh session)
+	var existingLead models.Lead
+	checkResult := db.Session(&gorm.Session{}).Where("phone = ? AND status NOT IN (?)", phone, []string{"converted", "lost"}).First(&existingLead)
+	if checkResult.Error == nil {
+		// Lead already exists, return it
+		c.JSON(http.StatusOK, gin.H{
+			"error":    false,
+			"message":  "Lead já existe com este telefone",
+			"lead":     existingLead,
+			"existing": true,
+		})
+		return
+	}
+
+	// Set defaults
+	source := "whatsapp"
+	if req.Source != "" {
+		source = req.Source
+	}
+
+	// Create lead with CreatedBy = 0 (system/API)
+	lead := models.Lead{
+		Name:          req.Name,
+		Phone:         phone,
+		Email:         req.Email,
+		Source:        source,
+		ContactReason: req.ContactReason,
+		Notes:         req.Notes,
+		Status:        "new",
+		CreatedBy:     0, // System/WhatsApp API
+	}
+
+	// Add note about WhatsApp origin
+	if lead.Notes != "" {
+		lead.Notes += "\n"
+	}
+	lead.Notes += fmt.Sprintf("[Criado via WhatsApp API em %s]", time.Now().Format("02/01/2006 15:04"))
+
+	// Create lead using fresh session to avoid state issues
+	if err := db.Session(&gorm.Session{}).Create(&lead).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro ao criar lead: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"error":    false,
+		"message":  "Lead criado com sucesso",
+		"lead":     lead,
+		"existing": false,
+	})
+}

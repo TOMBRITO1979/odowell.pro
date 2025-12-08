@@ -17,6 +17,12 @@ func CreatePatient(c *gin.Context) {
 		return
 	}
 
+	// Validar campo obrigatório: telefone
+	if patient.Phone == "" && patient.CellPhone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Telefone é obrigatório"})
+		return
+	}
+
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
 	if err := db.Create(&patient).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar paciente"})
@@ -85,6 +91,12 @@ func UpdatePatient(c *gin.Context) {
 	var input models.Patient
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validar campo obrigatório: telefone
+	if input.Phone == "" && input.CellPhone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Telefone é obrigatório"})
 		return
 	}
 

@@ -545,7 +545,7 @@ func main() {
 
 		// Leads (CRM - verificar contato e criar lead)
 		whatsappAPI.GET("/leads/check/:phone", handlers.CheckLeadByPhone)
-		whatsappAPI.POST("/leads", handlers.CreateLead)
+		whatsappAPI.POST("/leads", handlers.WhatsAppCreateLead)
 
 		// Reference data
 		whatsappAPI.GET("/procedures", handlers.WhatsAppGetProcedures)

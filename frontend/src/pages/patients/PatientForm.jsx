@@ -107,7 +107,11 @@ const PatientForm = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="phone" label="Telefone">
+              <Form.Item
+                name="phone"
+                label="Telefone"
+                rules={[{ required: true, message: 'Telefone é obrigatório' }]}
+              >
                 <Input />
               </Form.Item>
             </Col>
