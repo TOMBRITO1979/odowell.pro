@@ -998,6 +998,27 @@ func WhatsAppGetDentists(c *gin.Context) {
 	})
 }
 
+// WhatsAppCreateAppointmentRequest represents an appointment creation request via WhatsApp API
+type WhatsAppCreateAppointmentRequest struct {
+	PatientID uint   `json:"patient_id" binding:"required"`
+	DentistID uint   `json:"dentist_id" binding:"required"`
+	Procedure string `json:"procedure"`
+	Date      string `json:"date" binding:"required"` // Format: YYYY-MM-DD
+	Time      string `json:"time" binding:"required"` // Format: HH:MM
+	Notes     string `json:"notes"`
+	Duration  int    `json:"duration"` // Duration in minutes (optional, default 30)
+}
+
+// WhatsAppCreateAppointmentResponse represents the response for appointment creation
+type WhatsAppCreateAppointmentResponse struct {
+	ID          uint   `json:"id"`
+	Date        string `json:"date"`
+	Time        string `json:"time"`
+	Procedure   string `json:"procedure"`
+	DentistName string `json:"dentist_name"`
+	Status      string `json:"status"`
+}
+
 // WhatsAppCreateLeadRequest represents a lead creation request via WhatsApp API
 type WhatsAppCreateLeadRequest struct {
 	Name          string `json:"name" binding:"required"`
@@ -1081,5 +1102,144 @@ func WhatsAppCreateLead(c *gin.Context) {
 		"message":  "Lead criado com sucesso",
 		"lead":     lead,
 		"existing": false,
+	})
+}
+
+// WhatsAppCreateAppointment creates a new appointment via WhatsApp API
+// POST /api/whatsapp/appointments
+func WhatsAppCreateAppointment(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	var req WhatsAppCreateAppointmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   true,
+			"message": "Dados incompletos. Informe patient_id, dentist_id, date e time.",
+		})
+		return
+	}
+
+	// Parse date
+	date, err := time.Parse("2006-01-02", req.Date)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   true,
+			"message": "Formato de data inválido. Use AAAA-MM-DD (ex: 2025-12-10)",
+		})
+		return
+	}
+
+	// Parse time
+	timeVal, err := time.Parse("15:04", req.Time)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   true,
+			"message": "Formato de horário inválido. Use HH:MM (ex: 09:00)",
+		})
+		return
+	}
+
+	// Combine date and time for start_time
+	startTime := time.Date(date.Year(), date.Month(), date.Day(),
+		timeVal.Hour(), timeVal.Minute(), 0, 0, time.Local)
+
+	// Check if appointment is in the future
+	if startTime.Before(time.Now()) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   true,
+			"message": "Não é possível agendar para uma data/hora passada",
+		})
+		return
+	}
+
+	// Get duration (default 30 minutes)
+	duration := 30
+	if req.Duration > 0 {
+		duration = req.Duration
+	}
+	endTime := startTime.Add(time.Duration(duration) * time.Minute)
+
+	// Use fresh sessions to avoid GORM state contamination
+	freshDB := db.Session(&gorm.Session{})
+
+	// Verify patient exists
+	var patient models.Patient
+	if err := freshDB.First(&patient, req.PatientID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   true,
+			"message": "Paciente não encontrado",
+		})
+		return
+	}
+
+	// Verify dentist exists (using fresh session)
+	var dentist models.User
+	if err := db.Session(&gorm.Session{}).Table("public.users").Where("id = ? AND active = ?", req.DentistID, true).First(&dentist).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   true,
+			"message": "Profissional não encontrado",
+		})
+		return
+	}
+
+	// Check for time conflicts (using fresh session)
+	var conflictCount int64
+	db.Session(&gorm.Session{}).Model(&models.Appointment{}).
+		Where("dentist_id = ? AND status NOT IN (?)", req.DentistID, []string{"cancelled", "no_show"}).
+		Where("start_time < ? AND end_time > ?", endTime, startTime).
+		Count(&conflictCount)
+
+	if conflictCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{
+			"error":   true,
+			"message": "Conflito de horário. Já existe um agendamento para este profissional neste horário.",
+		})
+		return
+	}
+
+	// Set default procedure
+	procedure := req.Procedure
+	if procedure == "" {
+		procedure = "consultation"
+	}
+
+	// Build notes
+	notes := req.Notes
+	if notes != "" {
+		notes += "\n"
+	}
+	notes += fmt.Sprintf("[Agendado via WhatsApp API em %s]", time.Now().Format("02/01/2006 15:04"))
+
+	// Create appointment
+	appointment := models.Appointment{
+		PatientID: req.PatientID,
+		DentistID: req.DentistID,
+		StartTime: startTime,
+		EndTime:   endTime,
+		Procedure: procedure,
+		Status:    "scheduled",
+		Notes:     notes,
+	}
+
+	if err := db.Session(&gorm.Session{}).Create(&appointment).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro ao criar agendamento",
+		})
+		return
+	}
+
+	// Return response in expected format
+	c.JSON(http.StatusCreated, gin.H{
+		"error":   false,
+		"message": "Consulta agendada com sucesso",
+		"appointment": WhatsAppCreateAppointmentResponse{
+			ID:          appointment.ID,
+			Date:        startTime.Format("02/01/2006"),
+			Time:        startTime.Format("15:04"),
+			Procedure:   getProcedureLabel(procedure),
+			DentistName: dentist.Name,
+			Status:      "scheduled",
+		},
 	})
 }

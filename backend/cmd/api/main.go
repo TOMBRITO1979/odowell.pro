@@ -532,6 +532,7 @@ func main() {
 		// Appointments
 		whatsappAPI.GET("/appointments", handlers.WhatsAppGetAppointments)
 		whatsappAPI.GET("/appointments/history", handlers.WhatsAppGetAppointmentHistory)
+		whatsappAPI.POST("/appointments", handlers.WhatsAppCreateAppointment)
 		whatsappAPI.POST("/appointments/cancel", handlers.WhatsAppCancelAppointment)
 		whatsappAPI.POST("/appointments/reschedule", handlers.WhatsAppRescheduleAppointment)
 
