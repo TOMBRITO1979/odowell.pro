@@ -134,8 +134,8 @@ func UpdateLead(c *gin.Context) {
 		"notes":          input.Notes,
 	}
 
-	// Use empty model + Where to avoid duplicate table error
-	if err := db.Model(&models.Lead{}).Where("id = ?", lead.ID).Updates(updates).Error; err != nil {
+	// Use fresh session + empty model + Where to avoid duplicate table error
+	if err := db.Session(&gorm.Session{NewDB: true}).Model(&models.Lead{}).Where("id = ?", lead.ID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar lead"})
 		return
 	}
@@ -156,7 +156,8 @@ func DeleteLead(c *gin.Context) {
 		return
 	}
 
-	if err := db.Delete(&lead).Error; err != nil {
+	// Use fresh session to avoid context contamination
+	if err := db.Session(&gorm.Session{NewDB: true}).Delete(&lead).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao excluir lead"})
 		return
 	}
