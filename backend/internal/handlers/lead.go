@@ -134,13 +134,14 @@ func UpdateLead(c *gin.Context) {
 		"notes":          input.Notes,
 	}
 
-	if err := db.Model(&lead).Updates(updates).Error; err != nil {
+	// Use empty model + Where to avoid duplicate table error
+	if err := db.Model(&models.Lead{}).Where("id = ?", lead.ID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar lead"})
 		return
 	}
 
-	// Reload to get updated data
-	db.First(&lead, id)
+	// Reload to get updated data using fresh session
+	db.Session(&gorm.Session{NewDB: true}).First(&lead, id)
 	c.JSON(http.StatusOK, lead)
 }
 
@@ -261,22 +262,27 @@ func ConvertLeadToPatient(c *gin.Context) {
 		}
 	}
 
-	// Create patient
-	if err := db.Create(&patient).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar paciente"})
+	// Create patient using fresh session to avoid context contamination
+	if err := db.Session(&gorm.Session{NewDB: true}).Create(&patient).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar paciente: " + err.Error()})
 		return
 	}
 
-	// Update lead status
+	// Update lead status using empty model + Where to avoid duplicate table error
 	now := time.Now()
-	lead.Status = "converted"
-	lead.ConvertedToPatientID = &patient.ID
-	lead.ConvertedAt = &now
+	updateData := map[string]interface{}{
+		"status":                  "converted",
+		"converted_to_patient_id": patient.ID,
+		"converted_at":            now,
+	}
 
-	if err := db.Save(&lead).Error; err != nil {
+	if err := db.Session(&gorm.Session{NewDB: true}).Model(&models.Lead{}).Where("id = ?", lead.ID).Updates(updateData).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar lead"})
 		return
 	}
+
+	// Reload lead with updated data
+	db.Session(&gorm.Session{NewDB: true}).First(&lead, lead.ID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "Lead convertido para paciente com sucesso",
