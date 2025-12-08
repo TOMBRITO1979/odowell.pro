@@ -40,7 +40,7 @@ import {
   ExportOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import dayjs from 'dayjs';
 import { stockMovementsAPI, productsAPI } from '../../services/api';
 import { actionColors } from '../../theme/designSystem';
@@ -81,6 +81,7 @@ const StockMovements = () => {
     exits_by_product: [],
     exits_by_product_date: [],
     movements_by_type_date: [],
+    movements_by_product_type: [],
     total_sales_revenue: 0,
     total_sales_count: 0,
     total_exits: 0,
@@ -244,29 +245,24 @@ const StockMovements = () => {
     });
   }, [stats.exits_by_product_date]);
 
-  // Transform movements_by_type_date to chart format for Entries vs Exits
-  // From: [{ type: "entry", date: "2025-12-01", total_quantity: 10 }, ...]
-  // To: [{ date: "01/12", Entradas: 10, Saidas: 5 }, ...]
-  const entriesVsExitsChartData = React.useMemo(() => {
-    const dataByDate = {};
-    (stats.movements_by_type_date || []).forEach(item => {
-      const formattedDate = dayjs(item.date).format('DD/MM');
-      if (!dataByDate[formattedDate]) {
-        dataByDate[formattedDate] = { date: formattedDate, Entradas: 0, Saidas: 0 };
+  // Transform movements_by_product_type to bar chart format
+  // From: [{ product_name: "Luva", type: "entry", total_quantity: 10 }, ...]
+  // To: [{ produto: "Luva", Entradas: 10, Saidas: 5 }, ...]
+  const productTypeChartData = React.useMemo(() => {
+    const dataByProduct = {};
+    (stats.movements_by_product_type || []).forEach(item => {
+      if (!dataByProduct[item.product_name]) {
+        dataByProduct[item.product_name] = { produto: item.product_name, Entradas: 0, Saidas: 0 };
       }
       if (item.type === 'entry') {
-        dataByDate[formattedDate].Entradas = item.total_quantity;
+        dataByProduct[item.product_name].Entradas = item.total_quantity;
       } else if (item.type === 'exit') {
-        dataByDate[formattedDate].Saidas = item.total_quantity;
+        dataByProduct[item.product_name].Saidas = item.total_quantity;
       }
     });
-    // Convert to array and sort by date
-    return Object.values(dataByDate).sort((a, b) => {
-      const dateA = a.date.split('/').reverse().join('');
-      const dateB = b.date.split('/').reverse().join('');
-      return dateA.localeCompare(dateB);
-    });
-  }, [stats.movements_by_type_date]);
+    // Convert to array and sort by product name
+    return Object.values(dataByProduct).sort((a, b) => a.produto.localeCompare(b.produto));
+  }, [stats.movements_by_product_type]);
 
   const showModal = () => {
     form.resetFields();
@@ -699,44 +695,45 @@ const StockMovements = () => {
             </Col>
           </Row>
 
-          {/* Chart: Entradas vs Saidas ao longo do tempo */}
-          {entriesVsExitsChartData.length > 0 && (
+          {/* Bar Chart: Entradas vs Saidas por Produto */}
+          {productTypeChartData.length > 0 && (
             <Row style={{ marginTop: 24 }}>
               <Col span={24}>
-                <Card title="Movimentacoes: Entradas vs Saidas (por Data)" size="small">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <LineChart data={entriesVsExitsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <Card title="Movimentacoes por Produto: Entradas vs Saidas" size="small">
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={productTypeChartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
+                      <XAxis
+                        dataKey="produto"
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        interval={0}
+                        tick={{ fontSize: 11 }}
+                      />
                       <YAxis />
                       <RechartsTooltip />
                       <Legend />
-                      <Line
-                        type="monotone"
+                      <Bar
                         dataKey="Entradas"
                         name="Entradas"
-                        stroke="#52c41a"
-                        strokeWidth={3}
-                        dot={{ r: 5, fill: '#52c41a' }}
-                        activeDot={{ r: 7 }}
+                        fill="#52c41a"
+                        radius={[4, 4, 0, 0]}
                       />
-                      <Line
-                        type="monotone"
+                      <Bar
                         dataKey="Saidas"
                         name="Saidas"
-                        stroke="#ff4d4f"
-                        strokeWidth={3}
-                        dot={{ r: 5, fill: '#ff4d4f' }}
-                        activeDot={{ r: 7 }}
+                        fill="#ff4d4f"
+                        radius={[4, 4, 0, 0]}
                       />
-                    </LineChart>
+                    </BarChart>
                   </ResponsiveContainer>
                 </Card>
               </Col>
             </Row>
           )}
 
-          {entriesVsExitsChartData.length === 0 && !statsLoading && (
+          {productTypeChartData.length === 0 && !statsLoading && (
             <Row style={{ marginTop: 24 }}>
               <Col span={24}>
                 <Card>

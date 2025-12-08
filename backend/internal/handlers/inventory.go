@@ -541,6 +541,14 @@ type MovementsByTypeDate struct {
 	TotalQuantity int64  `json:"total_quantity"`
 }
 
+// MovementsByProductType represents movements grouped by product and type for bar chart
+type MovementsByProductType struct {
+	ProductID     uint   `json:"product_id"`
+	ProductName   string `json:"product_name"`
+	Type          string `json:"type"`
+	TotalQuantity int64  `json:"total_quantity"`
+}
+
 // GetStockMovementStats returns statistics for stock movements
 func GetStockMovementStats(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
@@ -653,6 +661,30 @@ func GetStockMovementStats(c *gin.Context) {
 	}
 	log.Printf("GetStockMovementStats: movementsByTypeDate count=%d", len(movementsByTypeDate))
 
+	// Get movements grouped by product and type for bar chart
+	var movementsByProductType []MovementsByProductType
+	movementsByProductTypeQuery := db.Table("stock_movements").
+		Select("stock_movements.product_id, products.name as product_name, stock_movements.type, SUM(stock_movements.quantity) as total_quantity").
+		Joins("JOIN products ON products.id = stock_movements.product_id").
+		Where("stock_movements.deleted_at IS NULL").
+		Where("stock_movements.type IN ?", []string{"entry", "exit"})
+	if startDate != "" {
+		movementsByProductTypeQuery = movementsByProductTypeQuery.Where("stock_movements.created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		movementsByProductTypeQuery = movementsByProductTypeQuery.Where("stock_movements.created_at <= ?", endDate+" 23:59:59")
+	}
+	if productID != "" {
+		movementsByProductTypeQuery = movementsByProductTypeQuery.Where("stock_movements.product_id = ?", productID)
+	}
+	if err := movementsByProductTypeQuery.Group("stock_movements.product_id, products.name, stock_movements.type").
+		Order("product_name ASC, type ASC").
+		Scan(&movementsByProductType).Error; err != nil {
+		log.Printf("GetStockMovementStats: Failed to get movements by product and type: %v", err)
+		movementsByProductType = []MovementsByProductType{}
+	}
+	log.Printf("GetStockMovementStats: movementsByProductType count=%d", len(movementsByProductType))
+
 	// Get total sales revenue (sum of total_price where reason='sale')
 	var totalSalesRevenue float64
 	salesQuery := db.Model(&models.StockMovement{}).Where("type = ? AND reason = ?", "exit", "sale")
@@ -671,77 +703,81 @@ func GetStockMovementStats(c *gin.Context) {
 		totalSalesRevenue = 0
 	}
 
-	// Get total exits count - using raw SQL for reliability
+	// Get total exits count - using Raw SQL for maximum reliability
 	var totalExits int64
-	totalExitsQuery := db.Table("stock_movements").
-		Select("COUNT(*)").
-		Where("type = ?", "exit").
-		Where("deleted_at IS NULL")
+	exitsSQL := "SELECT COALESCE(COUNT(*), 0) FROM stock_movements WHERE type = 'exit' AND deleted_at IS NULL"
+	exitsArgs := []interface{}{}
 	if startDate != "" {
-		totalExitsQuery = totalExitsQuery.Where("created_at >= ?", startDate)
+		exitsSQL += " AND created_at >= ?"
+		exitsArgs = append(exitsArgs, startDate)
 	}
 	if endDate != "" {
-		totalExitsQuery = totalExitsQuery.Where("created_at <= ?", endDate+" 23:59:59")
+		exitsSQL += " AND created_at <= ?"
+		exitsArgs = append(exitsArgs, endDate+" 23:59:59")
 	}
 	if productID != "" {
-		totalExitsQuery = totalExitsQuery.Where("product_id = ?", productID)
+		exitsSQL += " AND product_id = ?"
+		exitsArgs = append(exitsArgs, productID)
 	}
-	if err := totalExitsQuery.Scan(&totalExits).Error; err != nil {
+	if err := db.Raw(exitsSQL, exitsArgs...).Scan(&totalExits).Error; err != nil {
 		log.Printf("GetStockMovementStats: Failed to count exits: %v", err)
 		totalExits = 0
 	}
-	log.Printf("GetStockMovementStats: totalExits=%d (startDate=%s, endDate=%s)", totalExits, startDate, endDate)
+	log.Printf("GetStockMovementStats: totalExits=%d (SQL: %s)", totalExits, exitsSQL)
 
-	// Get total entries count - using raw SQL for reliability
+	// Get total entries count - using Raw SQL for maximum reliability
 	var totalEntries int64
-	totalEntriesQuery := db.Table("stock_movements").
-		Select("COUNT(*)").
-		Where("type = ?", "entry").
-		Where("deleted_at IS NULL")
+	entriesSQL := "SELECT COALESCE(COUNT(*), 0) FROM stock_movements WHERE type = 'entry' AND deleted_at IS NULL"
+	entriesArgs := []interface{}{}
 	if startDate != "" {
-		totalEntriesQuery = totalEntriesQuery.Where("created_at >= ?", startDate)
+		entriesSQL += " AND created_at >= ?"
+		entriesArgs = append(entriesArgs, startDate)
 	}
 	if endDate != "" {
-		totalEntriesQuery = totalEntriesQuery.Where("created_at <= ?", endDate+" 23:59:59")
+		entriesSQL += " AND created_at <= ?"
+		entriesArgs = append(entriesArgs, endDate+" 23:59:59")
 	}
 	if productID != "" {
-		totalEntriesQuery = totalEntriesQuery.Where("product_id = ?", productID)
+		entriesSQL += " AND product_id = ?"
+		entriesArgs = append(entriesArgs, productID)
 	}
-	if err := totalEntriesQuery.Scan(&totalEntries).Error; err != nil {
+	if err := db.Raw(entriesSQL, entriesArgs...).Scan(&totalEntries).Error; err != nil {
 		log.Printf("GetStockMovementStats: Failed to count entries: %v", err)
 		totalEntries = 0
 	}
 	log.Printf("GetStockMovementStats: totalEntries=%d", totalEntries)
 
-	// Get total sales count (number of sale transactions) - using raw SQL for reliability
+	// Get total sales count - using Raw SQL for maximum reliability
 	var totalSalesCount int64
-	salesCountQuery := db.Table("stock_movements").
-		Select("COUNT(*)").
-		Where("type = ? AND reason = ?", "exit", "sale").
-		Where("deleted_at IS NULL")
+	salesSQL := "SELECT COALESCE(COUNT(*), 0) FROM stock_movements WHERE type = 'exit' AND reason = 'sale' AND deleted_at IS NULL"
+	salesArgs := []interface{}{}
 	if startDate != "" {
-		salesCountQuery = salesCountQuery.Where("created_at >= ?", startDate)
+		salesSQL += " AND created_at >= ?"
+		salesArgs = append(salesArgs, startDate)
 	}
 	if endDate != "" {
-		salesCountQuery = salesCountQuery.Where("created_at <= ?", endDate+" 23:59:59")
+		salesSQL += " AND created_at <= ?"
+		salesArgs = append(salesArgs, endDate+" 23:59:59")
 	}
 	if productID != "" {
-		salesCountQuery = salesCountQuery.Where("product_id = ?", productID)
+		salesSQL += " AND product_id = ?"
+		salesArgs = append(salesArgs, productID)
 	}
-	if err := salesCountQuery.Scan(&totalSalesCount).Error; err != nil {
+	if err := db.Raw(salesSQL, salesArgs...).Scan(&totalSalesCount).Error; err != nil {
 		log.Printf("GetStockMovementStats: Failed to count sales: %v", err)
 		totalSalesCount = 0
 	}
-	log.Printf("GetStockMovementStats: totalSalesCount=%d, exitsByProduct=%d, exitsByProductDate=%d", totalSalesCount, len(exitsByProduct), len(exitsByProductDate))
+	log.Printf("GetStockMovementStats: totalSalesCount=%d, movementsByProductType=%d", totalSalesCount, len(movementsByProductType))
 
 	c.JSON(http.StatusOK, gin.H{
-		"exits_by_reason":         exitsByReason,
-		"exits_by_product":        exitsByProduct,
-		"exits_by_product_date":   exitsByProductDate,
-		"movements_by_type_date":  movementsByTypeDate,
-		"total_sales_revenue":     totalSalesRevenue,
-		"total_sales_count":       totalSalesCount,
-		"total_exits":             totalExits,
-		"total_entries":           totalEntries,
+		"exits_by_reason":           exitsByReason,
+		"exits_by_product":          exitsByProduct,
+		"exits_by_product_date":     exitsByProductDate,
+		"movements_by_type_date":    movementsByTypeDate,
+		"movements_by_product_type": movementsByProductType,
+		"total_sales_revenue":       totalSalesRevenue,
+		"total_sales_count":         totalSalesCount,
+		"total_exits":               totalExits,
+		"total_entries":             totalEntries,
 	})
 }
