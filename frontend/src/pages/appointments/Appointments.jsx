@@ -1,11 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Table, Button, message, Tag, Space, Popconfirm, Card, Row, Col, Select, DatePicker } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FileExcelOutlined, FilePdfOutlined, FilterOutlined, ClearOutlined } from '@ant-design/icons';
+import { Table, Button, message, Tag, Space, Popconfirm, Card, Row, Col, Select, DatePicker, Segmented, Tooltip } from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  FileExcelOutlined,
+  FilePdfOutlined,
+  ClearOutlined,
+  UnorderedListOutlined,
+  CalendarOutlined,
+  LeftOutlined,
+  RightOutlined
+} from '@ant-design/icons';
 import { appointmentsAPI, usersAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
-import { actionColors, statusColors, spacing, shadows, buttonSizes } from '../../theme/designSystem';
+import { actionColors, statusColors, spacing, shadows } from '../../theme/designSystem';
 import dayjs from 'dayjs';
+import 'dayjs/locale/pt-br';
+
+dayjs.locale('pt-br');
 
 const { RangePicker } = DatePicker;
 
@@ -13,11 +28,13 @@ const Appointments = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dentists, setDentists] = useState([]);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
+  const [currentWeekStart, setCurrentWeekStart] = useState(dayjs().startOf('week'));
   const [filters, setFilters] = useState({
     dentist_id: null,
     procedure: null,
     status: null,
-    dateRange: null, // Will default to today in fetchAppointments
+    dateRange: null,
   });
   const [pagination, setPagination] = useState({
     current: 1,
@@ -34,12 +51,11 @@ const Appointments = () => {
 
   useEffect(() => {
     fetchAppointments();
-  }, [pagination.current, pagination.pageSize, filters, location.key]); // location.key força atualização ao navegar
+  }, [pagination.current, pagination.pageSize, filters, location.key, viewMode, currentWeekStart]);
 
   const fetchDentists = async () => {
     try {
       const response = await usersAPI.getAll();
-      // Filtrar apenas dentistas e admins (profissionais que atendem)
       const professionals = (response.data.users || []).filter(
         user => user.role === 'dentist' || user.role === 'admin'
       );
@@ -52,24 +68,28 @@ const Appointments = () => {
   const fetchAppointments = () => {
     setLoading(true);
     const params = {
-      page: pagination.current,
-      page_size: pagination.pageSize
+      page: viewMode === 'calendar' ? 1 : pagination.current,
+      page_size: viewMode === 'calendar' ? 500 : pagination.pageSize
     };
 
-    // Adicionar filtros se definidos
     if (filters.dentist_id) params.dentist_id = filters.dentist_id;
     if (filters.procedure) params.procedure = filters.procedure;
     if (filters.status) params.status = filters.status;
 
-    // Filtro de data: se range selecionado usa ele, senão usa hoje como padrão
-    if (filters.dateRange && filters.dateRange[0]) {
-      params.start_date = filters.dateRange[0].startOf('day').toISOString();
+    if (viewMode === 'calendar') {
+      // Para o calendário, buscar a semana inteira
+      params.start_date = currentWeekStart.startOf('day').toISOString();
+      params.end_date = currentWeekStart.add(6, 'day').endOf('day').toISOString();
     } else {
-      // Default: mostrar de hoje em diante
-      params.start_date = dayjs().startOf('day').toISOString();
-    }
-    if (filters.dateRange && filters.dateRange[1]) {
-      params.end_date = filters.dateRange[1].endOf('day').toISOString();
+      // Para lista, usar filtros normais
+      if (filters.dateRange && filters.dateRange[0]) {
+        params.start_date = filters.dateRange[0].startOf('day').toISOString();
+      } else {
+        params.start_date = dayjs().startOf('day').toISOString();
+      }
+      if (filters.dateRange && filters.dateRange[1]) {
+        params.end_date = filters.dateRange[1].endOf('day').toISOString();
+      }
     }
 
     appointmentsAPI.getAll(params)
@@ -94,7 +114,7 @@ const Appointments = () => {
       dentist_id: null,
       procedure: null,
       status: null,
-      dateRange: null, // Will default to today in fetchAppointments
+      dateRange: null,
     });
     setPagination(prev => ({ ...prev, current: 1 }));
   };
@@ -147,7 +167,6 @@ const Appointments = () => {
       message.success('CSV exportado com sucesso');
     } catch (error) {
       message.error('Erro ao exportar CSV');
-      console.error('Export error:', error);
     }
   };
 
@@ -166,20 +185,23 @@ const Appointments = () => {
       message.success('PDF gerado com sucesso');
     } catch (error) {
       message.error('Erro ao gerar PDF');
-      console.error('PDF error:', error);
     }
   };
 
-  const getStatusTag = (status) => {
+  const getStatusConfig = (status) => {
     const statusConfig = {
-      scheduled: { color: statusColors.pending, text: 'Agendado' },
-      confirmed: { color: statusColors.approved, text: 'Confirmado' },
-      in_progress: { color: statusColors.inProgress, text: 'Em Atendimento' },
-      completed: { color: statusColors.success, text: 'Concluído' },
-      cancelled: { color: statusColors.cancelled, text: 'Cancelado' },
-      no_show: { color: statusColors.error, text: 'Faltou' },
+      scheduled: { color: statusColors.pending, text: 'Agendado', bg: '#fff7e6' },
+      confirmed: { color: statusColors.approved, text: 'Confirmado', bg: '#e6f7ff' },
+      in_progress: { color: statusColors.inProgress, text: 'Em Atendimento', bg: '#e6fffb' },
+      completed: { color: statusColors.success, text: 'Concluído', bg: '#f6ffed' },
+      cancelled: { color: statusColors.cancelled, text: 'Cancelado', bg: '#fff1f0' },
+      no_show: { color: statusColors.error, text: 'Faltou', bg: '#fff2e8' },
     };
-    const config = statusConfig[status] || { color: statusColors.pending, text: status };
+    return statusConfig[status] || { color: statusColors.pending, text: status, bg: '#fafafa' };
+  };
+
+  const getStatusTag = (status) => {
+    const config = getStatusConfig(status);
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
@@ -198,6 +220,210 @@ const Appointments = () => {
       other: 'Outro',
     };
     return procedures[procedure] || procedure;
+  };
+
+  // Navegação do calendário
+  const goToPreviousWeek = () => {
+    setCurrentWeekStart(prev => prev.subtract(7, 'day'));
+  };
+
+  const goToNextWeek = () => {
+    setCurrentWeekStart(prev => prev.add(7, 'day'));
+  };
+
+  const goToToday = () => {
+    setCurrentWeekStart(dayjs().startOf('week'));
+  };
+
+  // Gerar dias da semana
+  const getWeekDays = () => {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      days.push(currentWeekStart.add(i, 'day'));
+    }
+    return days;
+  };
+
+  // Gerar horários do dia (08:00 às 20:00)
+  const getTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour <= 20; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+    }
+    return slots;
+  };
+
+  // Agrupar agendamentos por dia e hora
+  const getAppointmentsForSlot = (day, timeSlot) => {
+    const slotHour = parseInt(timeSlot.split(':')[0]);
+    return data.filter(apt => {
+      const aptDate = dayjs(apt.start_time);
+      return aptDate.format('YYYY-MM-DD') === day.format('YYYY-MM-DD') &&
+             aptDate.hour() === slotHour;
+    });
+  };
+
+  // Renderizar card de agendamento no calendário
+  const renderAppointmentCard = (appointment) => {
+    const config = getStatusConfig(appointment.status);
+    return (
+      <Tooltip
+        key={appointment.id}
+        title={
+          <div>
+            <div><strong>{appointment.patient?.name}</strong></div>
+            <div>{getProcedureText(appointment.procedure)}</div>
+            <div>{dayjs(appointment.start_time).format('HH:mm')} - {dayjs(appointment.end_time).format('HH:mm')}</div>
+            <div>Prof: {appointment.dentist?.name}</div>
+            <div>Status: {config.text}</div>
+          </div>
+        }
+      >
+        <div
+          onClick={() => navigate(`/appointments/${appointment.id}`)}
+          style={{
+            backgroundColor: config.bg,
+            borderLeft: `3px solid ${config.color}`,
+            padding: '4px 6px',
+            marginBottom: '2px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '11px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {appointment.patient?.name?.split(' ')[0] || 'N/A'}
+          </div>
+          <div style={{ fontSize: '10px', color: '#666' }}>
+            {dayjs(appointment.start_time).format('HH:mm')}
+          </div>
+        </div>
+      </Tooltip>
+    );
+  };
+
+  // Renderizar visualização de calendário
+  const renderCalendarView = () => {
+    const weekDays = getWeekDays();
+    const timeSlots = getTimeSlots();
+    const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+    return (
+      <div>
+        {/* Navegação da semana */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+          padding: '12px 16px',
+          background: '#fafafa',
+          borderRadius: '8px'
+        }}>
+          <Button icon={<LeftOutlined />} onClick={goToPreviousWeek}>
+            Anterior
+          </Button>
+          <div style={{ textAlign: 'center' }}>
+            <Button type="link" onClick={goToToday} style={{ marginBottom: 4 }}>
+              Hoje
+            </Button>
+            <div style={{ fontWeight: 600, fontSize: 16 }}>
+              {currentWeekStart.format('DD MMM')} - {currentWeekStart.add(6, 'day').format('DD MMM YYYY')}
+            </div>
+          </div>
+          <Button icon={<RightOutlined />} onClick={goToNextWeek} iconPosition="end">
+            Próxima
+          </Button>
+        </div>
+
+        {/* Grid do calendário */}
+        <div style={{ overflowX: 'auto' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '60px repeat(7, 1fr)',
+            minWidth: '800px',
+            border: '1px solid #e8e8e8',
+            borderRadius: '8px',
+            overflow: 'hidden'
+          }}>
+            {/* Header com dias da semana */}
+            <div style={{
+              backgroundColor: '#fafafa',
+              padding: '8px',
+              fontWeight: 600,
+              borderBottom: '1px solid #e8e8e8',
+              borderRight: '1px solid #e8e8e8'
+            }}>
+              Hora
+            </div>
+            {weekDays.map((day, index) => {
+              const isToday = day.format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD');
+              return (
+                <div
+                  key={index}
+                  style={{
+                    backgroundColor: isToday ? '#e6f7ff' : '#fafafa',
+                    padding: '8px',
+                    textAlign: 'center',
+                    fontWeight: 600,
+                    borderBottom: '1px solid #e8e8e8',
+                    borderRight: index < 6 ? '1px solid #e8e8e8' : 'none'
+                  }}
+                >
+                  <div>{dayNames[index]}</div>
+                  <div style={{
+                    fontSize: '18px',
+                    color: isToday ? '#1890ff' : 'inherit'
+                  }}>
+                    {day.format('DD')}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Slots de horário */}
+            {timeSlots.map((timeSlot, slotIndex) => (
+              <React.Fragment key={timeSlot}>
+                <div style={{
+                  padding: '4px 8px',
+                  backgroundColor: '#fafafa',
+                  borderBottom: slotIndex < timeSlots.length - 1 ? '1px solid #e8e8e8' : 'none',
+                  borderRight: '1px solid #e8e8e8',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  minHeight: '60px'
+                }}>
+                  {timeSlot}
+                </div>
+                {weekDays.map((day, dayIndex) => {
+                  const appointments = getAppointmentsForSlot(day, timeSlot);
+                  const isToday = day.format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD');
+                  return (
+                    <div
+                      key={dayIndex}
+                      style={{
+                        padding: '4px',
+                        borderBottom: slotIndex < timeSlots.length - 1 ? '1px solid #e8e8e8' : 'none',
+                        borderRight: dayIndex < 6 ? '1px solid #e8e8e8' : 'none',
+                        minHeight: '60px',
+                        backgroundColor: isToday ? '#f6ffed' : '#fff'
+                      }}
+                    >
+                      {appointments.map(apt => renderAppointmentCard(apt))}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const columns = [
@@ -287,6 +513,14 @@ const Appointments = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <h1 style={{ margin: 0 }}>Agendamentos</h1>
         <Space wrap>
+          <Segmented
+            value={viewMode}
+            onChange={setViewMode}
+            options={[
+              { value: 'list', icon: <UnorderedListOutlined />, label: 'Lista' },
+              { value: 'calendar', icon: <CalendarOutlined />, label: 'Calendário' },
+            ]}
+          />
           <Button
             icon={<FileExcelOutlined />}
             onClick={handleExportCSV}
@@ -328,12 +562,8 @@ const Appointments = () => {
         </Space>
       </div>
 
-      <Card
-        style={{
-          boxShadow: shadows.small,
-        }}
-      >
-        {/* Filtros */}
+      <Card style={{ boxShadow: shadows.small }}>
+        {/* Filtros - mostrar apenas no modo lista ou filtros simplificados no calendário */}
         <div style={{ marginBottom: 16, padding: '16px', background: '#fafafa', borderRadius: '8px' }}>
           <Row gutter={[16, 16]} align="middle">
             <Col xs={24} sm={12} md={6}>
@@ -379,20 +609,22 @@ const Appointments = () => {
                 ))}
               </Select>
             </Col>
-            <Col xs={24} sm={12} md={6}>
-              <RangePicker
-                style={{ width: '100%' }}
-                format="DD/MM/YYYY"
-                value={filters.dateRange}
-                onChange={(dates) => handleFilterChange('dateRange', dates)}
-                placeholder={['Hoje (padrão)', 'Data Fim']}
-              />
-            </Col>
-            <Col xs={24} sm={24} md={2}>
+            {viewMode === 'list' && (
+              <Col xs={24} sm={12} md={6}>
+                <RangePicker
+                  style={{ width: '100%' }}
+                  format="DD/MM/YYYY"
+                  value={filters.dateRange}
+                  onChange={(dates) => handleFilterChange('dateRange', dates)}
+                  placeholder={['Hoje (padrão)', 'Data Fim']}
+                />
+              </Col>
+            )}
+            <Col xs={24} sm={24} md={viewMode === 'list' ? 2 : 8}>
               <Button
                 icon={<ClearOutlined />}
                 onClick={clearFilters}
-                style={{ width: '100%' }}
+                style={{ width: viewMode === 'list' ? '100%' : 'auto' }}
                 title="Limpar Filtros"
               >
                 Limpar
@@ -401,21 +633,26 @@ const Appointments = () => {
           </Row>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={data}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-              onChange: (page, pageSize) => setPagination({ ...pagination, current: page, pageSize }),
-            }}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {/* Renderizar visualização baseada no modo */}
+        {viewMode === 'list' ? (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={data}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+                onChange: (page, pageSize) => setPagination({ ...pagination, current: page, pageSize }),
+              }}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        ) : (
+          renderCalendarView()
+        )}
       </Card>
     </div>
   );
