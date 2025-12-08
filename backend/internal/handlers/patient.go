@@ -45,9 +45,9 @@ func GetPatients(c *gin.Context) {
 
 	query := db.Model(&models.Patient{})
 
-	// Filtro de busca
+	// Filtro de busca (nome, CPF, telefone fixo e celular)
 	if search := c.Query("search"); search != "" {
-		query = query.Where("name ILIKE ? OR cpf ILIKE ?", "%"+search+"%", "%"+search+"%")
+		query = query.Where("name ILIKE ? OR cpf ILIKE ? OR phone ILIKE ? OR cell_phone ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 
 	query.Count(&total)
