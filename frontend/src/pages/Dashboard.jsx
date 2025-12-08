@@ -91,7 +91,8 @@ const getBudgetStatusColor = (status) => {
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(false);
-  const [dateRange, setDateRange] = useState([dayjs().subtract(30, 'days'), dayjs()]);
+  // Usar mês atual completo como padrão (inclui agendamentos futuros do mês)
+  const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs().endOf('month')]);
   const [dashboardData, setDashboardData] = useState(null);
 
   const fetchDashboardData = async () => {
@@ -114,7 +115,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [dateRange]);
 
   const handleDateRangeChange = (dates) => {
     setDateRange(dates);
