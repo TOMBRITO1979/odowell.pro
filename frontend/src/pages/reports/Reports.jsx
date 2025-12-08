@@ -556,22 +556,29 @@ const Reports = () => {
           {attendanceData ? (
             <div>
               <Row gutter={16} style={{ marginBottom: 16 }}>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={6}>
                   <Statistic title="Total" value={attendanceData.total} />
                 </Col>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={6}>
                   <Statistic
                     title="Concluídos"
                     value={attendanceData.completed}
                     valueStyle={{ color: statusColors.success }}
                   />
                 </Col>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={6}>
+                  <Statistic
+                    title="Faltaram"
+                    value={attendanceData.no_show}
+                    valueStyle={{ color: statusColors.error }}
+                  />
+                </Col>
+                <Col xs={24} sm={6}>
                   <Statistic
                     title="Taxa de Comparecimento"
-                    value={attendanceData.attendance_rate?.toFixed(2)}
+                    value={attendanceData.attendance_rate?.toFixed(1)}
                     suffix="%"
-                    valueStyle={{ color: statusColors.success }}
+                    valueStyle={{ color: attendanceData.attendance_rate >= 80 ? statusColors.success : attendanceData.attendance_rate >= 60 ? statusColors.pending : statusColors.error }}
                   />
                 </Col>
               </Row>
@@ -583,9 +590,12 @@ const Reports = () => {
                       <Pie
                         data={[
                           { name: 'Concluídos', value: attendanceData.completed, color: '#81C784' },
+                          { name: 'Confirmados', value: attendanceData.confirmed || 0, color: '#64B5F6' },
+                          { name: 'Agendados', value: attendanceData.scheduled || 0, color: '#90CAF9' },
+                          { name: 'Em Atendimento', value: attendanceData.in_progress || 0, color: '#CE93D8' },
                           { name: 'Cancelados', value: attendanceData.cancelled, color: '#E57373' },
                           { name: 'Faltaram', value: attendanceData.no_show, color: '#FFD54F' },
-                        ]}
+                        ].filter(item => item.value > 0)}
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
@@ -595,9 +605,12 @@ const Reports = () => {
                       >
                         {[
                           { name: 'Concluídos', value: attendanceData.completed, color: '#81C784' },
+                          { name: 'Confirmados', value: attendanceData.confirmed || 0, color: '#64B5F6' },
+                          { name: 'Agendados', value: attendanceData.scheduled || 0, color: '#90CAF9' },
+                          { name: 'Em Atendimento', value: attendanceData.in_progress || 0, color: '#CE93D8' },
                           { name: 'Cancelados', value: attendanceData.cancelled, color: '#E57373' },
                           { name: 'Faltaram', value: attendanceData.no_show, color: '#FFD54F' },
-                        ].map((entry, index) => (
+                        ].filter(item => item.value > 0).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -607,12 +620,27 @@ const Reports = () => {
                   </ResponsiveContainer>
                 </Col>
                 <Col xs={24} lg={12}>
-                  <h4>Resumo</h4>
+                  <h4>Resumo por Status</h4>
                   <div style={{ padding: '20px 0' }}>
                     <Row gutter={[16, 16]}>
                       <Col span={12}>
                         <Tag color="success" style={{ width: '100%', padding: '8px', textAlign: 'center' }}>
                           Concluídos: {attendanceData.completed}
+                        </Tag>
+                      </Col>
+                      <Col span={12}>
+                        <Tag color="blue" style={{ width: '100%', padding: '8px', textAlign: 'center' }}>
+                          Confirmados: {attendanceData.confirmed || 0}
+                        </Tag>
+                      </Col>
+                      <Col span={12}>
+                        <Tag color="cyan" style={{ width: '100%', padding: '8px', textAlign: 'center' }}>
+                          Agendados: {attendanceData.scheduled || 0}
+                        </Tag>
+                      </Col>
+                      <Col span={12}>
+                        <Tag color="purple" style={{ width: '100%', padding: '8px', textAlign: 'center' }}>
+                          Em Atendimento: {attendanceData.in_progress || 0}
                         </Tag>
                       </Col>
                       <Col span={12}>
@@ -625,8 +653,8 @@ const Reports = () => {
                           Faltaram: {attendanceData.no_show}
                         </Tag>
                       </Col>
-                      <Col span={12}>
-                        <Tag color="blue" style={{ width: '100%', padding: '8px', textAlign: 'center' }}>
+                      <Col span={24}>
+                        <Tag color="default" style={{ width: '100%', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
                           Total: {attendanceData.total}
                         </Tag>
                       </Col>

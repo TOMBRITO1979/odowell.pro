@@ -210,9 +210,44 @@ func GetAttendanceReport(c *gin.Context) {
 	}
 	noShowQuery.Count(&noShow)
 
+	// Scheduled appointments (agendados)
+	var scheduled int64
+	scheduledQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments").Where("status = ?", "scheduled")
+	if startDate != "" {
+		scheduledQuery = scheduledQuery.Where("DATE(start_time) >= ?", startDate)
+	}
+	if endDate != "" {
+		scheduledQuery = scheduledQuery.Where("DATE(start_time) <= ?", endDate)
+	}
+	scheduledQuery.Count(&scheduled)
+
+	// Confirmed appointments (confirmados)
+	var confirmed int64
+	confirmedQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments").Where("status = ?", "confirmed")
+	if startDate != "" {
+		confirmedQuery = confirmedQuery.Where("DATE(start_time) >= ?", startDate)
+	}
+	if endDate != "" {
+		confirmedQuery = confirmedQuery.Where("DATE(start_time) <= ?", endDate)
+	}
+	confirmedQuery.Count(&confirmed)
+
+	// In progress appointments (em atendimento)
+	var inProgress int64
+	inProgressQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments").Where("status = ?", "in_progress")
+	if startDate != "" {
+		inProgressQuery = inProgressQuery.Where("DATE(start_time) >= ?", startDate)
+	}
+	if endDate != "" {
+		inProgressQuery = inProgressQuery.Where("DATE(start_time) <= ?", endDate)
+	}
+	inProgressQuery.Count(&inProgress)
+
+	// Taxa de comparecimento: dos que deveriam comparecer (completed + no_show), quantos vieram?
 	var attendanceRate float64
-	if total > 0 {
-		attendanceRate = (float64(completed) / float64(total)) * 100
+	attendanceBase := completed + noShow
+	if attendanceBase > 0 {
+		attendanceRate = (float64(completed) / float64(attendanceBase)) * 100
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -220,6 +255,9 @@ func GetAttendanceReport(c *gin.Context) {
 		"completed":       completed,
 		"cancelled":       cancelled,
 		"no_show":         noShow,
+		"scheduled":       scheduled,
+		"confirmed":       confirmed,
+		"in_progress":     inProgress,
 		"attendance_rate": attendanceRate,
 	})
 }
