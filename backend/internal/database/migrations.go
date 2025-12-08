@@ -94,6 +94,7 @@ func migrateNewTablesOnly(schema string) error {
 		&models.Appointment{},    // Added for new room field
 		&models.StockMovement{},  // Added for sale buyer fields
 		&models.Lead{},           // CRM leads for WhatsApp integration
+		&models.Patient{},        // Added for phone/cell_phone indexes (WhatsApp optimization)
 	)
 
 	return err

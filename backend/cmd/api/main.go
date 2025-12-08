@@ -521,7 +521,9 @@ func main() {
 
 	// WhatsApp/External API routes (API key authentication, tenant-isolated)
 	// These endpoints are for external integrations like WhatsApp bots and AI assistants
+	// Rate limited to 200 requests/minute per API key to prevent abuse
 	whatsappAPI := r.Group("/api/whatsapp")
+	whatsappAPI.Use(middleware.WhatsAppRateLimiter.RateLimitMiddleware())
 	whatsappAPI.Use(middleware.APIKeyMiddleware())
 	{
 		// Patient identity verification

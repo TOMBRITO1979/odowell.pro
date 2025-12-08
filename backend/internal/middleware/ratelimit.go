@@ -128,3 +128,12 @@ func (rl *RateLimiter) RateLimitMiddleware() gin.HandlerFunc {
 // LoginRateLimiter is a pre-configured rate limiter for login endpoints
 // Allows 5 attempts per minute, blocks for 15 minutes if exceeded
 var LoginRateLimiter = NewRateLimiter(5, time.Minute)
+
+// WhatsAppRateLimiter is a pre-configured rate limiter for WhatsApp API endpoints
+// Allows 200 requests per minute per API key (higher limit for bot integrations)
+// This protects against abuse while allowing normal WhatsApp bot traffic
+var WhatsAppRateLimiter = NewRateLimiter(200, time.Minute)
+
+// GlobalAPIRateLimiter is a pre-configured rate limiter for general API endpoints
+// Allows 100 requests per minute per IP
+var GlobalAPIRateLimiter = NewRateLimiter(100, time.Minute)

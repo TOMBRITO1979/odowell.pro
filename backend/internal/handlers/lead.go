@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -39,6 +41,11 @@ func CreateLead(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar lead"})
 		return
 	}
+
+	// Invalidate phone cache after creating lead
+	tenantID, _ := c.Get("tenant_id")
+	cacheKey := fmt.Sprintf("phone_check:%v:%s", tenantID, lead.Phone)
+	cache.Delete(cacheKey)
 
 	c.JSON(http.StatusCreated, lead)
 }
@@ -167,6 +174,7 @@ func DeleteLead(c *gin.Context) {
 
 // CheckLeadByPhone checks if a lead or patient exists by phone number
 // This is used by WhatsApp integration to check if contact is known
+// Uses Redis cache to reduce database queries (cache TTL: 5 minutes)
 func CheckLeadByPhone(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	phone := c.Param("phone")
@@ -174,42 +182,72 @@ func CheckLeadByPhone(c *gin.Context) {
 	// Clean phone number
 	phone = cleanPhoneNumber(phone)
 
-	// Check if patient exists with this phone
-	var patient models.Patient
-	patientExists := db.Where("phone = ? OR cell_phone = ?", phone, phone).First(&patient).Error == nil
+	// Get tenant_id for cache key (avoid cross-tenant data leaks)
+	tenantID, _ := c.Get("tenant_id")
+	cacheKey := fmt.Sprintf("phone_check:%v:%s", tenantID, phone)
 
-	if patientExists {
-		c.JSON(http.StatusOK, gin.H{
-			"exists":     true,
-			"type":       "patient",
-			"id":         patient.ID,
-			"name":       patient.Name,
-			"patient_id": patient.ID,
-		})
+	// Try to get from cache first
+	var cachedResult map[string]interface{}
+	if err := cache.Get(cacheKey, &cachedResult); err == nil {
+		c.JSON(http.StatusOK, cachedResult)
 		return
 	}
 
-	// Check if lead exists with this phone
-	var lead models.Lead
-	leadExists := db.Where("phone = ?", phone).First(&lead).Error == nil
+	// Optimized: Single UNION query to check both patients and leads
+	// This reduces 2 database roundtrips to 1
+	type PhoneCheckResult struct {
+		Type   string `gorm:"column:type"`
+		ID     uint   `gorm:"column:id"`
+		Name   string `gorm:"column:name"`
+		Status string `gorm:"column:status"`
+	}
 
-	if leadExists {
-		c.JSON(http.StatusOK, gin.H{
-			"exists":  true,
-			"type":    "lead",
-			"id":      lead.ID,
-			"name":    lead.Name,
-			"lead_id": lead.ID,
-			"status":  lead.Status,
-		})
+	var queryResult PhoneCheckResult
+	unionQuery := `
+		SELECT 'patient' as type, id, name, '' as status
+		FROM patients
+		WHERE (phone = ? OR cell_phone = ?) AND deleted_at IS NULL
+		UNION ALL
+		SELECT 'lead' as type, id, name, status
+		FROM leads
+		WHERE phone = ? AND deleted_at IS NULL
+		LIMIT 1
+	`
+	err := db.Raw(unionQuery, phone, phone, phone).Scan(&queryResult).Error
+
+	if err == nil && queryResult.ID > 0 {
+		var result gin.H
+		if queryResult.Type == "patient" {
+			result = gin.H{
+				"exists":     true,
+				"type":       "patient",
+				"id":         queryResult.ID,
+				"name":       queryResult.Name,
+				"patient_id": queryResult.ID,
+			}
+		} else {
+			result = gin.H{
+				"exists":  true,
+				"type":    "lead",
+				"id":      queryResult.ID,
+				"name":    queryResult.Name,
+				"lead_id": queryResult.ID,
+				"status":  queryResult.Status,
+			}
+		}
+		// Cache the result for 5 minutes
+		cache.Set(cacheKey, result, 5*time.Minute)
+		c.JSON(http.StatusOK, result)
 		return
 	}
 
-	// Not found
-	c.JSON(http.StatusOK, gin.H{
+	// Not found - cache for shorter time (2 minutes) as new contacts may register soon
+	result := gin.H{
 		"exists": false,
 		"type":   "unknown",
-	})
+	}
+	cache.Set(cacheKey, result, 2*time.Minute)
+	c.JSON(http.StatusOK, result)
 }
 
 // ConvertLeadToPatient converts a lead to a patient
@@ -284,6 +322,11 @@ func ConvertLeadToPatient(c *gin.Context) {
 
 	// Reload lead with updated data
 	db.Session(&gorm.Session{NewDB: true}).First(&lead, lead.ID)
+
+	// Invalidate phone cache after converting lead to patient
+	tenantID, _ := c.Get("tenant_id")
+	cacheKey := fmt.Sprintf("phone_check:%v:%s", tenantID, lead.Phone)
+	cache.Delete(cacheKey)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "Lead convertido para paciente com sucesso",

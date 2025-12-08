@@ -21,9 +21,9 @@ type Patient struct {
 	Gender    string     `json:"gender"` // M, F, Other
 
 	// Contact
-	Email     string `json:"email"`
-	Phone     string `json:"phone"`
-	CellPhone string `json:"cell_phone"`
+	Email     string `gorm:"index" json:"email"`
+	Phone     string `gorm:"index" json:"phone"`
+	CellPhone string `gorm:"index" json:"cell_phone"`
 
 	// Address
 	Address   string `json:"address"`
