@@ -245,6 +245,58 @@ func normalizePhone(phone string) string {
 	return strings.TrimSpace(phone)
 }
 
+// getPatientIDFromPhoneOrID resolves patient ID from phone number or direct ID
+// Returns patientID as string and error message if failed
+// This helper allows all WhatsApp API routes to accept either patient_id or phone parameter
+func getPatientIDFromPhoneOrID(c *gin.Context, db *gorm.DB) (string, string) {
+	patientID := c.Query("patient_id")
+	phone := c.Query("phone")
+
+	// If patient_id is provided, use it directly
+	if patientID != "" {
+		return patientID, ""
+	}
+
+	// If phone is provided, search for patient
+	if phone != "" {
+		normalizedPhone := normalizePhone(phone)
+		if normalizedPhone == "" {
+			return "", "Telefone inválido"
+		}
+
+		// Get schema name for explicit table reference
+		schemaName, _ := c.Get("schema")
+		if schemaName == nil {
+			return "", "Erro interno: schema não definido"
+		}
+
+		// Use raw SQL to find patient by phone with explicit schema
+		// Uses regexp_replace to normalize phone numbers in database for comparison
+		var patient models.Patient
+		phonePattern := "%" + normalizedPhone + "%"
+		sql := normalizePhoneQuery(schemaName)
+		err := db.Raw(sql, phonePattern, phonePattern).Scan(&patient).Error
+
+		if err != nil || patient.ID == 0 {
+			return "", "Paciente não encontrado com este telefone"
+		}
+
+		return fmt.Sprintf("%d", patient.ID), ""
+	}
+
+	// Neither patient_id nor phone provided
+	return "", "Informe patient_id ou phone para identificar o paciente"
+}
+
+// normalizePhoneQuery returns SQL condition with regexp_replace to normalize phone comparison
+func normalizePhoneQuery(schemaName interface{}) string {
+	return fmt.Sprintf(`SELECT * FROM %s.patients
+		WHERE (regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') LIKE ?
+		    OR regexp_replace(COALESCE(cell_phone, ''), '[^0-9]', '', 'g') LIKE ?)
+		AND active = true AND deleted_at IS NULL
+		LIMIT 1`, schemaName)
+}
+
 // WhatsAppGetAppointments returns patient's upcoming appointments
 // GET /api/whatsapp/appointments?patient_id=X
 // GET /api/whatsapp/appointments?phone=11999998888
@@ -275,12 +327,10 @@ func WhatsAppGetAppointments(c *gin.Context) {
 		}
 
 		// Use raw SQL to find patient by phone with explicit schema
+		// Uses regexp_replace to normalize phone numbers in database
 		var patient models.Patient
 		phonePattern := "%" + normalizedPhone + "%"
-		sql := fmt.Sprintf(`SELECT * FROM %s.patients
-			WHERE (phone LIKE ? OR cell_phone LIKE ?)
-			AND active = true AND deleted_at IS NULL
-			LIMIT 1`, schemaName)
+		sql := normalizePhoneQuery(schemaName)
 		err := db.Raw(sql, phonePattern, phonePattern).Scan(&patient).Error
 
 		if err != nil || patient.ID == 0 {
@@ -387,28 +437,41 @@ func WhatsAppGetAppointments(c *gin.Context) {
 
 // WhatsAppGetAppointmentHistory returns patient's past appointments
 // GET /api/whatsapp/appointments/history?patient_id=X&limit=10
+// GET /api/whatsapp/appointments/history?phone=11999998888&limit=10
 func WhatsAppGetAppointmentHistory(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
-	patientID := c.Query("patient_id")
 	limit := c.DefaultQuery("limit", "10")
 
-	if patientID == "" {
+	// Get patient ID from phone or direct ID
+	patientID, errMsg := getPatientIDFromPhoneOrID(c, db)
+	if errMsg != "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "ID do paciente é obrigatório",
+			"message": errMsg,
 		})
 		return
 	}
 
-	// Get past appointments
+	// Get schema name for explicit table reference
+	schemaName, _ := c.Get("schema")
+	if schemaName == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema não definido",
+		})
+		return
+	}
+
+	// Get past appointments using raw SQL
 	var appointments []models.Appointment
 	today := time.Now().Truncate(24 * time.Hour)
 
-	err := db.Where("patient_id = ? AND start_time < ?", patientID, today).
-		Preload("Dentist").
-		Order("start_time DESC").
-		Limit(10).
-		Find(&appointments).Error
+	sql := fmt.Sprintf(`SELECT * FROM %s.appointments
+		WHERE patient_id = ? AND start_time < ?
+		AND deleted_at IS NULL
+		ORDER BY start_time DESC
+		LIMIT 10`, schemaName)
+	err := db.Raw(sql, patientID, today).Scan(&appointments).Error
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -418,12 +481,23 @@ func WhatsAppGetAppointmentHistory(c *gin.Context) {
 		return
 	}
 
+	// Load dentist names from public.users
+	dentistNames := make(map[uint]string)
+	for _, apt := range appointments {
+		if _, exists := dentistNames[apt.DentistID]; !exists {
+			var user models.User
+			if err := db.Raw("SELECT * FROM public.users WHERE id = ?", apt.DentistID).Scan(&user).Error; err == nil && user.ID != 0 {
+				dentistNames[user.ID] = user.Name
+			}
+		}
+	}
+
 	// Convert to response format
 	response := make([]WhatsAppAppointmentResponse, 0)
 	for _, apt := range appointments {
-		dentistName := "Não definido"
-		if apt.Dentist != nil {
-			dentistName = apt.Dentist.Name
+		dentistName := dentistNames[apt.DentistID]
+		if dentistName == "" {
+			dentistName = "Não definido"
 		}
 
 		response = append(response, WhatsAppAppointmentResponse{
@@ -450,7 +524,8 @@ func WhatsAppGetAppointmentHistory(c *gin.Context) {
 }
 
 // WhatsAppCancelAppointment cancels an appointment
-// POST /api/whatsapp/appointments/cancel
+// POST /api/whatsapp/appointments/cancel?patient_id=X
+// POST /api/whatsapp/appointments/cancel?phone=11999998888
 func WhatsAppCancelAppointment(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
@@ -463,19 +538,33 @@ func WhatsAppCancelAppointment(c *gin.Context) {
 		return
 	}
 
-	patientID := c.Query("patient_id")
-	if patientID == "" {
+	// Get patient ID from phone or direct ID
+	patientID, errMsg := getPatientIDFromPhoneOrID(c, db)
+	if errMsg != "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "ID do paciente é obrigatório",
+			"message": errMsg,
 		})
 		return
 	}
 
-	// Get appointment and verify it belongs to the patient
+	// Get schema name for explicit table reference
+	schemaName, _ := c.Get("schema")
+	if schemaName == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema não definido",
+		})
+		return
+	}
+
+	// Get appointment and verify it belongs to the patient using raw SQL
 	var appointment models.Appointment
-	err := db.Where("id = ? AND patient_id = ?", req.AppointmentID, patientID).First(&appointment).Error
-	if err != nil {
+	sql := fmt.Sprintf(`SELECT * FROM %s.appointments
+		WHERE id = ? AND patient_id = ? AND deleted_at IS NULL
+		LIMIT 1`, schemaName)
+	err := db.Raw(sql, req.AppointmentID, patientID).Scan(&appointment).Error
+	if err != nil || appointment.ID == 0 {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":   true,
 			"message": "Agendamento não encontrado ou não pertence a este paciente",
@@ -680,7 +769,8 @@ func WhatsAppGetAvailableSlots(c *gin.Context) {
 }
 
 // WhatsAppRescheduleAppointment reschedules an appointment to a new date/time
-// POST /api/whatsapp/appointments/reschedule
+// POST /api/whatsapp/appointments/reschedule?patient_id=X
+// POST /api/whatsapp/appointments/reschedule?phone=11999998888
 func WhatsAppRescheduleAppointment(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
@@ -693,21 +783,33 @@ func WhatsAppRescheduleAppointment(c *gin.Context) {
 		return
 	}
 
-	patientID := c.Query("patient_id")
-	if patientID == "" {
+	// Get patient ID from phone or direct ID
+	patientID, errMsg := getPatientIDFromPhoneOrID(c, db)
+	if errMsg != "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "ID do paciente é obrigatório",
+			"message": errMsg,
 		})
 		return
 	}
 
-	// Get appointment and verify it belongs to the patient
+	// Get schema name for explicit table reference
+	schemaName, _ := c.Get("schema")
+	if schemaName == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema não definido",
+		})
+		return
+	}
+
+	// Get appointment and verify it belongs to the patient using raw SQL
 	var appointment models.Appointment
-	err := db.Where("id = ? AND patient_id = ?", req.AppointmentID, patientID).
-		Preload("Dentist").
-		First(&appointment).Error
-	if err != nil {
+	sql := fmt.Sprintf(`SELECT * FROM %s.appointments
+		WHERE id = ? AND patient_id = ? AND deleted_at IS NULL
+		LIMIT 1`, schemaName)
+	err := db.Raw(sql, req.AppointmentID, patientID).Scan(&appointment).Error
+	if err != nil || appointment.ID == 0 {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":   true,
 			"message": "Agendamento não encontrado ou não pertence a este paciente",
@@ -825,7 +927,8 @@ func WhatsAppRescheduleAppointment(c *gin.Context) {
 }
 
 // WhatsAppAddToWaitingList adds patient to waiting list
-// POST /api/whatsapp/waiting-list
+// POST /api/whatsapp/waiting-list?patient_id=X
+// POST /api/whatsapp/waiting-list?phone=11999998888
 func WhatsAppAddToWaitingList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
@@ -838,18 +941,32 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 		return
 	}
 
-	patientID := c.Query("patient_id")
-	if patientID == "" {
+	// Get patient ID from phone or direct ID
+	patientID, errMsg := getPatientIDFromPhoneOrID(c, db)
+	if errMsg != "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "ID do paciente é obrigatório",
+			"message": errMsg,
 		})
 		return
 	}
 
-	// Check if patient exists (using fresh session to avoid GORM contamination)
+	// Get schema name for explicit table reference
+	schemaName, _ := c.Get("schema")
+	if schemaName == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema não definido",
+		})
+		return
+	}
+
+	// Check if patient exists using raw SQL
 	var patient models.Patient
-	if err := db.Session(&gorm.Session{}).First(&patient, patientID).Error; err != nil {
+	sql := fmt.Sprintf(`SELECT * FROM %s.patients
+		WHERE id = ? AND active = true AND deleted_at IS NULL
+		LIMIT 1`, schemaName)
+	if err := db.Raw(sql, patientID).Scan(&patient).Error; err != nil || patient.ID == 0 {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":   true,
 			"message": "Paciente não encontrado",
@@ -857,10 +974,13 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 		return
 	}
 
-	// Check if patient is already on waiting list for the same procedure (using fresh session)
+	// Check if patient is already on waiting list for the same procedure using raw SQL
 	var existingEntry models.WaitingList
-	result := db.Session(&gorm.Session{}).Where("patient_id = ? AND procedure = ? AND status = ?", patientID, req.Procedure, "waiting").First(&existingEntry)
-	if result.Error == nil {
+	sqlCheck := fmt.Sprintf(`SELECT * FROM %s.waiting_lists
+		WHERE patient_id = ? AND procedure = ? AND status = 'waiting' AND deleted_at IS NULL
+		LIMIT 1`, schemaName)
+	result := db.Raw(sqlCheck, patientID, req.Procedure).Scan(&existingEntry)
+	if result.Error == nil && existingEntry.ID != 0 {
 		c.JSON(http.StatusConflict, gin.H{
 			"error":   true,
 			"message": fmt.Sprintf("Você já está na lista de espera para %s", getProcedureLabel(req.Procedure)),
@@ -930,22 +1050,36 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 
 // WhatsAppGetWaitingListStatus returns patient's waiting list entries
 // GET /api/whatsapp/waiting-list?patient_id=X
+// GET /api/whatsapp/waiting-list?phone=11999998888
 func WhatsAppGetWaitingListStatus(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
-	patientID := c.Query("patient_id")
 
-	if patientID == "" {
+	// Get patient ID from phone or direct ID
+	patientID, errMsg := getPatientIDFromPhoneOrID(c, db)
+	if errMsg != "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "ID do paciente é obrigatório",
+			"message": errMsg,
 		})
 		return
 	}
 
+	// Get schema name for explicit table reference
+	schemaName, _ := c.Get("schema")
+	if schemaName == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema não definido",
+		})
+		return
+	}
+
+	// Get waiting list entries using raw SQL
 	var entries []models.WaitingList
-	err := db.Where("patient_id = ? AND status IN (?)", patientID, []string{"waiting", "contacted"}).
-		Order("created_at DESC").
-		Find(&entries).Error
+	sql := fmt.Sprintf(`SELECT * FROM %s.waiting_lists
+		WHERE patient_id = ? AND status IN ('waiting', 'contacted') AND deleted_at IS NULL
+		ORDER BY created_at DESC`, schemaName)
+	err := db.Raw(sql, patientID).Scan(&entries).Error
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -1006,23 +1140,38 @@ func WhatsAppGetWaitingListStatus(c *gin.Context) {
 
 // WhatsAppRemoveFromWaitingList removes patient from waiting list
 // DELETE /api/whatsapp/waiting-list/:id?patient_id=X
+// DELETE /api/whatsapp/waiting-list/:id?phone=11999998888
 func WhatsAppRemoveFromWaitingList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	entryID := c.Param("id")
-	patientID := c.Query("patient_id")
 
-	if patientID == "" {
+	// Get patient ID from phone or direct ID
+	patientID, errMsg := getPatientIDFromPhoneOrID(c, db)
+	if errMsg != "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "ID do paciente é obrigatório",
+			"message": errMsg,
 		})
 		return
 	}
 
-	// Find and verify entry belongs to patient
+	// Get schema name for explicit table reference
+	schemaName, _ := c.Get("schema")
+	if schemaName == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema não definido",
+		})
+		return
+	}
+
+	// Find and verify entry belongs to patient using raw SQL
 	var entry models.WaitingList
-	err := db.Where("id = ? AND patient_id = ?", entryID, patientID).First(&entry).Error
-	if err != nil {
+	sql := fmt.Sprintf(`SELECT * FROM %s.waiting_lists
+		WHERE id = ? AND patient_id = ? AND deleted_at IS NULL
+		LIMIT 1`, schemaName)
+	err := db.Raw(sql, entryID, patientID).Scan(&entry).Error
+	if err != nil || entry.ID == 0 {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":   true,
 			"message": "Entrada não encontrada na lista de espera",
@@ -1030,8 +1179,10 @@ func WhatsAppRemoveFromWaitingList(c *gin.Context) {
 		return
 	}
 
-	// Update status to cancelled
-	err = db.Model(&entry).Update("status", "cancelled").Error
+	// Update status to cancelled using raw SQL
+	sqlUpdate := fmt.Sprintf(`UPDATE %s.waiting_lists SET status = 'cancelled', updated_at = NOW()
+		WHERE id = ?`, schemaName)
+	err = db.Exec(sqlUpdate, entry.ID).Error
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
@@ -1103,8 +1254,10 @@ func WhatsAppGetDentists(c *gin.Context) {
 }
 
 // WhatsAppCreateAppointmentRequest represents an appointment creation request via WhatsApp API
+// Accepts either patient_id OR phone to identify the patient
 type WhatsAppCreateAppointmentRequest struct {
-	PatientID uint   `json:"patient_id" binding:"required"`
+	PatientID uint   `json:"patient_id"`                     // Patient ID (optional if phone is provided)
+	Phone     string `json:"phone"`                          // Patient phone (optional if patient_id is provided)
 	DentistID uint   `json:"dentist_id" binding:"required"`
 	Procedure string `json:"procedure"`
 	Date      string `json:"date" binding:"required"` // Format: YYYY-MM-DD
@@ -1218,7 +1371,16 @@ func WhatsAppCreateAppointment(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "Dados incompletos. Informe patient_id, dentist_id, date e time.",
+			"message": "Dados incompletos. Informe patient_id ou phone, dentist_id, date e time.",
+		})
+		return
+	}
+
+	// Validate that either patient_id or phone is provided
+	if req.PatientID == 0 && req.Phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   true,
+			"message": "Informe patient_id ou phone para identificar o paciente",
 		})
 		return
 	}
@@ -1267,14 +1429,32 @@ func WhatsAppCreateAppointment(c *gin.Context) {
 	// Use fresh sessions to avoid GORM state contamination
 	freshDB := db.Session(&gorm.Session{})
 
-	// Verify patient exists
+	// Resolve patient - either by ID or phone
 	var patient models.Patient
-	if err := freshDB.First(&patient, req.PatientID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error":   true,
-			"message": "Paciente não encontrado",
-		})
-		return
+	if req.PatientID != 0 {
+		// Use patient_id directly
+		if err := freshDB.First(&patient, req.PatientID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   true,
+				"message": "Paciente não encontrado",
+			})
+			return
+		}
+	} else {
+		// Search by phone using raw SQL with schema prefix
+		// Uses regexp_replace to normalize phone numbers in database
+		schemaName, _ := c.Get("schema")
+		normalizedPhone := normalizePhone(req.Phone)
+		phonePattern := "%" + normalizedPhone + "%"
+		sql := normalizePhoneQuery(schemaName)
+		err := freshDB.Raw(sql, phonePattern, phonePattern).Scan(&patient).Error
+		if err != nil || patient.ID == 0 {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   true,
+				"message": "Paciente não encontrado com este telefone",
+			})
+			return
+		}
 	}
 
 	// Verify dentist exists (using fresh session)
@@ -1317,7 +1497,7 @@ func WhatsAppCreateAppointment(c *gin.Context) {
 
 	// Create appointment
 	appointment := models.Appointment{
-		PatientID: req.PatientID,
+		PatientID: patient.ID, // Use resolved patient ID (from either patient_id or phone)
 		DentistID: req.DentistID,
 		StartTime: startTime,
 		EndTime:   endTime,
