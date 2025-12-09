@@ -4,12 +4,27 @@ import (
 	"drcrwell/backend/internal/models"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// getTimezone returns the application timezone location
+// Falls back to America/Sao_Paulo if TZ env var is not set
+func getTimezone() *time.Location {
+	tz := os.Getenv("TZ")
+	if tz == "" {
+		tz = "America/Sao_Paulo"
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return time.Local // Fallback to system local
+	}
+	return loc
+}
 
 // WhatsAppVerifyRequest represents the identity verification request
 type WhatsAppVerifyRequest struct {
@@ -545,11 +560,12 @@ func WhatsAppGetAvailableSlots(c *gin.Context) {
 	// Generate available slots
 	availableSlots := make([]WhatsAppAvailableSlot, 0)
 
+	loc := getTimezone()
 	for _, dentist := range dentists {
 		current := time.Date(date.Year(), date.Month(), date.Day(),
-			startTime.Hour(), startTime.Minute(), 0, 0, time.Local)
+			startTime.Hour(), startTime.Minute(), 0, 0, loc)
 		endOfWork := time.Date(date.Year(), date.Month(), date.Day(),
-			endTime.Hour(), endTime.Minute(), 0, 0, time.Local)
+			endTime.Hour(), endTime.Minute(), 0, 0, loc)
 
 		for current.Before(endOfWork) {
 			slotTime := current.Format("15:04")
@@ -652,9 +668,10 @@ func WhatsAppRescheduleAppointment(c *gin.Context) {
 		return
 	}
 
-	// Combine date and time
+	// Combine date and time using application timezone
+	loc := getTimezone()
 	newStartTime := time.Date(newDate.Year(), newDate.Month(), newDate.Day(),
-		newTime.Hour(), newTime.Minute(), 0, 0, time.Local)
+		newTime.Hour(), newTime.Minute(), 0, 0, loc)
 
 	// Check if new time is in the future
 	if newStartTime.Before(time.Now()) {
@@ -1151,9 +1168,10 @@ func WhatsAppCreateAppointment(c *gin.Context) {
 		return
 	}
 
-	// Combine date and time for start_time
+	// Combine date and time for start_time using application timezone
+	loc := getTimezone()
 	startTime := time.Date(date.Year(), date.Month(), date.Day(),
-		timeVal.Hour(), timeVal.Minute(), 0, 0, time.Local)
+		timeVal.Hour(), timeVal.Minute(), 0, 0, loc)
 
 	// Check if appointment is in the future
 	if startTime.Before(time.Now()) {

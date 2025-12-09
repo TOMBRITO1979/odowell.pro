@@ -8,12 +8,16 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	// Initialize timezone - critical for correct date/time handling
+	initTimezone()
+
 	// Initialize database
 	if err := database.Connect(); err != nil {
 		log.Fatal("Database connection failed:", err)
@@ -564,4 +568,23 @@ func main() {
 
 	log.Printf("Server starting on port %s", port)
 	r.Run(":" + port)
+}
+
+// initTimezone initializes the application timezone
+// This ensures all time.Local operations use the correct timezone
+func initTimezone() {
+	// Get timezone from environment variable, default to America/Sao_Paulo
+	tz := os.Getenv("TZ")
+	if tz == "" {
+		tz = "America/Sao_Paulo"
+	}
+
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		log.Printf("WARNING: Failed to load timezone '%s': %v. Using UTC.", tz, err)
+		return
+	}
+
+	time.Local = loc
+	log.Printf("Timezone initialized: %s (current time: %s)", tz, time.Now().Format("2006-01-02 15:04:05 MST"))
 }
