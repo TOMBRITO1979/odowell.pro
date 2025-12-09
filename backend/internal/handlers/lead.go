@@ -203,17 +203,23 @@ func CheckLeadByPhone(c *gin.Context) {
 	}
 
 	var queryResult PhoneCheckResult
+	// Use regexp_replace to normalize phone numbers in database for comparison
+	// This allows matching (11) 98765-4321 with 11987654321
+	phonePattern := "%" + phone + "%"
 	unionQuery := `
 		SELECT 'patient' as type, id, name, '' as status
 		FROM patients
-		WHERE (phone = ? OR cell_phone = ?) AND deleted_at IS NULL
+		WHERE (regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') LIKE ?
+		    OR regexp_replace(COALESCE(cell_phone, ''), '[^0-9]', '', 'g') LIKE ?)
+		AND deleted_at IS NULL
 		UNION ALL
 		SELECT 'lead' as type, id, name, status
 		FROM leads
-		WHERE phone = ? AND deleted_at IS NULL
+		WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') LIKE ?
+		AND deleted_at IS NULL
 		LIMIT 1
 	`
-	err := db.Raw(unionQuery, phone, phone, phone).Scan(&queryResult).Error
+	err := db.Raw(unionQuery, phonePattern, phonePattern, phonePattern).Scan(&queryResult).Error
 
 	if err == nil && queryResult.ID > 0 {
 		var result gin.H
