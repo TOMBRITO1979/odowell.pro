@@ -235,16 +235,57 @@ func WhatsAppVerifyIdentity(c *gin.Context) {
 	})
 }
 
+// normalizePhone removes formatting from phone number
+func normalizePhone(phone string) string {
+	phone = strings.ReplaceAll(phone, " ", "")
+	phone = strings.ReplaceAll(phone, "-", "")
+	phone = strings.ReplaceAll(phone, "(", "")
+	phone = strings.ReplaceAll(phone, ")", "")
+	phone = strings.ReplaceAll(phone, "+", "")
+	return strings.TrimSpace(phone)
+}
+
 // WhatsAppGetAppointments returns patient's upcoming appointments
 // GET /api/whatsapp/appointments?patient_id=X
+// GET /api/whatsapp/appointments?phone=11999998888
 func WhatsAppGetAppointments(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	patientID := c.Query("patient_id")
+	phone := c.Query("phone")
+
+	// If phone is provided, find patient by phone first
+	if patientID == "" && phone != "" {
+		normalizedPhone := normalizePhone(phone)
+		if normalizedPhone == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   true,
+				"message": "Telefone inválido",
+			})
+			return
+		}
+
+		// Search patient by phone or cell_phone
+		var patient models.Patient
+		err := db.Where("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(cell_phone, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') = ?",
+			normalizedPhone, normalizedPhone).
+			Where("active = ?", true).
+			First(&patient).Error
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   true,
+				"message": "Paciente não encontrado com este telefone",
+			})
+			return
+		}
+
+		patientID = fmt.Sprintf("%d", patient.ID)
+	}
 
 	if patientID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "ID do paciente é obrigatório",
+			"message": "Informe patient_id ou phone para buscar agendamentos",
 		})
 		return
 	}
