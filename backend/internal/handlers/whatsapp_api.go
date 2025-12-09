@@ -295,8 +295,16 @@ func WhatsAppGetAppointments(c *gin.Context) {
 	var appointments []models.Appointment
 	today := time.Now().Truncate(24 * time.Hour)
 
-	err := db.Where("patient_id = ? AND start_time >= ? AND status NOT IN (?)",
-		patientID, today, []string{"cancelled"}).
+	// Get schema name for explicit table reference
+	schemaName, _ := c.Get("schema")
+	tableName := "appointments"
+	if schemaName != nil {
+		tableName = fmt.Sprintf("%s.appointments", schemaName)
+	}
+
+	err := db.Table(tableName).
+		Where("patient_id = ? AND start_time >= ? AND status NOT IN (?)",
+			patientID, today, []string{"cancelled"}).
 		Preload("Dentist").
 		Order("start_time ASC").
 		Find(&appointments).Error
