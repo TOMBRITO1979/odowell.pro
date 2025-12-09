@@ -264,11 +264,19 @@ func WhatsAppGetAppointments(c *gin.Context) {
 			return
 		}
 
+		// Get schema name for explicit table reference
+		schemaName, _ := c.Get("schema")
+		patientsTable := "patients"
+		if schemaName != nil {
+			patientsTable = fmt.Sprintf("%s.patients", schemaName)
+		}
+
 		// Search patient by phone or cell_phone using normalized comparison
 		var patient models.Patient
 		// Use simple LIKE search for better compatibility
 		phonePattern := "%" + normalizedPhone + "%"
-		err := db.Where("phone LIKE ? OR cell_phone LIKE ?", phonePattern, phonePattern).
+		err := db.Table(patientsTable).
+			Where("phone LIKE ? OR cell_phone LIKE ?", phonePattern, phonePattern).
 			Where("active = ?", true).
 			First(&patient).Error
 
