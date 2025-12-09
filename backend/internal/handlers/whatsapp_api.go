@@ -264,10 +264,11 @@ func WhatsAppGetAppointments(c *gin.Context) {
 			return
 		}
 
-		// Search patient by phone or cell_phone
+		// Search patient by phone or cell_phone using normalized comparison
 		var patient models.Patient
-		err := db.Where("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') = ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(cell_phone, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') = ?",
-			normalizedPhone, normalizedPhone).
+		// Use simple LIKE search for better compatibility
+		phonePattern := "%" + normalizedPhone + "%"
+		err := db.Where("phone LIKE ? OR cell_phone LIKE ?", phonePattern, phonePattern).
 			Where("active = ?", true).
 			First(&patient).Error
 
