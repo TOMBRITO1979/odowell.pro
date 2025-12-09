@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
 // Claims represents JWT claims
@@ -174,9 +175,10 @@ func APIKeyMiddleware() gin.HandlerFunc {
 		c.Set("tenant_name", tenant.Name)
 		c.Set("api_access", true) // Flag to identify API access vs user access
 
-		// Set tenant-specific schema
+		// Set tenant-specific schema using a new session to ensure search_path persists
 		schemaName := fmt.Sprintf("tenant_%d", tenant.ID)
-		tenantDB := database.SetSchema(db, schemaName)
+		sessionDB := db.Session(&gorm.Session{})
+		tenantDB := database.SetSchema(sessionDB, schemaName)
 
 		// Store tenant DB in context
 		c.Set("db", tenantDB)

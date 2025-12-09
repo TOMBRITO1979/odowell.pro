@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // TenantMiddleware sets the database schema based on tenant
@@ -18,12 +19,13 @@ func TenantMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Set tenant-specific schema
+		// Set tenant-specific schema using a new session to ensure search_path persists
 		schemaName := fmt.Sprintf("tenant_%d", tenantID)
 
 		// Create a new DB session with tenant schema
 		db := database.GetDB()
-		tenantDB := database.SetSchema(db, schemaName)
+		sessionDB := db.Session(&gorm.Session{})
+		tenantDB := database.SetSchema(sessionDB, schemaName)
 
 		// Store tenant DB in context
 		c.Set("db", tenantDB)
