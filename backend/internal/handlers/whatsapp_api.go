@@ -266,21 +266,24 @@ func WhatsAppGetAppointments(c *gin.Context) {
 
 		// Get schema name for explicit table reference
 		schemaName, _ := c.Get("schema")
-		patientsTable := "patients"
-		if schemaName != nil {
-			patientsTable = fmt.Sprintf("%s.patients", schemaName)
+		if schemaName == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   true,
+				"message": "Erro interno: schema não definido",
+			})
+			return
 		}
 
-		// Search patient by phone or cell_phone using normalized comparison
+		// Use raw SQL to find patient by phone with explicit schema
 		var patient models.Patient
-		// Use simple LIKE search for better compatibility
 		phonePattern := "%" + normalizedPhone + "%"
-		err := db.Table(patientsTable).
-			Where("phone LIKE ? OR cell_phone LIKE ?", phonePattern, phonePattern).
-			Where("active = ?", true).
-			First(&patient).Error
+		sql := fmt.Sprintf(`SELECT * FROM %s.patients
+			WHERE (phone LIKE ? OR cell_phone LIKE ?)
+			AND active = true AND deleted_at IS NULL
+			LIMIT 1`, schemaName)
+		err := db.Raw(sql, phonePattern, phonePattern).Scan(&patient).Error
 
-		if err != nil {
+		if err != nil || patient.ID == 0 {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   true,
 				"message": "Paciente não encontrado com este telefone",
@@ -305,17 +308,20 @@ func WhatsAppGetAppointments(c *gin.Context) {
 
 	// Get schema name for explicit table reference
 	schemaName, _ := c.Get("schema")
-	tableName := "appointments"
-	if schemaName != nil {
-		tableName = fmt.Sprintf("%s.appointments", schemaName)
+	if schemaName == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema não definido",
+		})
+		return
 	}
 
-	err := db.Table(tableName).
-		Where("patient_id = ? AND start_time >= ? AND status NOT IN (?)",
-			patientID, today, []string{"cancelled"}).
-		Preload("Dentist").
-		Order("start_time ASC").
-		Find(&appointments).Error
+	// Use raw SQL with explicit schema
+	sql := fmt.Sprintf(`SELECT * FROM %s.appointments
+		WHERE patient_id = ? AND start_time >= ? AND status NOT IN ('cancelled')
+		AND deleted_at IS NULL
+		ORDER BY start_time ASC`, schemaName)
+	err := db.Raw(sql, patientID, today).Scan(&appointments).Error
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -325,12 +331,23 @@ func WhatsAppGetAppointments(c *gin.Context) {
 		return
 	}
 
+	// Load dentist names from public.users
+	dentistNames := make(map[uint]string)
+	for _, apt := range appointments {
+		if _, exists := dentistNames[apt.DentistID]; !exists {
+			var user models.User
+			if err := db.Raw("SELECT * FROM public.users WHERE id = ?", apt.DentistID).Scan(&user).Error; err == nil && user.ID != 0 {
+				dentistNames[user.ID] = user.Name
+			}
+		}
+	}
+
 	// Convert to response format
 	response := make([]WhatsAppAppointmentResponse, 0)
 	for _, apt := range appointments {
-		dentistName := "Não definido"
-		if apt.Dentist != nil {
-			dentistName = apt.Dentist.Name
+		dentistName := dentistNames[apt.DentistID]
+		if dentistName == "" {
+			dentistName = "Não definido"
 		}
 
 		// Can cancel/reschedule only if appointment is in the future and not completed
