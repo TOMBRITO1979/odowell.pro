@@ -128,13 +128,23 @@ func PermanentDeletePatient(c *gin.Context) {
 		return
 	}
 
-	// 7. Delete budget items (linked to budgets)
+	// 7. Delete treatment payments (linked to treatments via budgets)
 	var budgetIDs []uint
 	tx.Model(&models.Budget{}).Where("patient_id = ?", patientID).Pluck("id", &budgetIDs)
 	if len(budgetIDs) > 0 {
-		if err := tx.Unscoped().Where("budget_id IN ?", budgetIDs).Delete(&models.BudgetItem{}).Error; err != nil {
+		var treatmentIDs []uint
+		tx.Model(&models.Treatment{}).Where("budget_id IN ?", budgetIDs).Pluck("id", &treatmentIDs)
+		if len(treatmentIDs) > 0 {
+			if err := tx.Unscoped().Where("treatment_id IN ?", treatmentIDs).Delete(&models.TreatmentPayment{}).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao excluir pagamentos de tratamento"})
+				return
+			}
+		}
+		// Delete treatments
+		if err := tx.Unscoped().Where("budget_id IN ?", budgetIDs).Delete(&models.Treatment{}).Error; err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao excluir itens de orcamento"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao excluir tratamentos"})
 			return
 		}
 	}
@@ -351,7 +361,7 @@ func AnonymizePatient(c *gin.Context) {
 	patient.State = ""
 	patient.ZipCode = ""
 	patient.Notes = "Dados anonimizados conforme LGPD"
-	patient.Tags = nil
+	patient.Tags = ""
 
 	if err := db.Save(&patient).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao anonimizar paciente"})
