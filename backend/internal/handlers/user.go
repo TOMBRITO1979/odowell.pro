@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -104,9 +106,20 @@ func CreateTenantUser(c *gin.Context) {
 	}
 
 	if err := db.Create(&user).Error; err != nil {
+		helpers.AuditAction(c, "create", "users", 0, false, map[string]interface{}{
+			"error": "Failed to create user",
+			"email": req.Email,
+		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
+
+	// Log de criação de usuário (crítico para segurança)
+	helpers.AuditAction(c, "create", "users", user.ID, true, map[string]interface{}{
+		"new_user_email": user.Email,
+		"new_user_name":  user.Name,
+		"new_user_role":  user.Role,
+	})
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User created successfully",
@@ -149,12 +162,14 @@ func UpdateTenantUser(c *gin.Context) {
 
 	db := database.GetDB()
 
-	// Get user
+	// Get user (guardar dados antigos para log)
 	var user models.User
 	if err := db.Where("id = ? AND tenant_id = ?", userID, tenantID).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
+	oldRole := user.Role
+	oldActive := user.Active
 
 	// Check if email is taken by another user
 	var existingUser models.User
@@ -173,9 +188,25 @@ func UpdateTenantUser(c *gin.Context) {
 	user.Specialty = req.Specialty
 
 	if err := db.Save(&user).Error; err != nil {
+		userIDInt, _ := strconv.ParseUint(userID, 10, 32)
+		helpers.AuditAction(c, "update", "users", uint(userIDInt), false, map[string]interface{}{
+			"error": "Failed to update user",
+		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
 	}
+
+	// Log de atualização de usuário (crítico - mudanças de role/active)
+	userIDInt, _ := strconv.ParseUint(userID, 10, 32)
+	helpers.AuditAction(c, "update", "users", uint(userIDInt), true, map[string]interface{}{
+		"target_user_email": user.Email,
+		"role_changed":      oldRole != user.Role,
+		"old_role":          oldRole,
+		"new_role":          user.Role,
+		"active_changed":    oldActive != user.Active,
+		"old_active":        oldActive,
+		"new_active":        user.Active,
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User updated successfully",

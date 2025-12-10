@@ -134,7 +134,7 @@ func main() {
 
 	// Protected routes
 	protected := r.Group("/api")
-	protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.AuthMiddleware(), middleware.AuditMiddleware())
 	{
 		protected.GET("/auth/me", handlers.GetMe)
 		protected.PUT("/auth/profile", handlers.UpdateProfile)
@@ -144,7 +144,7 @@ func main() {
 
 	// Tenant-scoped routes (subscription NOT required - for subscription management)
 	tenantedNoSub := r.Group("/api")
-	tenantedNoSub.Use(middleware.AuthMiddleware(), middleware.TenantMiddleware())
+	tenantedNoSub.Use(middleware.AuthMiddleware(), middleware.TenantMiddleware(), middleware.AuditMiddleware())
 	{
 		// Subscription routes - always accessible
 		subscription := tenantedNoSub.Group("/subscription")
@@ -159,7 +159,7 @@ func main() {
 
 	// Tenant-scoped routes (subscription REQUIRED)
 	tenanted := r.Group("/api")
-	tenanted.Use(middleware.AuthMiddleware(), middleware.TenantMiddleware(), middleware.SubscriptionMiddleware())
+	tenanted.Use(middleware.AuthMiddleware(), middleware.TenantMiddleware(), middleware.SubscriptionMiddleware(), middleware.AuditMiddleware())
 	{
 		// Patients CRUD
 		patients := tenanted.Group("/patients")

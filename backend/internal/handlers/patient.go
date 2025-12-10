@@ -1,7 +1,8 @@
 package handlers
 
 import (
-        "drcrwell/backend/internal/middleware"
+	"drcrwell/backend/internal/helpers"
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"net/http"
 	"strconv"
@@ -25,9 +26,20 @@ func CreatePatient(c *gin.Context) {
 
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
 	if err := db.Create(&patient).Error; err != nil {
+		helpers.AuditAction(c, "create", "patients", 0, false, map[string]interface{}{
+			"error": "Erro ao criar paciente",
+			"name":  patient.Name,
+		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar paciente"})
 		return
 	}
+
+	// Log detalhado da criação
+	helpers.AuditAction(c, "create", "patients", patient.ID, true, map[string]interface{}{
+		"name":  patient.Name,
+		"cpf":   patient.CPF,
+		"phone": patient.Phone,
+	})
 
 	c.JSON(http.StatusCreated, gin.H{"patient": patient})
 }
@@ -78,11 +90,12 @@ func GetPatient(c *gin.Context) {
 // UpdatePatient - Atualizar paciente
 func UpdatePatient(c *gin.Context) {
 	id := c.Param("id")
+	patientID, _ := strconv.ParseUint(id, 10, 32)
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
 
-	// Verificar se paciente existe
-	var count int64
-	if err := db.Model(&models.Patient{}).Where("id = ?", id).Count(&count).Error; err != nil || count == 0 {
+	// Buscar dados anteriores para log de auditoria
+	var oldPatient models.Patient
+	if err := db.First(&oldPatient, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Paciente não encontrado"})
 		return
 	}
@@ -120,6 +133,9 @@ func UpdatePatient(c *gin.Context) {
 		input.Tags, input.Active, input.Notes,
 		id,
 	).Error; err != nil {
+		helpers.AuditAction(c, "update", "patients", uint(patientID), false, map[string]interface{}{
+			"error": "Erro ao atualizar paciente",
+		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar paciente"})
 		return
 	}
@@ -128,18 +144,49 @@ func UpdatePatient(c *gin.Context) {
 	var patient models.Patient
 	db.First(&patient, id)
 
+	// Log detalhado da atualização com dados antes/depois
+	helpers.AuditAction(c, "update", "patients", uint(patientID), true, map[string]interface{}{
+		"before": map[string]interface{}{
+			"name":  oldPatient.Name,
+			"phone": oldPatient.Phone,
+			"email": oldPatient.Email,
+		},
+		"after": map[string]interface{}{
+			"name":  patient.Name,
+			"phone": patient.Phone,
+			"email": patient.Email,
+		},
+	})
+
 	c.JSON(http.StatusOK, gin.H{"patient": patient})
 }
 
 // DeletePatient - Deletar paciente (soft delete)
 func DeletePatient(c *gin.Context) {
 	id := c.Param("id")
+	patientID, _ := strconv.ParseUint(id, 10, 32)
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
 
+	// Buscar dados do paciente para log
+	var patient models.Patient
+	db.First(&patient, id)
+
 	if err := db.Delete(&models.Patient{}, id).Error; err != nil {
+		helpers.AuditAction(c, "delete", "patients", uint(patientID), false, map[string]interface{}{
+			"error": "Erro ao deletar paciente",
+		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao deletar paciente"})
 		return
 	}
+
+	// Log detalhado da exclusão
+	helpers.AuditAction(c, "delete", "patients", uint(patientID), true, map[string]interface{}{
+		"deleted_patient": map[string]interface{}{
+			"name":  patient.Name,
+			"cpf":   patient.CPF,
+			"phone": patient.Phone,
+		},
+	})
 
 	c.JSON(http.StatusOK, gin.H{"message": "Paciente deletado com sucesso"})
 }
