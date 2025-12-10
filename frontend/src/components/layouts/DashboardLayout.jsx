@@ -230,8 +230,8 @@ const DashboardLayout = () => {
       icon: <SafetyOutlined />,
       label: 'LGPD',
       children: [
-        { key: '/data-requests', label: 'Solicitacoes', adminOnly: true },
-        { key: '/audit-logs', label: 'Logs de Auditoria', adminOnly: true },
+        { key: '/admin/data-requests', label: 'Solicitações', adminOnly: true },
+        { key: '/admin/audit-logs', label: 'Logs de Auditoria', adminOnly: true },
       ],
     }] : []),
     // Super Admin only - Platform Administration

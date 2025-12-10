@@ -150,10 +150,10 @@ function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Legal pages (public) */}
-      <Route path="/terms" element={<TermsOfService />} />
-      <Route path="/privacy" element={<PrivacyPolicy />} />
-      <Route path="/lgpd" element={<LGPDRights />} />
-      <Route path="/cookies" element={<CookiePolicy />} />
+      <Route path="/termos-de-uso" element={<TermsOfService />} />
+      <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
+      <Route path="/seus-direitos-lgpd" element={<LGPDRights />} />
+      <Route path="/politica-de-cookies" element={<CookiePolicy />} />
 
       {/* Protected routes */}
       <Route
@@ -260,10 +260,10 @@ function App() {
         <Route path="admin/tenants" element={<AdminTenants />} />
 
         {/* Audit Logs - LGPD Compliance (Admin only) */}
-        <Route path="audit-logs" element={<AuditLogs />} />
+        <Route path="admin/audit-logs" element={<AuditLogs />} />
 
         {/* Data Requests - LGPD (Solicitacoes do Titular) */}
-        <Route path="data-requests" element={<DataRequests />} />
+        <Route path="admin/data-requests" element={<DataRequests />} />
 
         {/* Plans (Patient Subscriptions - Stripe) */}
         <Route path="plans" element={<Plans />} />
