@@ -26,6 +26,7 @@ import {
   TagsOutlined,
   WalletOutlined,
   UsergroupAddOutlined,
+  SafetyOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI, paymentsAPI } from '../../services/api';
@@ -222,6 +223,16 @@ const DashboardLayout = () => {
       icon: <CreditCardOutlined />,
       label: 'Assinatura',
       adminOnly: true,
+    }] : []),
+    // LGPD Compliance (admin only)
+    ...(isAdmin ? [{
+      key: 'lgpd',
+      icon: <SafetyOutlined />,
+      label: 'LGPD',
+      children: [
+        { key: '/data-requests', label: 'Solicitacoes', adminOnly: true },
+        { key: '/audit-logs', label: 'Logs de Auditoria', adminOnly: true },
+      ],
     }] : []),
     // Super Admin only - Platform Administration
     ...(isSuperAdmin ? [{

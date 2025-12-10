@@ -12,6 +12,12 @@ import CreateTenant from './pages/auth/CreateTenant';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 
+// Legal pages (public)
+import TermsOfService from './pages/legal/TermsOfService';
+import PrivacyPolicy from './pages/legal/PrivacyPolicy';
+import LGPDRights from './pages/legal/LGPDRights';
+import CookiePolicy from './pages/legal/CookiePolicy';
+
 // Protected pages
 import DashboardLayout from './components/layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
@@ -60,6 +66,8 @@ import Attendance from './pages/attendance/Attendance';
 
 // Admin pages
 import AdminTenants from './pages/admin/AdminTenants';
+import AuditLogs from './pages/admin/AuditLogs';
+import DataRequests from './pages/admin/DataRequests';
 
 // Plans (Patient Subscriptions)
 import Plans from './pages/plans/Plans';
@@ -140,6 +148,12 @@ function App() {
       <Route path="/create-tenant" element={<CreateTenant />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* Legal pages (public) */}
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/lgpd" element={<LGPDRights />} />
+      <Route path="/cookies" element={<CookiePolicy />} />
 
       {/* Protected routes */}
       <Route
@@ -244,6 +258,12 @@ function App() {
 
         {/* Super Admin - Platform Administration */}
         <Route path="admin/tenants" element={<AdminTenants />} />
+
+        {/* Audit Logs - LGPD Compliance (Admin only) */}
+        <Route path="audit-logs" element={<AuditLogs />} />
+
+        {/* Data Requests - LGPD (Solicitacoes do Titular) */}
+        <Route path="data-requests" element={<DataRequests />} />
 
         {/* Plans (Patient Subscriptions - Stripe) */}
         <Route path="plans" element={<Plans />} />

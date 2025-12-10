@@ -404,3 +404,27 @@ export const adminAPI = {
   getExpiringTrials: () => api.get('/admin/tenants/expiring'),
   getInactiveTenants: () => api.get('/admin/tenants/inactive'),
 };
+
+// Audit Logs API (LGPD Compliance)
+export const auditAPI = {
+  getLogs: (params) => api.get('/audit/logs', { params }),
+  getStats: () => api.get('/audit/stats'),
+  exportCSV: (params) => api.get('/audit/export/csv', { params, responseType: 'blob' }),
+};
+
+// Data Requests API (LGPD - Solicitacoes do Titular)
+export const dataRequestAPI = {
+  getAll: (params) => api.get('/data-requests', { params }),
+  getOne: (id) => api.get(`/data-requests/${id}`),
+  create: (data) => api.post('/data-requests', data),
+  updateStatus: (id, data) => api.patch(`/data-requests/${id}/status`, data),
+  getStats: () => api.get('/data-requests/stats'),
+  getByPatient: (patientId) => api.get(`/data-requests/patient/${patientId}`),
+};
+
+// LGPD Data Deletion API
+export const lgpdAPI = {
+  getDeletionPreview: (patientId) => api.get(`/lgpd/patients/${patientId}/deletion-preview`),
+  permanentDelete: (patientId, data) => api.delete(`/lgpd/patients/${patientId}/permanent`, { data }),
+  anonymize: (patientId, data) => api.post(`/lgpd/patients/${patientId}/anonymize`, data),
+};

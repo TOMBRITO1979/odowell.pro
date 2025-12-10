@@ -89,6 +89,14 @@ const Login = () => {
             <span style={{ margin: '0 8px' }}>|</span>
             <Link to="/create-tenant">Cadastrar consultório</Link>
           </div>
+
+          <div style={{ textAlign: 'center', marginTop: 24, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
+            <Link to="/terms" style={{ fontSize: 12, color: '#888' }}>Termos de Uso</Link>
+            <span style={{ margin: '0 8px', color: '#ddd' }}>|</span>
+            <Link to="/privacy" style={{ fontSize: 12, color: '#888' }}>Privacidade</Link>
+            <span style={{ margin: '0 8px', color: '#ddd' }}>|</span>
+            <Link to="/lgpd" style={{ fontSize: 12, color: '#888' }}>LGPD</Link>
+          </div>
         </Form>
       </Card>
     </div>

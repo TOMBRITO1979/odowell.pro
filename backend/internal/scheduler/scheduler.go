@@ -11,6 +11,8 @@ import (
 func StartScheduler() {
 	go runTrialExpirationChecker()
 	log.Println("Scheduler started - Trial expiration checker running every hour")
+
+	go StartRetentionScheduler()
 }
 
 // runTrialExpirationChecker runs every hour to check and deactivate expired trials

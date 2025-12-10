@@ -460,6 +460,41 @@ func main() {
 			permissions.POST("/users/:id/bulk", handlers.BulkUpdateUserPermissions)
 			permissions.GET("/defaults/:role", handlers.GetDefaultRolePermissions)
 		}
+
+		// Audit Logs (admin only) - LGPD compliance
+		audit := tenanted.Group("/audit")
+		{
+			audit.GET("/logs", handlers.GetAuditLogs)
+			audit.GET("/stats", handlers.GetAuditLogStats)
+			audit.GET("/export/csv", handlers.ExportAuditLogsCSV)
+		}
+
+		// Data Requests (LGPD - Solicitacoes do Titular)
+		dataRequests := tenanted.Group("/data-requests")
+		{
+			dataRequests.POST("", middleware.PermissionMiddleware("patients", "edit"), handlers.CreateDataRequest)
+			dataRequests.GET("", middleware.PermissionMiddleware("patients", "view"), handlers.GetDataRequests)
+			dataRequests.GET("/stats", middleware.PermissionMiddleware("patients", "view"), handlers.GetDataRequestStats)
+			dataRequests.GET("/:id", middleware.PermissionMiddleware("patients", "view"), handlers.GetDataRequest)
+			dataRequests.PATCH("/:id/status", middleware.PermissionMiddleware("patients", "edit"), handlers.UpdateDataRequestStatus)
+			dataRequests.GET("/patient/:patient_id", middleware.PermissionMiddleware("patients", "view"), handlers.GetPatientDataRequests)
+		}
+
+		// LGPD Data Deletion (admin only)
+		lgpd := tenanted.Group("/lgpd")
+		{
+			lgpd.GET("/patients/:id/deletion-preview", handlers.GetPatientDeletionPreview)
+			lgpd.DELETE("/patients/:id/permanent", handlers.PermanentDeletePatient)
+			lgpd.POST("/patients/:id/anonymize", handlers.AnonymizePatient)
+		}
+
+		// Data Retention (admin only)
+		retention := tenanted.Group("/retention")
+		{
+			retention.GET("/stats", handlers.GetRetentionStats)
+			retention.GET("/policy", handlers.GetRetentionPolicy)
+			retention.POST("/cleanup", handlers.TriggerRetentionCleanup)
+		}
 	}
 
 	// Super Admin routes (platform-level administration)
