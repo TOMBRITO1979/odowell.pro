@@ -95,6 +95,7 @@ func migrateNewTablesOnly(schema string) error {
 		&models.StockMovement{},  // Added for sale buyer fields
 		&models.Lead{},           // CRM leads for WhatsApp integration
 		&models.Patient{},        // Added for phone/cell_phone indexes (WhatsApp optimization)
+		&models.DataRequest{},    // LGPD data requests (Right to Access, Deletion, etc.)
 	)
 
 	return err
@@ -141,6 +142,9 @@ func autoMigrateTenantSchema(db *gorm.DB) error {
 
 		// CRM tables
 		&models.Lead{},
+
+		// LGPD tables
+		&models.DataRequest{},
 		// Note: TenantSettings is in public schema, not tenant schemas
 	)
 }
