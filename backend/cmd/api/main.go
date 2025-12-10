@@ -5,6 +5,7 @@ import (
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/handlers"
 	"drcrwell/backend/internal/middleware"
+	"drcrwell/backend/internal/scheduler"
 	"log"
 	"os"
 	"strings"
@@ -35,6 +36,9 @@ func main() {
 		log.Printf("WARNING: Migration errors occurred: %v", err)
 		// Don't fail startup, just log the warning
 	}
+
+	// Start background schedulers (trial expiration, data retention cleanup)
+	scheduler.StartScheduler()
 
 	// Create router
 	r := gin.Default()
