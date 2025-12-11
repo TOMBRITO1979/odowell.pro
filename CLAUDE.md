@@ -121,11 +121,13 @@ Each tenant gets an isolated PostgreSQL schema (`tenant_X`).
 
 **Admin bypass**: Users with `role = 'admin'` skip all permission checks.
 
-**Available modules** (from `002_seed_permissions.sql`): `dashboard`, `patients`, `appointments`, `medical_records`, `prescriptions`, `exams`, `budgets`, `payments`, `expenses`, `products`, `suppliers`, `stock_movements`, `campaigns`, `reports`, `users`, `settings`, `tasks`, `waiting_list`, `treatment_protocols`, `consents`, `treatments`, `plans`
+**Available modules** (from `public.modules` table): `dashboard`, `patients`, `appointments`, `medical_records`, `prescriptions`, `exams`, `budgets`, `payments`, `expenses`, `products`, `suppliers`, `stock_movements`, `campaigns`, `reports`, `users`, `settings`, `tasks`, `waiting_list`, `treatment_protocols`, `consents`, `treatments`, `plans`, `certificates`, `audit_logs`, `data_requests`
 
 **Actions**: `view`, `create`, `edit`, `delete`
 
 **User roles**: `admin` (full access), `dentist` (clinical focus), `receptionist` (front desk)
+
+**Super Admin**: Users with `is_super_admin = true` have access to platform administration (Adm Empresas). This is the ONLY exclusive super admin feature.
 
 ## Adding New Features
 
@@ -209,3 +211,76 @@ See `.env.example` for complete list with descriptions.
 
 - All user-facing strings are in Portuguese (pt_BR)
 - Error messages, labels, and notifications are hardcoded Portuguese
+
+## Digital Signature (ICP-Brasil A1)
+
+### Overview
+The system supports digital signature for prescriptions and medical records using ICP-Brasil A1 certificates (.pfx/.p12 files).
+
+### Files
+- **Backend**:
+  - `internal/handlers/certificate.go` - Certificate upload, encryption, validation
+  - `internal/handlers/document_signer.go` - Document signing logic
+  - `internal/models/user_certificate.go` - Certificate model (stored in public schema)
+- **Frontend**:
+  - `src/pages/certificates/Certificates.jsx` - Certificate management page
+  - `src/services/api.js` - `certificatesAPI` and `signingAPI` modules
+
+### Security
+- Certificates are encrypted with AES-256-GCM before storage
+- Key derivation uses PBKDF2 with SHA-256 (100,000 iterations)
+- Password is required at signing time (not stored)
+- Signature uses RSA+SHA256
+
+### Database
+- `public.user_certificates` - Stores encrypted certificates (public schema, shared across tenants)
+- `prescriptions.is_signed`, `signed_at`, `signature_hash`, etc. - Signature fields
+- `medical_records.is_signed`, `signed_at`, `signature_hash`, etc. - Signature fields
+
+### Flow
+1. User uploads .pfx/.p12 certificate with password
+2. System validates certificate, extracts metadata, encrypts with AES-256
+3. User opens prescription/medical record, clicks "Assinar Digitalmente"
+4. System prompts for certificate password
+5. System decrypts certificate, generates SHA-256 hash of document, signs with RSA
+6. Document is marked as signed (cannot be edited/deleted)
+
+## Deployment & GitHub
+
+### Docker Images
+```bash
+# Build and push backend
+cd backend
+docker build -t tomautomations/drcrwell-backend:latest .
+docker push tomautomations/drcrwell-backend:latest
+docker service update --image tomautomations/drcrwell-backend:latest drcrwell_backend --force
+
+# Build and push frontend
+cd frontend
+docker build --build-arg VITE_API_URL=https://api.odowell.pro -t tomautomations/drcrwell-frontend:latest .
+docker push tomautomations/drcrwell-frontend:latest
+docker service update --image tomautomations/drcrwell-frontend:latest drcrwell_frontend --force
+```
+
+### GitHub Commit (Safe)
+```bash
+# Check for sensitive data before commit
+git diff --name-only | xargs -I {} grep -l -E "(password|secret|token|api_key)" {} 2>/dev/null
+
+# Verify .gitignore excludes sensitive files
+cat .gitignore | grep -E "\.env|credentials|secrets"
+
+# Commit and push
+git add -A
+git commit -m "feat: Description"
+git push origin feature/rbac-permissions
+```
+
+### Important: Never commit
+- `.env` files (contains DB passwords, JWT secrets, API keys)
+- Any file with hardcoded passwords or tokens
+- Backup files (`*.backup-*`)
+
+### Sensitive Data Locations (NOT in git)
+- Backend `.env`: Database credentials, JWT_SECRET, STRIPE_*, AWS_*, SMTP_*
+- These are configured via Docker secrets or environment variables in production
