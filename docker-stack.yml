@@ -29,8 +29,8 @@ services:
       -c timezone=${TZ:-America/Sao_Paulo}
     environment:
       POSTGRES_DB: ${DB_NAME:-drcrwell_db}
-      POSTGRES_USER: ${DB_USER:-drcrwell_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_this_password}
+      POSTGRES_USER: ${DB_USER:-odowell_app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
@@ -47,7 +47,7 @@ services:
         gid: '70'
         mode: 0600
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-odowell_app} -d ${DB_NAME:-drcrwell_db}"]
+      test: ["CMD-SHELL", "pg_isready -U odowell_app -d ${DB_NAME:-drcrwell_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -116,10 +116,10 @@ services:
       # Database
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: ${DB_USER:-drcrwell_user}
-      DB_PASSWORD: ${DB_PASSWORD:-change_this_password}
+      DB_USER: ${DB_USER:-odowell_app}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME:-drcrwell_db}
-      DB_SSL_MODE: ${DB_SSL_MODE:-prefer}
+      DB_SSL_MODE: ${DB_SSL_MODE:-require}
       # Encryption Key for sensitive data
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       # Stripe
@@ -138,7 +138,7 @@ services:
       REDIS_DB: 0
       # App
       ENV: production
-      JWT_SECRET: ${JWT_SECRET:-change_this_secret_key_to_something_very_secure}
+      JWT_SECRET: ${JWT_SECRET}
       PORT: 8080
       GIN_MODE: release
       CORS_ORIGINS: ${CORS_ORIGINS:-https://app.odowell.pro}

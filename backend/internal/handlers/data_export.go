@@ -113,108 +113,6 @@ func ExportPatientData(c *gin.Context) {
 		return
 	}
 
-	// Check if request type is portability
-	if request.Type != models.DataRequestTypePortability && request.Type != models.DataRequestTypeAccess {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Este tipo de solicitacao nao permite exportacao de dados"})
-		return
-	}
-
-	// Check if identity was verified for portability requests
-	if request.Type == models.DataRequestTypePortability && !request.OTPVerified {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Identidade do titular nao foi verificada. Envie o codigo OTP primeiro."})
-		return
-	}
-
-	// Get patient data
-	var patient models.Patient
-	if err := db.First(&patient, request.PatientID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Paciente nao encontrado"})
-		return
-	}
-
-	// Build export data
-	exportData := buildPatientExportData(db, &patient, uint(requestID))
-
-	// Get format from query parameter (default: json)
-	format := c.DefaultQuery("format", "json")
-
-	switch format {
-	case "json":
-		exportJSON(c, exportData, patient.Name)
-	case "csv":
-		exportCSV(c, exportData, patient.Name)
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato invalido. Use 'json' ou 'csv'"})
-		return
-	}
-
-	// Audit log
-	helpers.AuditAction(c, "export_data", "data_requests", uint(requestID), true, map[string]interface{}{
-		"patient_id": patient.ID,
-		"format":     format,
-	})
-}
-
-func buildPatientExportData(db interface{ First(interface{}, ...interface{}) error }, patient *models.Patient, requestID uint) PatientExportData {
-	// Type assert to get the full db functionality
-	type DBInterface interface {
-		First(interface{}, ...interface{}) error
-		Where(interface{}, ...interface{}) DBInterface
-		Find(interface{}, ...interface{}) error
-		Preload(string, ...interface{}) DBInterface
-		Order(interface{}) DBInterface
-	}
-
-	export := PatientExportData{
-		ExportDate:  time.Now().Format("2006-01-02 15:04:05"),
-		ExportedFor: "LGPD - Lei Geral de Protecao de Dados",
-		RequestID:   requestID,
-		Patient: PatientBasicData{
-			ID:        patient.ID,
-			Name:      patient.Name,
-			CPF:       patient.CPF,
-			Email:     patient.Email,
-			Phone:     patient.Phone,
-			Address:   patient.Address,
-			City:      patient.City,
-			State:     patient.State,
-			ZipCode:   patient.ZipCode,
-			CreatedAt: patient.CreatedAt.Format("2006-01-02"),
-		},
-		Appointments:   []AppointmentExportData{},
-		MedicalRecords: []MedicalRecordExportData{},
-		Prescriptions:  []PrescriptionExportData{},
-		Exams:          []ExamExportData{},
-		Consents:       []ConsentExportData{},
-	}
-
-	if patient.BirthDate != nil {
-		export.Patient.BirthDate = patient.BirthDate.Format("2006-01-02")
-	}
-
-	return export
-}
-
-// ExportPatientDataFull exports all patient data (called from handler with full db)
-func ExportPatientDataFull(c *gin.Context) {
-	db, ok := middleware.GetDBFromContextSafe(c)
-	if !ok {
-		return
-	}
-
-	requestID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de solicitacao invalido"})
-		return
-	}
-
-	// Get the data request
-	var request models.DataRequest
-	if err := db.First(&request, requestID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Solicitacao nao encontrada"})
-		return
-	}
-
 	// Check if request type is portability or access
 	if request.Type != models.DataRequestTypePortability && request.Type != models.DataRequestTypeAccess {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Este tipo de solicitacao nao permite exportacao de dados"})
@@ -259,7 +157,7 @@ func ExportPatientDataFull(c *gin.Context) {
 
 	// Load appointments
 	var appointments []models.Appointment
-	db.Where("patient_id = ?", patient.ID).Preload("Dentist").Order("date DESC").Find(&appointments)
+	db.Where("patient_id = ?", patient.ID).Preload("Dentist").Order("start_time DESC").Find(&appointments)
 	for _, apt := range appointments {
 		dentistName := ""
 		if apt.Dentist != nil {
@@ -267,8 +165,8 @@ func ExportPatientDataFull(c *gin.Context) {
 		}
 		export.Appointments = append(export.Appointments, AppointmentExportData{
 			ID:          apt.ID,
-			Date:        apt.Date.Format("2006-01-02"),
-			Time:        apt.Time,
+			Date:        apt.StartTime.Format("2006-01-02"),
+			Time:        apt.StartTime.Format("15:04"),
 			Status:      apt.Status,
 			Type:        apt.Type,
 			DentistName: dentistName,
@@ -330,12 +228,8 @@ func ExportPatientDataFull(c *gin.Context) {
 
 	// Load exams
 	var exams []models.Exam
-	db.Where("patient_id = ?", patient.ID).Preload("RequestedBy").Order("created_at DESC").Find(&exams)
+	db.Where("patient_id = ?", patient.ID).Order("created_at DESC").Find(&exams)
 	for _, exam := range exams {
-		requestedBy := ""
-		if exam.RequestedBy != nil {
-			requestedBy = exam.RequestedBy.Name
-		}
 		examDate := ""
 		if exam.ExamDate != nil {
 			examDate = exam.ExamDate.Format("2006-01-02")
@@ -344,12 +238,12 @@ func ExportPatientDataFull(c *gin.Context) {
 		}
 		export.Exams = append(export.Exams, ExamExportData{
 			ID:          exam.ID,
-			Type:        exam.Type,
+			Type:        exam.ExamType,
 			Name:        exam.Name,
 			Date:        examDate,
-			Result:      exam.Result,
+			Result:      exam.Description,
 			Notes:       exam.Notes,
-			RequestedBy: requestedBy,
+			RequestedBy: "",
 		})
 	}
 
@@ -357,14 +251,11 @@ func ExportPatientDataFull(c *gin.Context) {
 	var consents []models.PatientConsent
 	db.Where("patient_id = ?", patient.ID).Preload("Template").Order("created_at DESC").Find(&consents)
 	for _, consent := range consents {
-		templateName := ""
-		if consent.Template != nil {
+		templateName := consent.TemplateTitle
+		if consent.Template.Title != "" {
 			templateName = consent.Template.Title
 		}
-		signedAt := ""
-		if consent.SignedAt != nil {
-			signedAt = consent.SignedAt.Format("2006-01-02 15:04:05")
-		}
+		signedAt := consent.SignedAt.Format("2006-01-02 15:04:05")
 		export.Consents = append(export.Consents, ConsentExportData{
 			ID:           consent.ID,
 			TemplateName: templateName,
