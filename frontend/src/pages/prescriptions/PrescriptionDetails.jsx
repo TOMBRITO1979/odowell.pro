@@ -11,14 +11,21 @@ import {
   Typography,
   Row,
   Col,
+  Modal,
+  Form,
+  Input,
+  Alert,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   EditOutlined,
   FilePdfOutlined,
+  SafetyCertificateOutlined,
+  CheckCircleOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { prescriptionsAPI } from '../../services/api';
+import { prescriptionsAPI, signingAPI, certificatesAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import { actionColors } from '../../theme/designSystem';
 
@@ -31,9 +38,26 @@ const PrescriptionDetails = () => {
   const [prescription, setPrescription] = useState(null);
   const { canEdit } = usePermission();
 
+  // Digital Signature state
+  const [signModalVisible, setSignModalVisible] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [hasCertificate, setHasCertificate] = useState(false);
+  const [signForm] = Form.useForm();
+
   useEffect(() => {
     fetchPrescription();
+    checkCertificate();
   }, [id]);
+
+  const checkCertificate = async () => {
+    try {
+      const response = await certificatesAPI.getAll();
+      const certs = response.data.certificates || [];
+      setHasCertificate(certs.some(c => c.active && !c.is_expired));
+    } catch (error) {
+      setHasCertificate(false);
+    }
+  };
 
   const fetchPrescription = async () => {
     setLoading(true);
@@ -49,11 +73,15 @@ const PrescriptionDetails = () => {
 
   const handleDownloadPDF = async () => {
     try {
-      const response = await prescriptionsAPI.downloadPDF(id);
+      // If signed, download signed PDF
+      const response = prescription?.is_signed
+        ? await signingAPI.downloadSignedPrescriptionPDF(id)
+        : await prescriptionsAPI.downloadPDF(id);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `receita_${id}.pdf`);
+      const filename = prescription?.is_signed ? `receita_assinada_${id}.pdf` : `receita_${id}.pdf`;
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -61,6 +89,38 @@ const PrescriptionDetails = () => {
     } catch (error) {
       message.error('Erro ao baixar PDF');
     }
+  };
+
+  const handleSign = async (values) => {
+    setSigning(true);
+    try {
+      await signingAPI.signPrescription(id, values.password);
+      message.success('Receita assinada digitalmente com sucesso!');
+      setSignModalVisible(false);
+      signForm.resetFields();
+      fetchPrescription(); // Reload to show signature info
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao assinar receita');
+    } finally {
+      setSigning(false);
+    }
+  };
+
+  const openSignModal = () => {
+    if (!hasCertificate) {
+      Modal.info({
+        title: 'Certificado Digital Necessario',
+        content: (
+          <div>
+            <p>Voce precisa cadastrar um certificado digital A1 para assinar documentos.</p>
+            <p>Acesse o menu <strong>Certificado Digital</strong> para fazer o upload do seu certificado.</p>
+          </div>
+        ),
+        onOk: () => navigate('/certificates'),
+      });
+      return;
+    }
+    setSignModalVisible(true);
   };
 
   const getStatusTag = (status) => {
@@ -111,12 +171,22 @@ const PrescriptionDetails = () => {
                 Editar
               </Button>
             )}
+            {!prescription.is_signed && canEdit('prescriptions') && (
+              <Button
+                type="primary"
+                icon={<SafetyCertificateOutlined />}
+                onClick={openSignModal}
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+              >
+                Assinar Digitalmente
+              </Button>
+            )}
             <Button
               icon={<FilePdfOutlined />}
               onClick={handleDownloadPDF}
               style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
             >
-              Gerar PDF
+              {prescription.is_signed ? 'Baixar PDF Assinado' : 'Gerar PDF'}
             </Button>
             <Button
               icon={<ArrowLeftOutlined />}
@@ -278,8 +348,105 @@ const PrescriptionDetails = () => {
               </Text>
             </>
           )}
+
+          {/* Signature Info */}
+          {prescription.is_signed && (
+            <>
+              <Divider orientation="left">
+                <Space>
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                  Assinatura Digital
+                </Space>
+              </Divider>
+              <Alert
+                message="Documento Assinado Digitalmente"
+                description={
+                  <Descriptions column={1} size="small">
+                    <Descriptions.Item label="Assinado por">
+                      {prescription.signed_by_name} (CRO: {prescription.signed_by_cro})
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Data/Hora">
+                      {dayjs(prescription.signed_at).format('DD/MM/YYYY HH:mm:ss')}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Certificado">
+                      {prescription.certificate_thumbprint}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Hash SHA-256">
+                      <Text code style={{ fontSize: 11 }}>{prescription.signature_hash}</Text>
+                    </Descriptions.Item>
+                  </Descriptions>
+                }
+                type="success"
+                showIcon
+                icon={<SafetyCertificateOutlined />}
+              />
+            </>
+          )}
         </div>
       </Card>
+
+      {/* Sign Modal */}
+      <Modal
+        title={
+          <Space>
+            <SafetyCertificateOutlined />
+            <span>Assinar Receita Digitalmente</span>
+          </Space>
+        }
+        open={signModalVisible}
+        onCancel={() => {
+          setSignModalVisible(false);
+          signForm.resetFields();
+        }}
+        footer={null}
+        width={450}
+      >
+        <Alert
+          message="Assinatura Digital ICP-Brasil"
+          description="Ao assinar, o documento sera marcado com seu certificado digital e nao podera mais ser editado."
+          type="info"
+          showIcon
+          style={{ marginBottom: 24 }}
+        />
+
+        <Form
+          form={signForm}
+          layout="vertical"
+          onFinish={handleSign}
+        >
+          <Form.Item
+            label="Senha do Certificado"
+            name="password"
+            rules={[{ required: true, message: 'Informe a senha do certificado' }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="Digite a senha do seu certificado"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, marginTop: 24 }}>
+            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button onClick={() => {
+                setSignModalVisible(false);
+                signForm.resetFields();
+              }}>
+                Cancelar
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={signing}
+                icon={<SafetyCertificateOutlined />}
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+              >
+                Assinar Documento
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <style>{`
         @media print {

@@ -69,6 +69,9 @@ import AdminTenants from './pages/admin/AdminTenants';
 import AuditLogs from './pages/admin/AuditLogs';
 import DataRequests from './pages/admin/DataRequests';
 
+// Certificates (Digital Signature)
+import Certificates from './pages/certificates/Certificates';
+
 // Plans (Patient Subscriptions)
 import Plans from './pages/plans/Plans';
 import PlanForm from './pages/plans/PlanForm';
@@ -264,6 +267,9 @@ function App() {
 
         {/* Data Requests - LGPD (Solicitacoes do Titular) */}
         <Route path="admin/data-requests" element={<DataRequests />} />
+
+        {/* Certificates - Digital Signature */}
+        <Route path="certificates" element={<Certificates />} />
 
         {/* Plans (Patient Subscriptions - Stripe) */}
         <Route path="plans" element={<Plans />} />

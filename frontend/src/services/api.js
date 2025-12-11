@@ -428,3 +428,22 @@ export const lgpdAPI = {
   permanentDelete: (patientId, data) => api.delete(`/lgpd/patients/${patientId}/permanent`, { data }),
   anonymize: (patientId, data) => api.post(`/lgpd/patients/${patientId}/anonymize`, data),
 };
+
+// Digital Certificates API (ICP-Brasil A1)
+export const certificatesAPI = {
+  getAll: () => api.get('/certificates'),
+  upload: (formData) => api.post('/certificates', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  activate: (id) => api.post(`/certificates/${id}/activate`),
+  validatePassword: (id, password) => api.post(`/certificates/${id}/validate`, { password }),
+  delete: (id) => api.delete(`/certificates/${id}`),
+};
+
+// Document Signing API
+export const signingAPI = {
+  signPrescription: (id, password) => api.post(`/prescriptions/${id}/sign`, { password }),
+  signMedicalRecord: (id, password) => api.post(`/medical-records/${id}/sign`, { password }),
+  verifySignature: (type, id) => api.get(`/documents/${type}/${id}/verify`),
+  downloadSignedPrescriptionPDF: (id) => api.get(`/prescriptions/${id}/pdf/signed`, { responseType: 'blob' }),
+};

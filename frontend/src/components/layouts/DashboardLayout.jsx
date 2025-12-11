@@ -27,6 +27,7 @@ import {
   WalletOutlined,
   UsergroupAddOutlined,
   SafetyOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI, paymentsAPI } from '../../services/api';
@@ -224,16 +225,23 @@ const DashboardLayout = () => {
       label: 'Assinatura',
       adminOnly: true,
     }] : []),
-    // LGPD Compliance (admin only)
-    ...(isAdmin ? [{
+    // LGPD Compliance (permissão baseada em módulos)
+    {
       key: 'lgpd',
       icon: <SafetyOutlined />,
       label: 'LGPD',
       children: [
-        { key: '/admin/data-requests', label: 'Solicitações', adminOnly: true },
-        { key: '/admin/audit-logs', label: 'Logs de Auditoria', adminOnly: true },
+        { key: '/admin/data-requests', label: 'Solicitações', permission: 'data_requests' },
+        { key: '/admin/audit-logs', label: 'Logs de Auditoria', permission: 'audit_logs' },
       ],
-    }] : []),
+    },
+    // Certificados Digitais (permissão baseada em módulo)
+    {
+      key: '/certificates',
+      icon: <SafetyCertificateOutlined />,
+      label: 'Certificado Digital',
+      permission: 'certificates',
+    },
     // Super Admin only - Platform Administration
     ...(isSuperAdmin ? [{
       key: '/admin/tenants',

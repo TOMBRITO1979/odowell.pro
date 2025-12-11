@@ -140,6 +140,19 @@ func main() {
 		protected.PUT("/auth/profile", handlers.UpdateProfile)
 		protected.PUT("/auth/password", handlers.ChangePassword)
 		protected.POST("/auth/profile/picture", handlers.UploadProfilePicture)
+
+		// Digital Certificates (user-level, not tenant-level)
+		certificates := protected.Group("/certificates")
+		{
+			certificates.POST("", handlers.UploadCertificate)
+			certificates.GET("", handlers.GetUserCertificates)
+			certificates.POST("/:id/activate", handlers.ActivateCertificate)
+			certificates.POST("/:id/validate", handlers.ValidateCertificatePassword)
+			certificates.DELETE("/:id", handlers.DeleteCertificate)
+		}
+
+		// Document signature verification
+		protected.GET("/documents/:type/:id/verify", handlers.VerifyDocumentSignature)
 	}
 
 	// Tenant-scoped routes (subscription NOT required - for subscription management)
@@ -198,6 +211,8 @@ func main() {
 			medicalRecords.PUT("/:id", middleware.PermissionMiddleware("medical_records", "edit"), handlers.UpdateMedicalRecord)
 			medicalRecords.DELETE("/:id", middleware.PermissionMiddleware("medical_records", "delete"), handlers.DeleteMedicalRecord)
 			medicalRecords.GET("/:id/pdf", middleware.PermissionMiddleware("medical_records", "view"), handlers.GenerateMedicalRecordPDF)
+			// Digital Signature
+			medicalRecords.POST("/:id/sign", middleware.PermissionMiddleware("medical_records", "edit"), handlers.SignMedicalRecord)
 		}
 
 		// Prescriptions CRUD (Receituário)
@@ -211,6 +226,9 @@ func main() {
 			prescriptions.POST("/:id/issue", middleware.PermissionMiddleware("prescriptions", "edit"), handlers.IssuePrescription)
 			prescriptions.POST("/:id/print", middleware.PermissionMiddleware("prescriptions", "view"), handlers.PrintPrescription)
 			prescriptions.GET("/:id/pdf", middleware.PermissionMiddleware("prescriptions", "view"), handlers.GeneratePrescriptionPDF)
+			// Digital Signature
+			prescriptions.POST("/:id/sign", middleware.PermissionMiddleware("prescriptions", "edit"), handlers.SignPrescription)
+			prescriptions.GET("/:id/pdf/signed", middleware.PermissionMiddleware("prescriptions", "view"), handlers.GenerateSignedPrescriptionPDF)
 		}
 
 		// Budgets CRUD

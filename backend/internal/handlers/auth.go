@@ -230,6 +230,7 @@ func GetMe(c *gin.Context) {
 			"specialty":       user.Specialty,
 			"profile_picture": user.ProfilePicture,
 			"hide_sidebar":    user.HideSidebar,
+			"is_super_admin":  user.IsSuperAdmin,
 		},
 		"tenant": gin.H{
 			"id":   tenant.ID,

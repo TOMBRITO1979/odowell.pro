@@ -90,7 +90,8 @@ func migrateNewTablesOnly(schema string) error {
 		&models.TreatmentPayment{},
 		&models.ConsentTemplate{},
 		&models.PatientConsent{},
-		&models.Prescription{},   // Added for new signer fields
+		&models.Prescription{},   // Added for new signer fields and digital signature
+		&models.MedicalRecord{},  // Added for digital signature fields
 		&models.Appointment{},    // Added for new room field
 		&models.StockMovement{},  // Added for sale buyer fields
 		&models.Lead{},           // CRM leads for WhatsApp integration
@@ -185,7 +186,8 @@ func MigratePublicSchema() error {
 		&models.AuditLog{},
 		&models.EmailVerification{},
 		&models.PasswordReset{},
-		&models.TenantSettings{}, // Settings stored in public schema per tenant
+		&models.TenantSettings{},    // Settings stored in public schema per tenant
+		&models.UserCertificate{},   // Digital certificates for document signing (ICP-Brasil A1)
 	)
 
 	if err != nil {

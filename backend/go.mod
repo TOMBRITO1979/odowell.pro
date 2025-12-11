@@ -8,12 +8,14 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/jung-kurt/gofpdf v1.16.2
+	github.com/pdfcpu/pdfcpu v0.8.0
 	github.com/redis/go-redis/v9 v9.3.0
 	github.com/stripe/stripe-go/v76 v76.25.0
 	github.com/xuri/excelize/v2 v2.8.0
 	golang.org/x/crypto v0.18.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
+	software.sslmate.com/src/go-pkcs12 v0.4.0
 )
 
 require (

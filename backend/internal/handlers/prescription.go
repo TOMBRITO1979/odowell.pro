@@ -91,16 +91,22 @@ func CreatePrescription(c *gin.Context) {
 		input.SignerCRO = dentist.CRO
 	}
 
-	// Create prescription
-	if err := db.Create(&input).Error; err != nil {
+	// Clear relationship pointers to avoid GORM confusion during insert
+	input.Patient = nil
+	input.Dentist = nil
+	input.Signer = nil
+
+	// Create prescription using explicit table to avoid GORM relationship confusion
+	if err := db.Table("prescriptions").Create(&input).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create prescription"})
 		return
 	}
 
-	// Load relationships
-	db.Preload("Patient").Preload("Dentist").First(&input, input.ID)
+	// Load the created prescription with relationships
+	var prescription models.Prescription
+	db.Preload("Patient").Preload("Dentist").Preload("Signer").First(&prescription, input.ID)
 
-	c.JSON(http.StatusCreated, gin.H{"prescription": input})
+	c.JSON(http.StatusCreated, gin.H{"prescription": prescription})
 }
 
 // GetPrescriptions retrieves all prescriptions

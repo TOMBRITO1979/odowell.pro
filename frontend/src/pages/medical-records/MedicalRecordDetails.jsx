@@ -9,6 +9,12 @@ import {
   Popconfirm,
   Tag,
   Spin,
+  Modal,
+  Form,
+  Input,
+  Alert,
+  Divider,
+  Typography,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -16,12 +22,17 @@ import {
   DeleteOutlined,
   FileTextOutlined,
   FilePdfOutlined,
+  SafetyCertificateOutlined,
+  CheckCircleOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { medicalRecordsAPI } from '../../services/api';
+import { medicalRecordsAPI, signingAPI, certificatesAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import Odontogram from '../../components/Odontogram';
 import { actionColors } from '../../theme/designSystem';
+
+const { Text } = Typography;
 
 const MedicalRecordDetails = () => {
   const navigate = useNavigate();
@@ -29,6 +40,12 @@ const MedicalRecordDetails = () => {
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(false);
   const { canEdit, canDelete } = usePermission();
+
+  // Digital Signature state
+  const [signModalVisible, setSignModalVisible] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [hasCertificate, setHasCertificate] = useState(false);
+  const [signForm] = Form.useForm();
 
   const recordTypes = [
     { value: 'anamnesis', label: 'Anamnese', color: 'blue' },
@@ -40,7 +57,18 @@ const MedicalRecordDetails = () => {
 
   useEffect(() => {
     fetchRecord();
+    checkCertificate();
   }, [id]);
+
+  const checkCertificate = async () => {
+    try {
+      const response = await certificatesAPI.getAll();
+      const certs = response.data.certificates || [];
+      setHasCertificate(certs.some(c => c.active && !c.is_expired));
+    } catch (error) {
+      setHasCertificate(false);
+    }
+  };
 
   const fetchRecord = async () => {
     setLoading(true);
@@ -82,6 +110,38 @@ const MedicalRecordDetails = () => {
     }
   };
 
+  const handleSign = async (values) => {
+    setSigning(true);
+    try {
+      await signingAPI.signMedicalRecord(id, values.password);
+      message.success('Prontuario assinado digitalmente com sucesso!');
+      setSignModalVisible(false);
+      signForm.resetFields();
+      fetchRecord(); // Reload to show signature info
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao assinar prontuario');
+    } finally {
+      setSigning(false);
+    }
+  };
+
+  const openSignModal = () => {
+    if (!hasCertificate) {
+      Modal.info({
+        title: 'Certificado Digital Necessario',
+        content: (
+          <div>
+            <p>Voce precisa cadastrar um certificado digital A1 para assinar documentos.</p>
+            <p>Acesse o menu <strong>Certificado Digital</strong> para fazer o upload do seu certificado.</p>
+          </div>
+        ),
+        onOk: () => navigate('/certificates'),
+      });
+      return;
+    }
+    setSignModalVisible(true);
+  };
+
   const getTypeTag = (type) => {
     const typeObj = recordTypes.find((t) => t.value === type);
     return typeObj ? (
@@ -120,6 +180,16 @@ const MedicalRecordDetails = () => {
             >
               Voltar
             </Button>
+            {!record.is_signed && canEdit('medical_records') && (
+              <Button
+                type="primary"
+                icon={<SafetyCertificateOutlined />}
+                onClick={openSignModal}
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+              >
+                Assinar Digitalmente
+              </Button>
+            )}
             <Button
               icon={<FilePdfOutlined />}
               onClick={handleDownloadPDF}
@@ -127,7 +197,7 @@ const MedicalRecordDetails = () => {
             >
               Baixar PDF
             </Button>
-            {canEdit('medical_records') && (
+            {!record.is_signed && canEdit('medical_records') && (
               <Button
                 type="primary"
                 icon={<EditOutlined />}
@@ -136,7 +206,7 @@ const MedicalRecordDetails = () => {
                 Editar
               </Button>
             )}
-            {canDelete('medical_records') && (
+            {!record.is_signed && canDelete('medical_records') && (
               <Popconfirm
                 title="Tem certeza que deseja excluir este prontuário?"
                 onConfirm={handleDelete}
@@ -234,7 +304,104 @@ const MedicalRecordDetails = () => {
             </Descriptions.Item>
           )}
         </Descriptions>
+
+        {/* Signature Info */}
+        {record.is_signed && (
+          <>
+            <Divider orientation="left">
+              <Space>
+                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                Assinatura Digital
+              </Space>
+            </Divider>
+            <Alert
+              message="Documento Assinado Digitalmente"
+              description={
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="Assinado por">
+                    {record.signed_by_name} (CRO: {record.signed_by_cro})
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Data/Hora">
+                    {dayjs(record.signed_at).format('DD/MM/YYYY HH:mm:ss')}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Certificado">
+                    {record.certificate_thumbprint}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Hash SHA-256">
+                    <Text code style={{ fontSize: 11 }}>{record.signature_hash}</Text>
+                  </Descriptions.Item>
+                </Descriptions>
+              }
+              type="success"
+              showIcon
+              icon={<SafetyCertificateOutlined />}
+            />
+          </>
+        )}
       </Card>
+
+      {/* Sign Modal */}
+      <Modal
+        title={
+          <Space>
+            <SafetyCertificateOutlined />
+            <span>Assinar Prontuario Digitalmente</span>
+          </Space>
+        }
+        open={signModalVisible}
+        onCancel={() => {
+          setSignModalVisible(false);
+          signForm.resetFields();
+        }}
+        footer={null}
+        width={450}
+      >
+        <Alert
+          message="Assinatura Digital ICP-Brasil"
+          description="Ao assinar, o documento sera marcado com seu certificado digital e nao podera mais ser editado ou excluido."
+          type="info"
+          showIcon
+          style={{ marginBottom: 24 }}
+        />
+
+        <Form
+          form={signForm}
+          layout="vertical"
+          onFinish={handleSign}
+        >
+          <Form.Item
+            label="Senha do Certificado"
+            name="password"
+            rules={[{ required: true, message: 'Informe a senha do certificado' }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="Digite a senha do seu certificado"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, marginTop: 24 }}>
+            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button onClick={() => {
+                setSignModalVisible(false);
+                signForm.resetFields();
+              }}>
+                Cancelar
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={signing}
+                icon={<SafetyCertificateOutlined />}
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+              >
+                Assinar Documento
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

@@ -90,88 +90,53 @@ func GenerateMedicalRecordPDF(c *gin.Context) {
 	pdf.CellFormat(120, 6, record.CreatedAt.Format("02/01/2006 15:04"), "1", 0, "L", false, 0, "")
 	pdf.Ln(10)
 
-	// Record details
+	// Record details header
 	pdf.SetFont("Arial", "B", 11)
 	pdf.CellFormat(180, 7, tr("Detalhes do Prontuario"), "1", 0, "L", true, 0, "")
 	pdf.Ln(-1)
 
-	pdf.SetFont("Arial", "", 10)
-
-	// Diagnosis
-	if record.Diagnosis != "" {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(180, 6, tr("Diagnostico:"), "LTR", 0, "L", false, 0, "")
-		pdf.Ln(-1)
-		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(180, 5, tr(record.Diagnosis), "LBR", "L", false)
-	}
-
-	// Treatment Plan
-	if record.TreatmentPlan != "" {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(180, 6, tr("Plano de Tratamento:"), "LTR", 0, "L", false, 0, "")
-		pdf.Ln(-1)
-		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(180, 5, tr(record.TreatmentPlan), "LBR", "L", false)
-	}
-
-	// Procedure Done
-	if record.ProcedureDone != "" {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(180, 6, tr("Procedimentos Realizados:"), "LTR", 0, "L", false, 0, "")
-		pdf.Ln(-1)
-		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(180, 5, tr(record.ProcedureDone), "LBR", "L", false)
-	}
-
-	// Materials
-	if record.Materials != "" {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(180, 6, tr("Materiais Utilizados:"), "LTR", 0, "L", false, 0, "")
-		pdf.Ln(-1)
-		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(180, 5, tr(record.Materials), "LBR", "L", false)
-	}
-
-	// Prescription
-	if record.Prescription != "" {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(180, 6, tr("Prescricao:"), "LTR", 0, "L", false, 0, "")
-		pdf.Ln(-1)
-		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(180, 5, tr(record.Prescription), "LBR", "L", false)
-	}
-
-	// Certificate
-	if record.Certificate != "" {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(180, 6, tr("Atestado:"), "LTR", 0, "L", false, 0, "")
-		pdf.Ln(-1)
-		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(180, 5, tr(record.Certificate), "LBR", "L", false)
-	}
-
-	// Evolution
-	if record.Evolution != "" {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(180, 6, tr("Evolucao:"), "LTR", 0, "L", false, 0, "")
-		pdf.Ln(-1)
-		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(180, 5, tr(record.Evolution), "LBR", "L", false)
-	}
-
-	// Notes
-	if record.Notes != "" {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(180, 6, tr("Notas Adicionais:"), "LTR", 0, "L", false, 0, "")
-		pdf.Ln(-1)
-		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(180, 5, tr(record.Notes), "LBR", "L", false)
-	}
+	// Render sections with smart page breaks
+	renderSection(pdf, tr, "Diagnostico:", record.Diagnosis)
+	renderSection(pdf, tr, "Plano de Tratamento:", record.TreatmentPlan)
+	renderSection(pdf, tr, "Procedimentos Realizados:", record.ProcedureDone)
+	renderSection(pdf, tr, "Materiais Utilizados:", record.Materials)
+	renderSection(pdf, tr, "Prescricao:", record.Prescription)
+	renderSection(pdf, tr, "Atestado:", record.Certificate)
+	renderSection(pdf, tr, "Evolucao:", record.Evolution)
+	renderSection(pdf, tr, "Notas Adicionais:", record.Notes)
 
 	// Odontogram
 	if record.Odontogram != nil && *record.Odontogram != "" {
 		renderOdontogram(pdf, tr, *record.Odontogram)
+	}
+
+	// Digital signature block (if signed)
+	if record.IsSigned {
+		// Check if we need a new page for signature block (ensure at least 40mm space)
+		_, pageHeight := pdf.GetPageSize()
+		_, _, _, bottomMargin := pdf.GetMargins()
+		currentY := pdf.GetY()
+		if currentY > pageHeight-bottomMargin-45 {
+			pdf.AddPage()
+		}
+
+		pdf.Ln(10)
+		pdf.SetFillColor(230, 255, 230) // Light green background
+		pdf.SetFont("Arial", "B", 9)
+		pdf.CellFormat(180, 6, tr("DOCUMENTO ASSINADO DIGITALMENTE"), "1", 1, "C", true, 0, "")
+
+		pdf.SetFont("Arial", "", 8)
+		pdf.SetFillColor(245, 255, 245)
+		pdf.CellFormat(180, 5, tr(fmt.Sprintf("Assinado por: %s (CRO: %s)", record.SignedByName, record.SignedByCRO)), "LR", 1, "L", true, 0, "")
+		if record.SignedAt != nil {
+			pdf.CellFormat(180, 5, tr(fmt.Sprintf("Data/Hora: %s", record.SignedAt.Format("02/01/2006 15:04:05"))), "LR", 1, "L", true, 0, "")
+		}
+		pdf.CellFormat(180, 5, tr(fmt.Sprintf("Certificado: %s", record.CertificateThumbprint)), "LR", 1, "L", true, 0, "")
+		pdf.CellFormat(180, 5, tr(fmt.Sprintf("Hash SHA-256: %s", record.SignatureHash)), "LRB", 1, "L", true, 0, "")
+
+		pdf.Ln(2)
+		pdf.SetFont("Arial", "I", 7)
+		pdf.MultiCell(180, 3, tr("Este documento foi assinado digitalmente com certificado ICP-Brasil. A integridade pode ser verificada atraves do hash acima."), "", "C", false)
 	}
 
 	// Footer
@@ -180,13 +145,54 @@ func GenerateMedicalRecordPDF(c *gin.Context) {
 	pdf.Cell(0, 5, fmt.Sprintf("Gerado em: %s", time.Now().Format("02/01/2006 15:04")))
 
 	// Output PDF
+	filename := fmt.Sprintf("prontuario_%d.pdf", record.ID)
+	if record.IsSigned {
+		filename = fmt.Sprintf("prontuario_assinado_%d.pdf", record.ID)
+	}
 	c.Header("Content-Type", "application/pdf")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=prontuario_%d.pdf", record.ID))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 
 	if err := pdf.Output(c.Writer); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
 		return
 	}
+}
+
+// checkPageBreak checks if there's enough space for content, adds new page if needed
+func checkPageBreak(pdf *gofpdf.Fpdf, minSpace float64) {
+	_, pageHeight := pdf.GetPageSize()
+	_, _, _, bottomMargin := pdf.GetMargins()
+	currentY := pdf.GetY()
+	if currentY > pageHeight-bottomMargin-minSpace {
+		pdf.AddPage()
+	}
+}
+
+// renderSection renders a section with title and content, handling page breaks
+func renderSection(pdf *gofpdf.Fpdf, tr func(string) string, title, content string) {
+	if content == "" {
+		return
+	}
+
+	// Estimate content height (approximately 5mm per line, 70 chars per line)
+	lines := (len(content) / 70) + 1
+	estimatedHeight := float64(lines*5) + 12 // content + title + margins
+
+	// Check if we need a page break (leave at least 25mm or content height)
+	minSpace := estimatedHeight
+	if minSpace < 25 {
+		minSpace = 25
+	}
+	if minSpace > 100 {
+		minSpace = 100 // Cap at 100mm to avoid always breaking for long content
+	}
+	checkPageBreak(pdf, minSpace)
+
+	pdf.SetFont("Arial", "B", 10)
+	pdf.CellFormat(180, 6, tr(title), "LTR", 0, "L", false, 0, "")
+	pdf.Ln(-1)
+	pdf.SetFont("Arial", "", 10)
+	pdf.MultiCell(180, 5, tr(content), "LBR", "L", false)
 }
 
 func getTypeLabel(typeValue string) string {
@@ -220,6 +226,9 @@ func renderOdontogram(pdf *gofpdf.Fpdf, tr func(string) string, odontogramJSON s
 	if len(odontogram) == 0 {
 		return
 	}
+
+	// Check for page break before odontogram section
+	checkPageBreak(pdf, 50)
 
 	pdf.Ln(5)
 	pdf.SetFont("Arial", "B", 11)

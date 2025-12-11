@@ -54,4 +54,14 @@ type Prescription struct {
 	IssuedAt   *time.Time `json:"issued_at"`
 	PrintedAt  *time.Time `json:"printed_at"`
 	PrintCount int    `gorm:"default:0" json:"print_count"`
+
+	// Digital Signature (ICP-Brasil A1)
+	IsSigned           bool       `gorm:"default:false" json:"is_signed"`
+	SignedAt           *time.Time `json:"signed_at,omitempty"`
+	SignedByID         *uint      `gorm:"index" json:"signed_by_id,omitempty"`
+	SignedByName       string     `json:"signed_by_name,omitempty"`
+	SignedByCRO        string     `json:"signed_by_cro,omitempty"`
+	CertificateID      *uint      `gorm:"index" json:"certificate_id,omitempty"`
+	CertificateThumbprint string  `json:"certificate_thumbprint,omitempty"`
+	SignatureHash      string     `json:"signature_hash,omitempty"` // SHA-256 hash of signed document
 }
