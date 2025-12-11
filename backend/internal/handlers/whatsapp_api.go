@@ -1528,3 +1528,158 @@ func WhatsAppCreateAppointment(c *gin.Context) {
 		},
 	})
 }
+
+// WhatsAppDentistAppointmentResponse represents appointment data for dentist schedule
+type WhatsAppDentistAppointmentResponse struct {
+	ID          uint   `json:"id"`
+	Date        string `json:"date"`
+	Time        string `json:"time"`
+	EndTime     string `json:"end_time"`
+	Procedure   string `json:"procedure"`
+	Status      string `json:"status"`
+	StatusLabel string `json:"status_label"`
+	PatientID   uint   `json:"patient_id"`
+	PatientName string `json:"patient_name"`
+	PatientPhone string `json:"patient_phone"`
+	Notes       string `json:"notes,omitempty"`
+}
+
+// WhatsAppGetDentistAppointments returns appointments for a specific dentist
+// GET /api/whatsapp/appointments/by-dentist?dentist_id=X&date=YYYY-MM-DD
+// GET /api/whatsapp/appointments/by-dentist?dentist_id=X&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+func WhatsAppGetDentistAppointments(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	dentistID := c.Query("dentist_id")
+	dateStr := c.Query("date")
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
+
+	if dentistID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   true,
+			"message": "dentist_id é obrigatório",
+		})
+		return
+	}
+
+	// Verify dentist exists
+	var dentist models.User
+	if err := db.Table("public.users").Where("id = ? AND active = ?", dentistID, true).First(&dentist).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   true,
+			"message": "Profissional não encontrado",
+		})
+		return
+	}
+
+	// Determine date range
+	var startDate, endDate time.Time
+	var err error
+
+	if dateStr != "" {
+		// Single date query
+		startDate, err = time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   true,
+				"message": "Formato de data inválido. Use AAAA-MM-DD",
+			})
+			return
+		}
+		endDate = startDate.Add(24 * time.Hour)
+	} else if startDateStr != "" && endDateStr != "" {
+		// Date range query
+		startDate, err = time.Parse("2006-01-02", startDateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   true,
+				"message": "Formato de start_date inválido. Use AAAA-MM-DD",
+			})
+			return
+		}
+		endDate, err = time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   true,
+				"message": "Formato de end_date inválido. Use AAAA-MM-DD",
+			})
+			return
+		}
+		endDate = endDate.Add(24 * time.Hour) // Include the end date
+	} else {
+		// Default: today
+		startDate = time.Now().Truncate(24 * time.Hour)
+		endDate = startDate.Add(24 * time.Hour)
+	}
+
+	// Get schema name for explicit table reference
+	schemaName, _ := c.Get("schema")
+	if schemaName == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema não definido",
+		})
+		return
+	}
+
+	// Get appointments for the dentist
+	var appointments []models.Appointment
+	sql := fmt.Sprintf(`SELECT * FROM %s.appointments
+		WHERE dentist_id = ? AND start_time >= ? AND start_time < ?
+		AND deleted_at IS NULL
+		ORDER BY start_time ASC`, schemaName)
+	err = db.Raw(sql, dentistID, startDate, endDate).Scan(&appointments).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro ao buscar agendamentos",
+		})
+		return
+	}
+
+	// Load patient info for each appointment
+	patientInfo := make(map[uint]models.Patient)
+	for _, apt := range appointments {
+		if _, exists := patientInfo[apt.PatientID]; !exists {
+			var patient models.Patient
+			sqlPatient := fmt.Sprintf(`SELECT * FROM %s.patients WHERE id = ? AND deleted_at IS NULL LIMIT 1`, schemaName)
+			if err := db.Raw(sqlPatient, apt.PatientID).Scan(&patient).Error; err == nil && patient.ID != 0 {
+				patientInfo[patient.ID] = patient
+			}
+		}
+	}
+
+	// Build response
+	response := make([]WhatsAppDentistAppointmentResponse, 0)
+	for _, apt := range appointments {
+		patient := patientInfo[apt.PatientID]
+		patientPhone := patient.CellPhone
+		if patientPhone == "" {
+			patientPhone = patient.Phone
+		}
+
+		response = append(response, WhatsAppDentistAppointmentResponse{
+			ID:           apt.ID,
+			Date:         apt.StartTime.Format("02/01/2006"),
+			Time:         apt.StartTime.Format("15:04"),
+			EndTime:      apt.EndTime.Format("15:04"),
+			Procedure:    getProcedureLabel(apt.Procedure),
+			Status:       apt.Status,
+			StatusLabel:  getAppointmentStatusLabel(apt.Status),
+			PatientID:    apt.PatientID,
+			PatientName:  patient.Name,
+			PatientPhone: patientPhone,
+			Notes:        apt.Notes,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"error":        false,
+		"dentist_id":   dentist.ID,
+		"dentist_name": dentist.Name,
+		"date":         startDate.Format("02/01/2006"),
+		"appointments": response,
+		"total":        len(response),
+	})
+}
