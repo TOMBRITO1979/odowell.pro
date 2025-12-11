@@ -420,6 +420,11 @@ export const dataRequestAPI = {
   updateStatus: (id, data) => api.patch(`/data-requests/${id}/status`, data),
   getStats: () => api.get('/data-requests/stats'),
   getByPatient: (patientId) => api.get(`/data-requests/patient/${patientId}`),
+  // OTP Verification (LGPD identity verification)
+  sendOTP: (id) => api.post(`/data-requests/${id}/send-otp`),
+  verifyOTP: (id, code) => api.post(`/data-requests/${id}/verify-otp`, { code }),
+  // Data Export (LGPD portability)
+  exportData: (id, format = 'json') => api.get(`/data-requests/${id}/export?format=${format}`, { responseType: 'blob' }),
 };
 
 // LGPD Data Deletion API

@@ -500,6 +500,11 @@ func main() {
 			dataRequests.GET("/:id", middleware.PermissionMiddleware("patients", "view"), handlers.GetDataRequest)
 			dataRequests.PATCH("/:id/status", middleware.PermissionMiddleware("patients", "edit"), handlers.UpdateDataRequestStatus)
 			dataRequests.GET("/patient/:patient_id", middleware.PermissionMiddleware("patients", "view"), handlers.GetPatientDataRequests)
+			// OTP Verification (LGPD identity verification)
+			dataRequests.POST("/:id/send-otp", middleware.PermissionMiddleware("data_requests", "edit"), handlers.SendVerificationOTP)
+			dataRequests.POST("/:id/verify-otp", middleware.PermissionMiddleware("data_requests", "edit"), handlers.VerifyOTP)
+			// Data Export (LGPD portability)
+			dataRequests.GET("/:id/export", middleware.PermissionMiddleware("data_requests", "view"), handlers.ExportPatientData)
 		}
 
 		// LGPD Data Deletion (admin only)

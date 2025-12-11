@@ -263,3 +263,27 @@ func SendPasswordResetEmail(to, name, token, baseURL string) error {
 
 	return SendEmail(to, subject, body)
 }
+
+// MaskEmail masks an email address for privacy (e.g., "te***@example.com")
+func MaskEmail(email string) string {
+	if email == "" {
+		return ""
+	}
+
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return "***@***"
+	}
+
+	local := parts[0]
+	domain := parts[1]
+
+	// Mask local part
+	if len(local) <= 2 {
+		local = local[:1] + "***"
+	} else {
+		local = local[:2] + "***"
+	}
+
+	return local + "@" + domain
+}

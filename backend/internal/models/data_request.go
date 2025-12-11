@@ -58,6 +58,16 @@ type DataRequest struct {
 	// Audit trail
 	RequestIP    string `json:"request_ip"`
 	RequestAgent string `json:"request_agent"`
+
+	// OTP Verification (LGPD identity verification)
+	OTPCode       string     `json:"-" gorm:"type:varchar(6)"` // Hidden from JSON
+	OTPExpiresAt  *time.Time `json:"otp_expires_at"`
+	OTPAttempts   int        `json:"otp_attempts" gorm:"default:0"`
+	OTPVerified   bool       `json:"otp_verified" gorm:"default:false"`
+	OTPVerifiedAt *time.Time `json:"otp_verified_at"`
+
+	// SLA Tracking (15 days per LGPD)
+	Deadline *time.Time `json:"deadline"` // Auto-calculated: created_at + 15 days
 }
 
 // TableName returns the table name for DataRequest
@@ -69,4 +79,48 @@ func (DataRequest) TableName() string {
 type DataRequestWithPatient struct {
 	DataRequest
 	Patient *Patient `json:"patient" gorm:"foreignKey:PatientID"`
+}
+
+// SLA Constants
+const (
+	LGPDDeadlineDays = 15 // LGPD requires response within 15 days
+	SLAWarningDays   = 3  // Alert when less than 3 days remaining
+)
+
+// CalculateDeadline returns the LGPD deadline (15 days from creation)
+func (d *DataRequest) CalculateDeadline() time.Time {
+	return d.CreatedAt.AddDate(0, 0, LGPDDeadlineDays)
+}
+
+// DaysRemaining returns the number of days until deadline
+func (d *DataRequest) DaysRemaining() int {
+	if d.Deadline == nil {
+		deadline := d.CalculateDeadline()
+		d.Deadline = &deadline
+	}
+	remaining := time.Until(*d.Deadline).Hours() / 24
+	if remaining < 0 {
+		return 0
+	}
+	return int(remaining)
+}
+
+// IsOverdue returns true if the request is past its deadline
+func (d *DataRequest) IsOverdue() bool {
+	if d.Deadline == nil {
+		deadline := d.CalculateDeadline()
+		d.Deadline = &deadline
+	}
+	return time.Now().After(*d.Deadline) && d.Status != DataRequestStatusCompleted && d.Status != DataRequestStatusRejected
+}
+
+// IsNearDeadline returns true if less than 3 days remaining
+func (d *DataRequest) IsNearDeadline() bool {
+	return d.DaysRemaining() <= SLAWarningDays && !d.IsOverdue() && d.Status != DataRequestStatusCompleted && d.Status != DataRequestStatusRejected
+}
+
+// RequiresVerification returns true if this request type requires OTP verification
+func (d *DataRequest) RequiresVerification() bool {
+	// Deletion and portability require identity verification for security
+	return d.Type == DataRequestTypeDeletion || d.Type == DataRequestTypePortability
 }

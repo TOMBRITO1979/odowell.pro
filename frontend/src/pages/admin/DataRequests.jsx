@@ -16,6 +16,10 @@ import {
   Typography,
   Drawer,
   Timeline,
+  Alert,
+  Tooltip,
+  Progress,
+  Dropdown,
 } from 'antd';
 import {
   PlusOutlined,
@@ -28,6 +32,13 @@ import {
   UserOutlined,
   FileTextOutlined,
   EditOutlined,
+  MailOutlined,
+  DownloadOutlined,
+  ExclamationCircleOutlined,
+  WarningOutlined,
+  KeyOutlined,
+  FilePdfOutlined,
+  FileExcelOutlined,
 } from '@ant-design/icons';
 import { dataRequestAPI, patientsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
@@ -46,10 +57,17 @@ const DataRequests = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [patients, setPatients] = useState([]);
   const [searchingPatients, setSearchingPatients] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [overdueCount, setOverdueCount] = useState(0);
+  const [nearDeadlineCount, setNearDeadlineCount] = useState(0);
   const [form] = Form.useForm();
   const [statusForm] = Form.useForm();
+  const [otpForm] = Form.useForm();
   const { canEdit } = usePermission();
 
   useEffect(() => {
@@ -73,6 +91,9 @@ const DataRequests = () => {
         pageSize: response.data.page_size,
         total: response.data.total,
       });
+      // Update SLA stats
+      setOverdueCount(response.data.overdue_count || 0);
+      setNearDeadlineCount(response.data.near_deadline_count || 0);
     } catch (error) {
       message.error('Erro ao carregar solicitacoes');
     } finally {
@@ -136,6 +157,67 @@ const DataRequests = () => {
     }
   };
 
+  // OTP Functions
+  const handleSendOTP = async () => {
+    if (!selectedRequest) return;
+    setSendingOtp(true);
+    try {
+      const response = await dataRequestAPI.sendOTP(selectedRequest.id);
+      message.success(`Codigo enviado para ${response.data.email}`);
+      setOtpModalVisible(true);
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao enviar codigo de verificacao');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOTP = async (values) => {
+    if (!selectedRequest) return;
+    setVerifyingOtp(true);
+    try {
+      await dataRequestAPI.verifyOTP(selectedRequest.id, values.code);
+      message.success('Identidade verificada com sucesso!');
+      setOtpModalVisible(false);
+      otpForm.resetFields();
+      fetchRequests();
+    } catch (error) {
+      const errData = error.response?.data;
+      if (errData?.attempts_remaining !== undefined) {
+        message.error(`${errData.error}. Tentativas restantes: ${errData.attempts_remaining}`);
+      } else {
+        message.error(errData?.error || 'Erro ao verificar codigo');
+      }
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  // Export Functions
+  const handleExport = async (format) => {
+    if (!selectedRequest) return;
+    setExporting(true);
+    try {
+      const response = await dataRequestAPI.exportData(selectedRequest.id, format);
+      const blob = new Blob([response.data], {
+        type: format === 'json' ? 'application/json' : 'text/csv',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `dados_lgpd_${selectedRequest.patient_name.replace(/\s+/g, '_')}_${dayjs().format('YYYYMMDD')}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      message.success(`Dados exportados em ${format.toUpperCase()}`);
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao exportar dados');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const showDetails = (record) => {
     setSelectedRequest(record);
     setDrawerVisible(true);
@@ -193,12 +275,26 @@ const DataRequests = () => {
     return colors[status] || 'default';
   };
 
+  // SLA Helper Functions
+  const getSLAStatus = (record) => {
+    if (record.status === 'completed' || record.status === 'rejected') {
+      return { color: 'green', text: 'Concluido', icon: <CheckCircleOutlined /> };
+    }
+    if (record.is_overdue) {
+      return { color: 'red', text: 'VENCIDO', icon: <ExclamationCircleOutlined /> };
+    }
+    if (record.is_near_deadline) {
+      return { color: 'orange', text: `${record.days_remaining} dias`, icon: <WarningOutlined /> };
+    }
+    return { color: 'green', text: `${record.days_remaining} dias`, icon: <ClockCircleOutlined /> };
+  };
+
   const columns = [
     {
       title: 'Data',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 120,
+      width: 100,
       render: (date) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
@@ -216,22 +312,45 @@ const DataRequests = () => {
       title: 'Tipo',
       dataIndex: 'type',
       key: 'type',
-      width: 150,
+      width: 140,
       render: (type) => <Tag color={getTypeColor(type)}>{getTypeLabel(type)}</Tag>,
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 130,
+      width: 120,
       render: (status) => <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>,
     },
     {
-      title: 'Processado em',
-      dataIndex: 'processed_at',
-      key: 'processed_at',
+      title: 'Prazo SLA',
+      key: 'sla',
       width: 120,
-      render: (date) => date ? dayjs(date).format('DD/MM/YYYY') : '-',
+      render: (_, record) => {
+        const sla = getSLAStatus(record);
+        return (
+          <Tooltip title={record.deadline ? `Prazo: ${dayjs(record.deadline).format('DD/MM/YYYY')}` : 'Sem prazo'}>
+            <Tag color={sla.color} icon={sla.icon}>
+              {sla.text}
+            </Tag>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: 'Verificado',
+      key: 'verified',
+      width: 100,
+      render: (_, record) => {
+        if (!record.requires_verification) {
+          return <Tag>N/A</Tag>;
+        }
+        return record.otp_verified ? (
+          <Tag color="green" icon={<CheckCircleOutlined />}>Sim</Tag>
+        ) : (
+          <Tag color="orange" icon={<KeyOutlined />}>Pendente</Tag>
+        );
+      },
     },
     {
       title: 'Acoes',
@@ -240,11 +359,26 @@ const DataRequests = () => {
       render: (_, record) => (
         <Space>
           <Button type="text" icon={<EyeOutlined />} onClick={() => showDetails(record)} />
-          {canEdit('patients') && record.status !== 'completed' && record.status !== 'rejected' && (
+          {canEdit('data_requests') && record.status !== 'completed' && record.status !== 'rejected' && (
             <Button type="text" icon={<EditOutlined />} onClick={() => showStatusModal(record)} />
           )}
         </Space>
       ),
+    },
+  ];
+
+  const exportMenuItems = [
+    {
+      key: 'json',
+      label: 'Exportar JSON',
+      icon: <FileTextOutlined />,
+      onClick: () => handleExport('json'),
+    },
+    {
+      key: 'csv',
+      label: 'Exportar CSV',
+      icon: <FileExcelOutlined />,
+      onClick: () => handleExport('csv'),
     },
   ];
 
@@ -259,6 +393,28 @@ const DataRequests = () => {
           </div>
         </Space>
       </div>
+
+      {/* SLA Alerts */}
+      {overdueCount > 0 && (
+        <Alert
+          message={`${overdueCount} solicitacao(oes) VENCIDA(S)!`}
+          description="Existem solicitacoes que excederam o prazo legal de 15 dias da LGPD. Processe-as imediatamente para evitar penalidades."
+          type="error"
+          showIcon
+          icon={<ExclamationCircleOutlined />}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      {nearDeadlineCount > 0 && overdueCount === 0 && (
+        <Alert
+          message={`${nearDeadlineCount} solicitacao(oes) proxima(s) do vencimento`}
+          description="Existem solicitacoes com menos de 3 dias para o prazo legal da LGPD."
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       {/* Statistics */}
       {stats && (
@@ -283,24 +439,22 @@ const DataRequests = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Vencidas (SLA)"
+                value={overdueCount}
+                prefix={<ExclamationCircleOutlined />}
+                valueStyle={{ color: overdueCount > 0 ? '#ff4d4f' : '#52c41a' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
             <Card size="small">
               <Text type="secondary">Por Tipo</Text>
               <div style={{ marginTop: 8 }}>
                 {stats.by_type?.map(item => (
                   <Tag key={item.type} color={getTypeColor(item.type)} style={{ marginBottom: 4 }}>
                     {getTypeLabel(item.type)}: {item.count}
-                  </Tag>
-                ))}
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card size="small">
-              <Text type="secondary">Por Status</Text>
-              <div style={{ marginTop: 8 }}>
-                {stats.by_status?.map(item => (
-                  <Tag key={item.status} color={getStatusColor(item.status)} style={{ marginBottom: 4 }}>
-                    {getStatusLabel(item.status)}: {item.count}
                   </Tag>
                 ))}
               </div>
@@ -347,7 +501,7 @@ const DataRequests = () => {
               <Button icon={<ReloadOutlined />} onClick={() => { fetchRequests(); fetchStats(); }}>
                 Atualizar
               </Button>
-              {canEdit('patients') && (
+              {canEdit('data_requests') && (
                 <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalVisible(true)}>
                   Nova Solicitacao
                 </Button>
@@ -370,6 +524,11 @@ const DataRequests = () => {
             showTotal: (total) => `Total: ${total} solicitacoes`,
           }}
           onChange={handleTableChange}
+          rowClassName={(record) => {
+            if (record.is_overdue) return 'row-overdue';
+            if (record.is_near_deadline) return 'row-warning';
+            return '';
+          }}
         />
       </Card>
 
@@ -470,6 +629,48 @@ const DataRequests = () => {
         </Form>
       </Modal>
 
+      {/* OTP Verification Modal */}
+      <Modal
+        title="Verificar Identidade do Titular"
+        open={otpModalVisible}
+        onCancel={() => { setOtpModalVisible(false); otpForm.resetFields(); }}
+        footer={null}
+      >
+        <Alert
+          message="Codigo enviado por email"
+          description="Um codigo de verificacao foi enviado para o email do paciente. Solicite que ele informe o codigo recebido."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+        <Form form={otpForm} layout="vertical" onFinish={handleVerifyOTP}>
+          <Form.Item
+            name="code"
+            label="Codigo de Verificacao"
+            rules={[
+              { required: true, message: 'Digite o codigo' },
+              { len: 6, message: 'O codigo deve ter 6 digitos' },
+            ]}
+          >
+            <Input
+              placeholder="000000"
+              maxLength={6}
+              style={{ fontSize: 24, textAlign: 'center', letterSpacing: 8 }}
+            />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit" loading={verifyingOtp}>
+                Verificar
+              </Button>
+              <Button onClick={() => handleSendOTP()} loading={sendingOtp}>
+                Reenviar Codigo
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
       {/* Details Drawer */}
       <Drawer
         title="Detalhes da Solicitacao"
@@ -477,6 +678,15 @@ const DataRequests = () => {
         width={500}
         onClose={() => setDrawerVisible(false)}
         open={drawerVisible}
+        extra={
+          selectedRequest && (selectedRequest.type === 'portability' || selectedRequest.type === 'access') && (
+            <Dropdown menu={{ items: exportMenuItems }} disabled={exporting || (selectedRequest.type === 'portability' && !selectedRequest.otp_verified)}>
+              <Button icon={<DownloadOutlined />} loading={exporting}>
+                Exportar Dados
+              </Button>
+            </Dropdown>
+          )
+        }
       >
         {selectedRequest && (
           <div>
@@ -493,6 +703,70 @@ const DataRequests = () => {
                   </Space>
                 </Card>
               </Col>
+
+              {/* SLA Progress */}
+              <Col span={24}>
+                <Card size="small" title="Prazo LGPD (15 dias)">
+                  {selectedRequest.status === 'completed' || selectedRequest.status === 'rejected' ? (
+                    <Tag color="green" icon={<CheckCircleOutlined />}>Concluido no prazo</Tag>
+                  ) : (
+                    <>
+                      <Progress
+                        percent={Math.max(0, 100 - (selectedRequest.days_remaining / 15 * 100))}
+                        status={selectedRequest.is_overdue ? 'exception' : selectedRequest.is_near_deadline ? 'active' : 'normal'}
+                        strokeColor={selectedRequest.is_overdue ? '#ff4d4f' : selectedRequest.is_near_deadline ? '#faad14' : '#52c41a'}
+                      />
+                      <div style={{ marginTop: 8 }}>
+                        {selectedRequest.is_overdue ? (
+                          <Tag color="red" icon={<ExclamationCircleOutlined />}>VENCIDO!</Tag>
+                        ) : (
+                          <Text type={selectedRequest.is_near_deadline ? 'warning' : 'secondary'}>
+                            {selectedRequest.days_remaining} dias restantes (Prazo: {dayjs(selectedRequest.deadline).format('DD/MM/YYYY')})
+                          </Text>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </Card>
+              </Col>
+
+              {/* Verification Status for deletion/portability */}
+              {selectedRequest.requires_verification && (
+                <Col span={24}>
+                  <Card
+                    size="small"
+                    title="Verificacao de Identidade"
+                    extra={
+                      !selectedRequest.otp_verified && canEdit('data_requests') && (
+                        <Button
+                          type="primary"
+                          size="small"
+                          icon={<MailOutlined />}
+                          loading={sendingOtp}
+                          onClick={handleSendOTP}
+                        >
+                          Enviar Codigo
+                        </Button>
+                      )
+                    }
+                  >
+                    {selectedRequest.otp_verified ? (
+                      <Space>
+                        <Tag color="green" icon={<CheckCircleOutlined />}>Identidade Verificada</Tag>
+                        <Text type="secondary">em {dayjs(selectedRequest.otp_verified_at).format('DD/MM/YYYY HH:mm')}</Text>
+                      </Space>
+                    ) : (
+                      <Alert
+                        message="Verificacao pendente"
+                        description="Para solicitacoes de exclusao ou portabilidade, e obrigatorio verificar a identidade do titular antes de processar."
+                        type="warning"
+                        showIcon
+                      />
+                    )}
+                  </Card>
+                </Col>
+              )}
+
               <Col span={12}>
                 <Text type="secondary">Tipo</Text>
                 <div><Tag color={getTypeColor(selectedRequest.type)}>{getTypeLabel(selectedRequest.type)}</Tag></div>
@@ -541,6 +815,11 @@ const DataRequests = () => {
                 <Timeline.Item color="green">
                   Solicitacao criada em {dayjs(selectedRequest.created_at).format('DD/MM/YYYY HH:mm')}
                 </Timeline.Item>
+                {selectedRequest.otp_verified && (
+                  <Timeline.Item color="blue">
+                    Identidade verificada em {dayjs(selectedRequest.otp_verified_at).format('DD/MM/YYYY HH:mm')}
+                  </Timeline.Item>
+                )}
                 {selectedRequest.status === 'in_progress' && (
                   <Timeline.Item color="blue">Em andamento</Timeline.Item>
                 )}
@@ -554,6 +833,15 @@ const DataRequests = () => {
           </div>
         )}
       </Drawer>
+
+      <style>{`
+        .row-overdue {
+          background-color: #fff1f0 !important;
+        }
+        .row-warning {
+          background-color: #fffbe6 !important;
+        }
+      `}</style>
     </div>
   );
 };

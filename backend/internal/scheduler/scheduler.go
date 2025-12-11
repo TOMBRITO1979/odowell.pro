@@ -13,6 +13,9 @@ func StartScheduler() {
 	log.Println("Scheduler started - Trial expiration checker running every hour")
 
 	go StartRetentionScheduler()
+
+	// Start LGPD SLA deadline checker
+	go StartSLAChecker()
 }
 
 // runTrialExpirationChecker runs every hour to check and deactivate expired trials
