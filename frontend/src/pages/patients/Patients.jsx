@@ -45,7 +45,33 @@ const Patients = () => {
       message.success('Paciente excluído com sucesso');
       loadPatients();
     } catch (error) {
-      message.error('Erro ao excluir paciente');
+      // Verificar se há dependências que impedem a exclusão
+      if (error.response?.data?.dependencies) {
+        const deps = error.response.data.dependencies;
+        const depsList = Object.entries(deps)
+          .map(([key, value]) => `${value} ${key}`)
+          .join(', ');
+
+        Modal.warning({
+          title: 'Não é possível excluir este paciente',
+          content: (
+            <div>
+              <p>Este paciente possui registros relacionados que precisam ser excluídos primeiro:</p>
+              <ul style={{ marginTop: 8 }}>
+                {Object.entries(deps).map(([key, value]) => (
+                  <li key={key}><strong>{value}</strong> {key}</li>
+                ))}
+              </ul>
+              <p style={{ marginTop: 12, color: '#666' }}>
+                Exclua ou transfira esses registros antes de excluir o paciente.
+              </p>
+            </div>
+          ),
+          width: 500,
+        });
+      } else {
+        message.error(error.response?.data?.error || 'Erro ao excluir paciente');
+      }
     }
   };
 
