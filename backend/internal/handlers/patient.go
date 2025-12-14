@@ -168,9 +168,9 @@ func DeletePatient(c *gin.Context) {
 	patientID, _ := strconv.ParseUint(id, 10, 32)
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
 
-	// Buscar dados do paciente para log
+	// Buscar dados do paciente para log (usando sessão limpa)
 	var patient models.Patient
-	if err := db.First(&patient, id).Error; err != nil {
+	if err := db.Session(&gorm.Session{}).First(&patient, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Paciente não encontrado"})
 		return
 	}
@@ -190,7 +190,8 @@ func DeletePatient(c *gin.Context) {
 		return
 	}
 
-	if err := db.Delete(&models.Patient{}, id).Error; err != nil {
+	// Soft delete usando SQL direto para evitar bug do GORM com sessões reutilizadas
+	if err := db.Exec("UPDATE patients SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL", id).Error; err != nil {
 		helpers.AuditAction(c, "delete", "patients", uint(patientID), false, map[string]interface{}{
 			"error": "Erro ao deletar paciente",
 		})
