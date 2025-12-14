@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreatePatient - Criar novo paciente
@@ -169,7 +170,25 @@ func DeletePatient(c *gin.Context) {
 
 	// Buscar dados do paciente para log
 	var patient models.Patient
-	db.First(&patient, id)
+	if err := db.First(&patient, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Paciente não encontrado"})
+		return
+	}
+
+	// Verificar dependências antes de deletar
+	dependencies := checkPatientDependencies(db, uint(patientID))
+	if len(dependencies) > 0 {
+		helpers.AuditAction(c, "delete", "patients", uint(patientID), false, map[string]interface{}{
+			"error":        "Paciente possui registros relacionados",
+			"dependencies": dependencies,
+		})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":        "Não é possível excluir este paciente pois existem registros relacionados",
+			"dependencies": dependencies,
+			"message":      "Exclua ou transfira os registros relacionados antes de excluir o paciente",
+		})
+		return
+	}
 
 	if err := db.Delete(&models.Patient{}, id).Error; err != nil {
 		helpers.AuditAction(c, "delete", "patients", uint(patientID), false, map[string]interface{}{
@@ -189,4 +208,74 @@ func DeletePatient(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, gin.H{"message": "Paciente deletado com sucesso"})
+}
+
+// checkPatientDependencies verifica se o paciente possui registros relacionados
+func checkPatientDependencies(db *gorm.DB, patientID uint) map[string]int64 {
+	dependencies := make(map[string]int64)
+
+	// Verificar agendamentos
+	var appointmentsCount int64
+	db.Model(&models.Appointment{}).Where("patient_id = ?", patientID).Count(&appointmentsCount)
+	if appointmentsCount > 0 {
+		dependencies["agendamentos"] = appointmentsCount
+	}
+
+	// Verificar prontuários
+	var medicalRecordsCount int64
+	db.Model(&models.MedicalRecord{}).Where("patient_id = ?", patientID).Count(&medicalRecordsCount)
+	if medicalRecordsCount > 0 {
+		dependencies["prontuários"] = medicalRecordsCount
+	}
+
+	// Verificar prescrições
+	var prescriptionsCount int64
+	db.Model(&models.Prescription{}).Where("patient_id = ?", patientID).Count(&prescriptionsCount)
+	if prescriptionsCount > 0 {
+		dependencies["prescrições"] = prescriptionsCount
+	}
+
+	// Verificar exames
+	var examsCount int64
+	db.Model(&models.Exam{}).Where("patient_id = ?", patientID).Count(&examsCount)
+	if examsCount > 0 {
+		dependencies["exames"] = examsCount
+	}
+
+	// Verificar orçamentos
+	var budgetsCount int64
+	db.Model(&models.Budget{}).Where("patient_id = ?", patientID).Count(&budgetsCount)
+	if budgetsCount > 0 {
+		dependencies["orçamentos"] = budgetsCount
+	}
+
+	// Verificar pagamentos
+	var paymentsCount int64
+	db.Model(&models.Payment{}).Where("patient_id = ?", patientID).Count(&paymentsCount)
+	if paymentsCount > 0 {
+		dependencies["pagamentos"] = paymentsCount
+	}
+
+	// Verificar tratamentos
+	var treatmentsCount int64
+	db.Model(&models.Treatment{}).Where("patient_id = ?", patientID).Count(&treatmentsCount)
+	if treatmentsCount > 0 {
+		dependencies["tratamentos"] = treatmentsCount
+	}
+
+	// Verificar anexos
+	var attachmentsCount int64
+	db.Model(&models.Attachment{}).Where("patient_id = ?", patientID).Count(&attachmentsCount)
+	if attachmentsCount > 0 {
+		dependencies["anexos"] = attachmentsCount
+	}
+
+	// Verificar consentimentos
+	var consentsCount int64
+	db.Model(&models.PatientConsent{}).Where("patient_id = ?", patientID).Count(&consentsCount)
+	if consentsCount > 0 {
+		dependencies["consentimentos"] = consentsCount
+	}
+
+	return dependencies
 }
