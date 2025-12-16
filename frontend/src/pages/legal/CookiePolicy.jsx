@@ -199,9 +199,9 @@ const CookiePolicy = () => {
               </Button>
             </Link>
             <div style={{ marginTop: 16 }}>
-              <Link to="/terms" style={{ marginRight: 16 }}>Termos de Uso</Link>
-              <Link to="/privacy" style={{ marginRight: 16 }}>Politica de Privacidade</Link>
-              <Link to="/lgpd">Direitos LGPD</Link>
+              <Link to="/termos-de-uso" style={{ marginRight: 16 }}>Termos de Uso</Link>
+              <Link to="/politica-de-privacidade" style={{ marginRight: 16 }}>Politica de Privacidade</Link>
+              <Link to="/seus-direitos-lgpd">Direitos LGPD</Link>
             </div>
           </div>
         </Card>

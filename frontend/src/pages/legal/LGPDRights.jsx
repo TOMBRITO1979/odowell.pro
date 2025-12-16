@@ -208,9 +208,9 @@ const LGPDRights = () => {
               </Button>
             </Link>
             <div style={{ marginTop: 16 }}>
-              <Link to="/terms" style={{ marginRight: 16 }}>Termos de Uso</Link>
-              <Link to="/privacy" style={{ marginRight: 16 }}>Politica de Privacidade</Link>
-              <Link to="/cookies">Politica de Cookies</Link>
+              <Link to="/termos-de-uso" style={{ marginRight: 16 }}>Termos de Uso</Link>
+              <Link to="/politica-de-privacidade" style={{ marginRight: 16 }}>Politica de Privacidade</Link>
+              <Link to="/politica-de-cookies">Politica de Cookies</Link>
             </div>
           </div>
         </Card>

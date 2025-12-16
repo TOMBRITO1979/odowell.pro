@@ -85,7 +85,7 @@ const TermsOfService = () => {
           <Title level={4}>6. Protecao de Dados</Title>
           <Paragraph>
             O tratamento de dados pessoais e realizado em conformidade com a Lei Geral de Protecao de
-            Dados (LGPD - Lei 13.709/2018). Consulte nossa <Link to="/privacy">Politica de Privacidade</Link> para
+            Dados (LGPD - Lei 13.709/2018). Consulte nossa <Link to="/politica-de-privacidade">Politica de Privacidade</Link> para
             mais informacoes sobre como coletamos, usamos e protegemos seus dados.
           </Paragraph>
 
@@ -144,9 +144,9 @@ const TermsOfService = () => {
               </Button>
             </Link>
             <div style={{ marginTop: 16 }}>
-              <Link to="/privacy" style={{ marginRight: 16 }}>Politica de Privacidade</Link>
-              <Link to="/lgpd" style={{ marginRight: 16 }}>Direitos LGPD</Link>
-              <Link to="/cookies">Politica de Cookies</Link>
+              <Link to="/politica-de-privacidade" style={{ marginRight: 16 }}>Politica de Privacidade</Link>
+              <Link to="/seus-direitos-lgpd" style={{ marginRight: 16 }}>Direitos LGPD</Link>
+              <Link to="/politica-de-cookies">Politica de Cookies</Link>
             </div>
           </div>
         </Card>

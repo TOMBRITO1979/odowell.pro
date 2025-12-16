@@ -154,7 +154,7 @@ const PrivacyPolicy = () => {
             <li><Text strong>Revogacao:</Text> revogar consentimento a qualquer momento</li>
           </ul>
           <Paragraph>
-            Para exercer seus direitos, acesse nossa pagina de <Link to="/lgpd">Direitos LGPD</Link>.
+            Para exercer seus direitos, acesse nossa pagina de <Link to="/seus-direitos-lgpd">Direitos LGPD</Link>.
           </Paragraph>
 
           <Title level={4}>10. Transferencia Internacional</Title>
@@ -189,9 +189,9 @@ const PrivacyPolicy = () => {
               </Button>
             </Link>
             <div style={{ marginTop: 16 }}>
-              <Link to="/terms" style={{ marginRight: 16 }}>Termos de Uso</Link>
-              <Link to="/lgpd" style={{ marginRight: 16 }}>Direitos LGPD</Link>
-              <Link to="/cookies">Politica de Cookies</Link>
+              <Link to="/termos-de-uso" style={{ marginRight: 16 }}>Termos de Uso</Link>
+              <Link to="/seus-direitos-lgpd" style={{ marginRight: 16 }}>Direitos LGPD</Link>
+              <Link to="/politica-de-cookies">Politica de Cookies</Link>
             </div>
           </div>
         </Card>
