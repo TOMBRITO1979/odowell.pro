@@ -47,7 +47,7 @@ const CookiePolicy = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #81C784 0%, #66BB6A 100%)',
+      background: 'linear-gradient(135deg, #f5fcf7 0%, #e8f8ed 50%, #dff5e5 100%)',
       padding: '40px 20px'
     }}>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>

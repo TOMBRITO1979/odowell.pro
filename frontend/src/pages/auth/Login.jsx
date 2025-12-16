@@ -91,11 +91,11 @@ const Login = () => {
           </div>
 
           <div style={{ textAlign: 'center', marginTop: 24, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
-            <Link to="/terms" style={{ fontSize: 12, color: '#888' }}>Termos de Uso</Link>
+            <Link to="/termos-de-uso" style={{ fontSize: 12, color: '#888' }}>Termos de Uso</Link>
             <span style={{ margin: '0 8px', color: '#ddd' }}>|</span>
-            <Link to="/privacy" style={{ fontSize: 12, color: '#888' }}>Privacidade</Link>
+            <Link to="/politica-de-privacidade" style={{ fontSize: 12, color: '#888' }}>Privacidade</Link>
             <span style={{ margin: '0 8px', color: '#ddd' }}>|</span>
-            <Link to="/lgpd" style={{ fontSize: 12, color: '#888' }}>LGPD</Link>
+            <Link to="/seus-direitos-lgpd" style={{ fontSize: 12, color: '#888' }}>LGPD</Link>
           </div>
         </Form>
       </Card>
