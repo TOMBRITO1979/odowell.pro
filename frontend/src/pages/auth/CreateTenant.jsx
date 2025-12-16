@@ -32,7 +32,7 @@ const CreateTenant = () => {
       justifyContent: 'center',
       alignItems: 'center',
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #81C784 0%, #66BB6A 100%)',
+      background: 'linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 50%, #A5D6A7 100%)',
       padding: 24
     }}>
       <Card style={{ width: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.1)', borderRadius: 12 }}>
