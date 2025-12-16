@@ -287,3 +287,203 @@ func MaskEmail(email string) string {
 
 	return local + "@" + domain
 }
+
+// TenantEmailConfig holds SMTP configuration for a specific tenant
+type TenantEmailConfig struct {
+	Host      string
+	Port      int
+	Username  string
+	Password  string
+	FromName  string
+	FromEmail string
+	UseTLS    bool
+}
+
+// SendTenantEmail sends an email using tenant-specific SMTP configuration
+func SendTenantEmail(config TenantEmailConfig, to, subject, body string) error {
+	if config.Host == "" {
+		return fmt.Errorf("SMTP host não configurado")
+	}
+	if config.Username == "" {
+		return fmt.Errorf("SMTP username não configurado")
+	}
+	if config.Password == "" {
+		return fmt.Errorf("SMTP password não configurado")
+	}
+	if config.FromEmail == "" {
+		return fmt.Errorf("Email de origem não configurado")
+	}
+
+	// Set default port
+	port := config.Port
+	if port == 0 {
+		port = 587
+	}
+
+	// Build from address
+	from := config.FromEmail
+	if config.FromName != "" {
+		from = fmt.Sprintf("%s <%s>", config.FromName, config.FromEmail)
+	}
+
+	// Build the message
+	msg := buildTenantMessage(from, to, subject, body)
+
+	// Connect to SMTP server
+	addr := fmt.Sprintf("%s:%d", config.Host, port)
+
+	if config.UseTLS && port == 465 {
+		// Direct TLS connection (port 465)
+		return sendTenantWithTLS(addr, config, to, msg)
+	}
+
+	// STARTTLS connection (port 587)
+	return sendTenantWithStartTLS(addr, config, to, msg)
+}
+
+// sendTenantWithTLS sends email using direct TLS (port 465)
+func sendTenantWithTLS(addr string, config TenantEmailConfig, to, msg string) error {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: false,
+		ServerName:         config.Host,
+	}
+
+	conn, err := tls.Dial("tcp", addr, tlsConfig)
+	if err != nil {
+		return fmt.Errorf("falha na conexão TLS: %v", err)
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, config.Host)
+	if err != nil {
+		return fmt.Errorf("falha ao criar cliente SMTP: %v", err)
+	}
+	defer client.Close()
+
+	// Authenticate
+	auth := smtp.PlainAuth("", config.Username, config.Password, config.Host)
+	if err := client.Auth(auth); err != nil {
+		return fmt.Errorf("falha na autenticação SMTP: %v", err)
+	}
+
+	// Set sender and recipient
+	if err := client.Mail(config.FromEmail); err != nil {
+		return fmt.Errorf("falha ao definir remetente: %v", err)
+	}
+	if err := client.Rcpt(to); err != nil {
+		return fmt.Errorf("falha ao definir destinatário: %v", err)
+	}
+
+	// Send the email body
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("falha ao abrir conexão de dados: %v", err)
+	}
+	_, err = w.Write([]byte(msg))
+	if err != nil {
+		return fmt.Errorf("falha ao escrever corpo do email: %v", err)
+	}
+	err = w.Close()
+	if err != nil {
+		return fmt.Errorf("falha ao fechar conexão de dados: %v", err)
+	}
+
+	return client.Quit()
+}
+
+// sendTenantWithStartTLS sends email using STARTTLS (port 587)
+func sendTenantWithStartTLS(addr string, config TenantEmailConfig, to, msg string) error {
+	client, err := smtp.Dial(addr)
+	if err != nil {
+		return fmt.Errorf("falha ao conectar ao servidor SMTP: %v", err)
+	}
+	defer client.Close()
+
+	// Start TLS if enabled
+	if config.UseTLS {
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: false,
+			ServerName:         config.Host,
+		}
+		if err := client.StartTLS(tlsConfig); err != nil {
+			return fmt.Errorf("falha ao iniciar TLS: %v", err)
+		}
+	}
+
+	// Authenticate
+	auth := smtp.PlainAuth("", config.Username, config.Password, config.Host)
+	if err := client.Auth(auth); err != nil {
+		return fmt.Errorf("falha na autenticação SMTP: %v", err)
+	}
+
+	// Set sender and recipient
+	if err := client.Mail(config.FromEmail); err != nil {
+		return fmt.Errorf("falha ao definir remetente: %v", err)
+	}
+	if err := client.Rcpt(to); err != nil {
+		return fmt.Errorf("falha ao definir destinatário: %v", err)
+	}
+
+	// Send the email body
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("falha ao abrir conexão de dados: %v", err)
+	}
+	_, err = w.Write([]byte(msg))
+	if err != nil {
+		return fmt.Errorf("falha ao escrever corpo do email: %v", err)
+	}
+	err = w.Close()
+	if err != nil {
+		return fmt.Errorf("falha ao fechar conexão de dados: %v", err)
+	}
+
+	return client.Quit()
+}
+
+// buildTenantMessage builds the email message for tenant emails
+func buildTenantMessage(from, to, subject, body string) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("From: %s\r\n", from))
+	sb.WriteString(fmt.Sprintf("To: %s\r\n", to))
+	sb.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	sb.WriteString("MIME-Version: 1.0\r\n")
+	sb.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
+	sb.WriteString("\r\n")
+	sb.WriteString(body)
+	return sb.String()
+}
+
+// BuildCampaignEmailBody builds a standard HTML email body for campaigns
+func BuildCampaignEmailBody(clinicName, patientName, message string) string {
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #1890ff; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>%s</h1>
+        </div>
+        <div class="content">
+            <p>Olá, %s!</p>
+            <div style="white-space: pre-wrap;">%s</div>
+        </div>
+        <div class="footer">
+            <p>Este email foi enviado por %s</p>
+            <p>Se não deseja receber mais emails, entre em contato com a clínica.</p>
+        </div>
+    </div>
+</body>
+</html>
+`, clinicName, patientName, message, clinicName)
+}

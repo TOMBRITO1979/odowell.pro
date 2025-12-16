@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -144,21 +146,68 @@ func DeleteCampaign(c *gin.Context) {
 func SendCampaign(c *gin.Context) {
 	id := c.Param("id")
 	db := c.MustGet("db").(*gorm.DB)
+	tenantID := c.GetUint("tenant_id")
 
 	var campaign models.Campaign
 	if err := db.First(&campaign, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Campaign not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Campanha não encontrada"})
 		return
 	}
 
 	if campaign.Status != "draft" && campaign.Status != "scheduled" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Campaign already sent"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Campanha já foi enviada"})
 		return
+	}
+
+	// Only process email campaigns for now
+	if campaign.Type != "email" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Apenas campanhas de email são suportadas no momento"})
+		return
+	}
+
+	// Get tenant SMTP settings
+	var settings models.TenantSettings
+	if err := db.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Configurações SMTP não encontradas. Configure o SMTP em Configurações."})
+		return
+	}
+
+	// Validate SMTP configuration
+	if settings.SMTPHost == "" || settings.SMTPUsername == "" || settings.SMTPPassword == "" || settings.SMTPFromEmail == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Configurações SMTP incompletas. Configure o SMTP em Configurações."})
+		return
+	}
+
+	// Decrypt password
+	password, err := helpers.DecryptIfNeeded(settings.SMTPPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao descriptografar senha SMTP"})
+		return
+	}
+
+	// Get clinic name for emails
+	clinicName := settings.ClinicName
+	if clinicName == "" {
+		clinicName = "Clínica"
+	}
+
+	// Build email config
+	emailConfig := helpers.TenantEmailConfig{
+		Host:      settings.SMTPHost,
+		Port:      settings.SMTPPort,
+		Username:  settings.SMTPUsername,
+		Password:  password,
+		FromName:  settings.SMTPFromName,
+		FromEmail: settings.SMTPFromEmail,
+		UseTLS:    settings.SMTPUseTLS,
 	}
 
 	// Get recipients based on segmentation
 	var patients []models.Patient
 	query := db.Model(&models.Patient{}).Where("active = ?", true)
+
+	// Filter patients with valid email
+	query = query.Where("email IS NOT NULL AND email != ''")
 
 	if campaign.SegmentType == "tags" && campaign.Tags != "" {
 		tags := strings.Split(campaign.Tags, ",")
@@ -168,45 +217,86 @@ func SendCampaign(c *gin.Context) {
 	}
 
 	if err := query.Find(&patients).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipients"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar destinatários"})
 		return
 	}
 
-	// Create campaign recipients
+	if len(patients) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nenhum paciente com email encontrado para esta campanha"})
+		return
+	}
+
+	// Start sending campaign
 	tx := db.Begin()
 
-	for _, patient := range patients {
-		recipient := models.CampaignRecipient{
-			CampaignID: campaign.ID,
-			PatientID:  patient.ID,
-			Status:     "pending",
-		}
-		if err := tx.Create(&recipient).Error; err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create recipients"})
-			return
-		}
-	}
-
-	// Update campaign
+	// Update campaign status to sending
+	campaign.Status = "sending"
 	campaign.TotalRecipients = len(patients)
-	campaign.Status = "scheduled"
 	now := time.Now()
 	campaign.ScheduledAt = &now
-
 	if err := tx.Save(&campaign).Error; err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update campaign"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao atualizar campanha"})
 		return
 	}
-
 	tx.Commit()
 
-	// TODO: Implement actual sending logic (WhatsApp, Email)
-	// This would be done asynchronously via queue/worker
+	// Send emails in a goroutine to avoid blocking the request
+	go func() {
+		sentCount := 0
+		failedCount := 0
+
+		for _, patient := range patients {
+			// Create recipient record
+			recipient := models.CampaignRecipient{
+				CampaignID: campaign.ID,
+				PatientID:  patient.ID,
+				Status:     "pending",
+			}
+			db.Create(&recipient)
+
+			// Build email body
+			patientName := patient.Name
+			if patientName == "" {
+				patientName = "Cliente"
+			}
+
+			body := helpers.BuildCampaignEmailBody(clinicName, patientName, campaign.Message)
+
+			// Send email
+			err := helpers.SendTenantEmail(emailConfig, patient.Email, campaign.Subject, body)
+
+			sentTime := time.Now()
+			if err != nil {
+				// Update recipient as failed
+				recipient.Status = "failed"
+				recipient.ErrorMessage = err.Error()
+				failedCount++
+				log.Printf("Falha ao enviar email para %s: %v", patient.Email, err)
+			} else {
+				// Update recipient as sent
+				recipient.Status = "sent"
+				recipient.SentAt = &sentTime
+				sentCount++
+				log.Printf("Email enviado com sucesso para %s", patient.Email)
+			}
+			db.Save(&recipient)
+		}
+
+		// Update campaign statistics
+		completedAt := time.Now()
+		db.Model(&campaign).Updates(map[string]interface{}{
+			"status":  "sent",
+			"sent":    sentCount,
+			"failed":  failedCount,
+			"sent_at": completedAt,
+		})
+
+		log.Printf("Campanha %d concluída: %d enviados, %d falhados", campaign.ID, sentCount, failedCount)
+	}()
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "Campaign scheduled for sending",
+		"message":    "Campanha iniciada. Os emails estão sendo enviados.",
 		"campaign":   campaign,
 		"recipients": len(patients),
 	})

@@ -227,6 +227,8 @@ export const attachmentsAPI = {
 export const settingsAPI = {
   get: () => api.get('/settings'),
   update: (data) => api.put('/settings', data),
+  // SMTP Test
+  testSMTP: () => api.post('/settings/smtp/test'),
   // API Key Management
   getAPIKeyStatus: () => api.get('/settings/api-key/status'),
   generateAPIKey: () => api.post('/settings/api-key/generate'),

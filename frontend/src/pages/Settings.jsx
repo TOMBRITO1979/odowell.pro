@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, message, Row, Col, Tabs, TimePicker, Switch, Modal, Alert, Typography, Space, Divider, Collapse } from 'antd';
-import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, CreditCardOutlined, MessageOutlined, LinkOutlined } from '@ant-design/icons';
+import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, CreditCardOutlined, MessageOutlined, LinkOutlined, MailOutlined } from '@ant-design/icons';
 import { settingsAPI, stripeSettingsAPI } from '../services/api';
 import { useAuth, usePermission } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
@@ -35,6 +35,10 @@ const Settings = () => {
   const [chatwellLoading, setChatwellLoading] = useState(false);
   const [embedUrl, setEmbedUrl] = useState('');
 
+  // SMTP state
+  const [smtpTesting, setSmtpTesting] = useState(false);
+  const [hasSMTPPassword, setHasSMTPPassword] = useState(false);
+
   useEffect(() => {
     fetchSettings();
     if (isAdmin) {
@@ -49,6 +53,9 @@ const Settings = () => {
     try {
       const response = await settingsAPI.get();
       const settings = response.data.settings;
+
+      // Update has_smtp_password state
+      setHasSMTPPassword(response.data.has_smtp_password || false);
 
       // Parse working hours if they exist
       const formValues = {
@@ -69,6 +76,13 @@ const Settings = () => {
         payment_pix_enabled: settings.payment_pix_enabled ?? true,
         payment_transfer_enabled: settings.payment_transfer_enabled ?? false,
         payment_insurance_enabled: settings.payment_insurance_enabled ?? false,
+        // SMTP fields
+        smtp_host: settings.smtp_host || '',
+        smtp_port: settings.smtp_port || 587,
+        smtp_username: settings.smtp_username || '',
+        smtp_from_name: settings.smtp_from_name || '',
+        smtp_from_email: settings.smtp_from_email || '',
+        smtp_use_tls: settings.smtp_use_tls ?? true,
       };
 
       form.setFieldsValue(formValues);
@@ -218,6 +232,23 @@ const Settings = () => {
     if (embedUrl) {
       navigator.clipboard.writeText(embedUrl);
       message.success('URL copiada para a área de transferência');
+    }
+  };
+
+  // SMTP Test function
+  const handleTestSMTP = async () => {
+    setSmtpTesting(true);
+    try {
+      const response = await settingsAPI.testSMTP();
+      if (response.data.success) {
+        message.success(response.data.message || 'Conexão SMTP testada com sucesso!');
+      } else {
+        message.error(response.data.error || 'Falha no teste de conexão SMTP');
+      }
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao testar conexão SMTP');
+    } finally {
+      setSmtpTesting(false);
     }
   };
 
@@ -776,6 +807,136 @@ const Settings = () => {
     </div>
   );
 
+  const smtpTab = (
+    <div>
+      <Alert
+        message="Configuração SMTP para Campanhas de Email"
+        description="Configure suas credenciais SMTP para enviar campanhas de email marketing para seus pacientes. Cada clínica pode usar seu próprio servidor de email."
+        type="info"
+        showIcon
+        style={{ marginBottom: 24 }}
+      />
+
+      {/* Status */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Row align="middle" justify="space-between">
+          <Col>
+            <Space>
+              <Text strong>Status da Configuração:</Text>
+              {hasSMTPPassword ? (
+                <Text type="success"><CheckCircleOutlined /> Configurado</Text>
+              ) : (
+                <Text type="secondary"><CloseCircleOutlined /> Não configurado</Text>
+              )}
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <Form.Item
+            label="Host SMTP"
+            name="smtp_host"
+            rules={[{ required: false }]}
+          >
+            <Input placeholder="smtp.exemplo.com" />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={6}>
+          <Form.Item
+            label="Porta"
+            name="smtp_port"
+            rules={[{ required: false }]}
+          >
+            <Input type="number" placeholder="587" />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={6}>
+          <Form.Item
+            label="Usar TLS"
+            name="smtp_use_tls"
+            valuePropName="checked"
+          >
+            <Switch />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <Form.Item
+            label="Usuário SMTP"
+            name="smtp_username"
+          >
+            <Input placeholder="usuario@exemplo.com" />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <Form.Item
+            label="Senha SMTP"
+            name="smtp_password"
+            help={hasSMTPPassword ? "Deixe em branco para manter a senha atual" : ""}
+          >
+            <Input.Password placeholder={hasSMTPPassword ? "••••••••••••••••" : "Senha do servidor SMTP"} />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <Form.Item
+            label="Nome do Remetente"
+            name="smtp_from_name"
+          >
+            <Input placeholder="Nome da Clínica" />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <Form.Item
+            label="Email do Remetente"
+            name="smtp_from_email"
+            rules={[{ type: 'email', message: 'E-mail inválido' }]}
+          >
+            <Input placeholder="contato@clinica.com" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Space wrap style={{ marginTop: 16 }}>
+        <Button onClick={handleTestSMTP} loading={smtpTesting} disabled={!hasSMTPPassword}>
+          Testar Conexão
+        </Button>
+      </Space>
+
+      <Divider />
+
+      <Collapse>
+        <Panel header="Como configurar" key="1">
+          <Paragraph>
+            <ol>
+              <li>Obtenha as credenciais SMTP do seu provedor de email (Gmail, SendGrid, AWS SES, etc.)</li>
+              <li>Preencha os campos acima com as informações do servidor</li>
+              <li>Clique em "Salvar Configurações" para salvar</li>
+              <li>Use "Testar Conexão" para verificar se está funcionando</li>
+              <li>Agora você pode criar campanhas de email em Marketing → Campanhas</li>
+            </ol>
+          </Paragraph>
+        </Panel>
+        <Panel header="Configurações comuns" key="2">
+          <Paragraph>
+            <ul>
+              <li><strong>Gmail:</strong> smtp.gmail.com, porta 587, TLS ativado, use senha de app</li>
+              <li><strong>SendGrid:</strong> smtp.sendgrid.net, porta 587, TLS ativado</li>
+              <li><strong>AWS SES:</strong> email-smtp.[regiao].amazonaws.com, porta 587, TLS ativado</li>
+              <li><strong>Mailgun:</strong> smtp.mailgun.org, porta 587, TLS ativado</li>
+            </ul>
+          </Paragraph>
+        </Panel>
+      </Collapse>
+    </div>
+  );
+
   const chatwellTab = (
     <div>
       <Alert
@@ -911,6 +1072,17 @@ const Settings = () => {
         </span>
       ),
       children: stripeTab,
+    }] : []),
+    // SMTP tab for admins (campaign emails)
+    ...(isAdmin ? [{
+      key: 'smtp',
+      label: (
+        <span>
+          <MailOutlined />
+          Email / SMTP
+        </span>
+      ),
+      children: smtpTab,
     }] : []),
     // Chatwell tab for admins
     ...(isAdmin ? [{

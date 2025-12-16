@@ -450,6 +450,7 @@ func main() {
 		// Tenant Settings
 		tenanted.GET("/settings", middleware.PermissionMiddleware("settings", "view"), handlers.GetTenantSettings)
 		tenanted.PUT("/settings", middleware.PermissionMiddleware("settings", "edit"), handlers.UpdateTenantSettings)
+		tenanted.POST("/settings/smtp/test", middleware.PermissionMiddleware("settings", "edit"), handlers.TestSMTPConnection)
 
 		// API Key Management (for WhatsApp/AI integrations)
 		tenanted.POST("/settings/api-key/generate", handlers.GenerateAPIKey)

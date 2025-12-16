@@ -8,7 +8,6 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/jung-kurt/gofpdf v1.16.2
-	github.com/pdfcpu/pdfcpu v0.8.0
 	github.com/redis/go-redis/v9 v9.3.0
 	github.com/stripe/stripe-go/v76 v76.25.0
 	github.com/xuri/excelize/v2 v2.8.0
@@ -52,9 +51,11 @@ require (
 	github.com/xuri/efp v0.0.0-20230802181842-ad255f2331ca // indirect
 	github.com/xuri/nfp v0.0.0-20230819163627-dc951e3ffe1a // indirect
 	golang.org/x/arch v0.5.0 // indirect
+	golang.org/x/image v0.15.0 // indirect
 	golang.org/x/net v0.16.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
