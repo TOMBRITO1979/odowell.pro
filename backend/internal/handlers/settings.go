@@ -417,7 +417,7 @@ func TestSMTPConnection(c *gin.Context) {
 	defer client.Close()
 
 	// Authenticate
-	auth := smtp.PlainAuth("", settings.SMTPUsername, password, settings.SMTPHost)
+	auth := helpers.GetSMTPAuth(settings.SMTPUsername, password, settings.SMTPHost)
 	if err := client.Auth(auth); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Falha na autenticação SMTP",

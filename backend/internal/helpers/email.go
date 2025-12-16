@@ -2,11 +2,51 @@ package helpers
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/smtp"
 	"os"
 	"strings"
 )
+
+// loginAuth implements smtp.Auth for LOGIN authentication (required by Outlook/Hotmail)
+type loginAuth struct {
+	username, password string
+}
+
+// LoginAuth returns an Auth that implements the LOGIN authentication mechanism
+func LoginAuth(username, password string) smtp.Auth {
+	return &loginAuth{username, password}
+}
+
+func (a *loginAuth) Start(server *smtp.ServerInfo) (string, []byte, error) {
+	return "LOGIN", []byte{}, nil
+}
+
+func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
+	if more {
+		switch string(fromServer) {
+		case "Username:":
+			return []byte(a.username), nil
+		case "Password:":
+			return []byte(a.password), nil
+		default:
+			return nil, errors.New("unexpected server challenge")
+		}
+	}
+	return nil, nil
+}
+
+// GetSMTPAuth returns the appropriate authentication method based on SMTP host
+// Outlook/Hotmail requires LOGIN auth, while most others support PLAIN auth
+func GetSMTPAuth(username, password, host string) smtp.Auth {
+	// Outlook/Hotmail/Office365 require LOGIN authentication
+	if strings.Contains(host, "outlook") || strings.Contains(host, "office365") || strings.Contains(host, "hotmail") {
+		return LoginAuth(username, password)
+	}
+	// Default to PLAIN auth for other providers (Gmail, AWS SES, SendGrid, etc.)
+	return smtp.PlainAuth("", username, password, host)
+}
 
 // EmailConfig holds SMTP configuration
 type EmailConfig struct {
@@ -73,7 +113,7 @@ func SendEmail(to, subject, body string) error {
 	defer client.Close()
 
 	// Authenticate
-	auth := smtp.PlainAuth("", config.Username, config.Password, config.Host)
+	auth := GetSMTPAuth(config.Username, config.Password, config.Host)
 	if err := client.Auth(auth); err != nil {
 		return fmt.Errorf("SMTP authentication failed: %v", err)
 	}
@@ -122,7 +162,7 @@ func sendWithStartTLS(addr string, config EmailConfig, to, msg string) error {
 	}
 
 	// Authenticate
-	auth := smtp.PlainAuth("", config.Username, config.Password, config.Host)
+	auth := GetSMTPAuth(config.Username, config.Password, config.Host)
 	if err := client.Auth(auth); err != nil {
 		return fmt.Errorf("SMTP authentication failed: %v", err)
 	}
@@ -361,7 +401,7 @@ func sendTenantWithTLS(addr string, config TenantEmailConfig, to, msg string) er
 	defer client.Close()
 
 	// Authenticate
-	auth := smtp.PlainAuth("", config.Username, config.Password, config.Host)
+	auth := GetSMTPAuth(config.Username, config.Password, config.Host)
 	if err := client.Auth(auth); err != nil {
 		return fmt.Errorf("falha na autenticação SMTP: %v", err)
 	}
@@ -411,7 +451,7 @@ func sendTenantWithStartTLS(addr string, config TenantEmailConfig, to, msg strin
 	}
 
 	// Authenticate
-	auth := smtp.PlainAuth("", config.Username, config.Password, config.Host)
+	auth := GetSMTPAuth(config.Username, config.Password, config.Host)
 	if err := client.Auth(auth); err != nil {
 		return fmt.Errorf("falha na autenticação SMTP: %v", err)
 	}
