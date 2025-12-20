@@ -40,14 +40,21 @@ func Connect() error {
 		}
 	}
 
+	// Get timezone from environment variable, default to America/Sao_Paulo
+	tz := os.Getenv("TZ")
+	if tz == "" {
+		tz = "America/Sao_Paulo"
+	}
+
 	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=America/Sao_Paulo",
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 		os.Getenv("DB_PORT"),
 		sslMode,
+		tz,
 	)
 
 	// Configure logger based on environment
@@ -83,8 +90,8 @@ func Connect() error {
 	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetimeSecs) * time.Second)
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute) // Close idle connections after 5 minutes
 
-	log.Printf("Database connected successfully - Pool: maxOpen=%d, maxIdle=%d, lifetime=%ds",
-		maxOpenConns, maxIdleConns, connMaxLifetimeSecs)
+	log.Printf("Database connected successfully - Pool: maxOpen=%d, maxIdle=%d, lifetime=%ds, timezone=%s",
+		maxOpenConns, maxIdleConns, connMaxLifetimeSecs, tz)
 
 	// Use the same sql.DB from GORM for health checks
 	log.Println("Setting up health check connection...")
