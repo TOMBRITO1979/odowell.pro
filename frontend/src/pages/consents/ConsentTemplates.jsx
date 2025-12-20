@@ -152,11 +152,11 @@ const ConsentTemplates = () => {
       key: 'status',
       width: '15%',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
-          {record.active && <Tag color={statusColors.success}>Ativo</Tag>}
-          {!record.active && <Tag color={statusColors.cancelled}>Inativo</Tag>}
-          {record.is_default && <Tag color={statusColors.inProgress}>Padrão</Tag>}
-        </Space>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {record.active && <Tag color={statusColors.success} style={{ margin: 0 }}>Ativo</Tag>}
+          {!record.active && <Tag color={statusColors.cancelled} style={{ margin: 0 }}>Inativo</Tag>}
+          {record.is_default && <Tag color={statusColors.inProgress} style={{ margin: 0 }}>Padrão</Tag>}
+        </div>
       ),
     },
     {
