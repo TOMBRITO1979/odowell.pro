@@ -3,11 +3,22 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { ConfigProvider } from 'antd'
 import ptBR from 'antd/locale/pt_BR'
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+import 'dayjs/locale/pt-br'
 import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import './index.css'
 import './styles/mobile.css'
 import './styles/mobile-override.css'
+
+// Configure dayjs with timezone support
+dayjs.extend(utc)
+dayjs.extend(timezone)
+dayjs.locale('pt-br')
+// Set default timezone to America/Sao_Paulo
+dayjs.tz.setDefault('America/Sao_Paulo')
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -3,17 +3,18 @@ package handlers
 import (
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
+	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
+
 // checkAppointmentConflict verifica se existe conflito de horário para o profissional
 // Retorna true se existe conflito, false se o horário está livre
-func checkAppointmentConflict(db *gorm.DB, dentistID uint, startTime, endTime time.Time, excludeAppointmentID uint) (bool, error) {
+func checkAppointmentConflict(db *gorm.DB, dentistID uint, startTime, endTime models.LocalTime, excludeAppointmentID uint) (bool, error) {
 	var count int64
 
 	// Usa uma nova sessão para evitar contaminação de condições anteriores
@@ -131,6 +132,11 @@ func GetAppointment(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Appointment not found"})
 		return
 	}
+
+	// Debug timezone - temporary log
+	log.Printf("[DEBUG TZ] Appointment %d - StartTime: %v",
+		appointment.ID,
+		appointment.StartTime)
 
 	c.JSON(http.StatusOK, gin.H{"appointment": appointment})
 }

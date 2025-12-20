@@ -710,8 +710,8 @@ func WhatsAppGetAvailableSlots(c *gin.Context) {
 			busySlots[apt.DentistID] = make(map[string]bool)
 		}
 		// Mark all slots during the appointment as busy
-		current := apt.StartTime
-		for current.Before(apt.EndTime) {
+		current := apt.StartTime.Time
+		for current.Before(apt.EndTime.Time) {
 			busySlots[apt.DentistID][current.Format("15:04")] = true
 			current = current.Add(time.Duration(slotDuration) * time.Minute)
 		}
@@ -860,7 +860,7 @@ func WhatsAppRescheduleAppointment(c *gin.Context) {
 	}
 
 	// Calculate duration from original appointment
-	duration := appointment.EndTime.Sub(appointment.StartTime)
+	duration := appointment.EndTime.Time.Sub(appointment.StartTime.Time)
 	newEndTime := newStartTime.Add(duration)
 
 	// Determine dentist for new appointment
@@ -1499,8 +1499,8 @@ func WhatsAppCreateAppointment(c *gin.Context) {
 	appointment := models.Appointment{
 		PatientID: patient.ID, // Use resolved patient ID (from either patient_id or phone)
 		DentistID: req.DentistID,
-		StartTime: startTime,
-		EndTime:   endTime,
+		StartTime: models.LocalTime{Time: startTime},
+		EndTime:   models.LocalTime{Time: endTime},
 		Procedure: procedure,
 		Status:    "scheduled",
 		Notes:     notes,

@@ -19,9 +19,9 @@ type Appointment struct {
 	DentistID uint      `gorm:"not null;index" json:"dentist_id"`
 	Dentist   *User     `gorm:"foreignKey:DentistID" json:"dentist,omitempty"`
 
-	// Appointment details
-	StartTime   time.Time `gorm:"not null;index" json:"start_time"`
-	EndTime     time.Time `gorm:"not null" json:"end_time"`
+	// Appointment details - using LocalTime to serialize without timezone offset
+	StartTime   LocalTime `gorm:"not null;index;type:timestamp" json:"start_time"`
+	EndTime     LocalTime `gorm:"not null;type:timestamp" json:"end_time"`
 
 	Type        string    `json:"type"` // consultation, treatment, emergency, return
 	Procedure   string    `json:"procedure"`
