@@ -1,7 +1,8 @@
 package handlers
 
 import (
-        "drcrwell/backend/internal/middleware"
+	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"encoding/json"
 	"fmt"
@@ -123,6 +124,33 @@ func sanitizeCPF(cpf string) string {
 	return cpf
 }
 
+// getTenantS3Prefix returns the S3 prefix for tenant isolation
+// Format: tenant_[ID]_[subdomain] (e.g., tenant_1_clinicasorrisos)
+func getTenantS3Prefix(c *gin.Context) string {
+	tenantID, exists := c.Get("tenant_id")
+	if !exists {
+		return "unknown_tenant"
+	}
+
+	// Get tenant subdomain from database
+	var subdomain string
+	err := database.DB.Table("public.tenants").
+		Select("subdomain").
+		Where("id = ?", tenantID).
+		Scan(&subdomain).Error
+
+	if err != nil || subdomain == "" {
+		return fmt.Sprintf("tenant_%v", tenantID)
+	}
+
+	// Sanitize subdomain for S3 (remove special chars, lowercase)
+	subdomain = strings.ReplaceAll(subdomain, " ", "_")
+	subdomain = strings.ReplaceAll(subdomain, ".", "_")
+	subdomain = strings.ToLower(subdomain)
+
+	return fmt.Sprintf("tenant_%v_%s", tenantID, subdomain)
+}
+
 // CreateExam uploads an exam file to S3 and creates database record
 func CreateExam(c *gin.Context) {
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
@@ -209,10 +237,11 @@ func CreateExam(c *gin.Context) {
 	// Get S3 configuration
 	bucket, region, baseFolder := getS3Config()
 
-	// Generate S3 key: exams/[cpf]/[timestamp]_[filename]
+	// Generate S3 key with tenant isolation: tenant_X_subdomain/exams/[cpf]/[timestamp]_[filename]
+	tenantPrefix := getTenantS3Prefix(c)
 	cpf := sanitizeCPF(patient.CPF)
 	timestamp := time.Now().Unix()
-	s3Key := fmt.Sprintf("%s/%s/%d_%s", baseFolder, cpf, timestamp, header.Filename)
+	s3Key := fmt.Sprintf("%s/%s/%s/%d_%s", tenantPrefix, baseFolder, cpf, timestamp, header.Filename)
 
 	// Reset file pointer to beginning before reading
 	if seeker, ok := file.(io.Seeker); ok {
