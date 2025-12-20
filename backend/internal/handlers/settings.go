@@ -448,3 +448,41 @@ func TestSMTPConnection(c *gin.Context) {
 		},
 	})
 }
+
+// DeleteOwnTenant allows an admin to soft delete their own tenant/company
+func DeleteOwnTenant(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	user := c.MustGet("user").(models.User)
+	tenantID := c.GetUint("tenant_id")
+
+	// Verify user is admin
+	if user.Role != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Apenas administradores podem deletar a empresa"})
+		return
+	}
+
+	// Get tenant to verify it exists
+	var tenant models.Tenant
+	if err := db.Table("public.tenants").First(&tenant, tenantID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Empresa não encontrada"})
+		return
+	}
+
+	// Soft delete the tenant
+	if err := db.Table("public.tenants").Delete(&tenant).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao deletar empresa"})
+		return
+	}
+
+	// Deactivate all users of this tenant
+	if err := db.Table("public.users").
+		Where("tenant_id = ?", tenantID).
+		Update("active", false).Error; err != nil {
+		// Log but don't fail - tenant is already deleted
+		fmt.Printf("Warning: failed to deactivate users for tenant %d: %v\n", tenantID, err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Empresa deletada com sucesso",
+	})
+}

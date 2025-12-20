@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, message, Row, Col, Tabs, TimePicker, Switch, Modal, Alert, Typography, Space, Divider, Collapse } from 'antd';
-import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, CreditCardOutlined, MessageOutlined, LinkOutlined, MailOutlined } from '@ant-design/icons';
+import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, CreditCardOutlined, MessageOutlined, LinkOutlined, MailOutlined, WarningOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { settingsAPI, stripeSettingsAPI } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 import { useAuth, usePermission } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
 
@@ -12,8 +13,9 @@ const Settings = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fetchingSettings, setFetchingSettings] = useState(true);
-  const { tenant, updateTenant } = useAuth();
+  const { tenant, updateTenant, logout } = useAuth();
   const { isAdmin } = usePermission();
+  const navigate = useNavigate();
 
   // API Key state
   const [apiKeyStatus, setApiKeyStatus] = useState({ has_key: false, active: false, masked_key: '' });
@@ -38,6 +40,11 @@ const Settings = () => {
   // SMTP state
   const [smtpTesting, setSmtpTesting] = useState(false);
   const [hasSMTPPassword, setHasSMTPPassword] = useState(false);
+
+  // Delete tenant state
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -355,6 +362,29 @@ const Settings = () => {
       console.error('Error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteTenant = async () => {
+    if (deleteConfirmName !== tenant?.name) {
+      message.error('O nome digitado nao confere');
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await settingsAPI.deleteTenant();
+      message.success('Empresa deletada com sucesso. Voce sera desconectado.');
+      setDeleteModalVisible(false);
+      // Logout and redirect to login
+      setTimeout(() => {
+        logout();
+        navigate('/login');
+      }, 1500);
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao deletar empresa');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -1095,6 +1125,57 @@ const Settings = () => {
       ),
       children: chatwellTab,
     }] : []),
+    // Danger Zone tab for admins
+    ...(isAdmin ? [{
+      key: 'danger',
+      label: (
+        <span style={{ color: '#ff4d4f' }}>
+          <WarningOutlined />
+          Zona de Perigo
+        </span>
+      ),
+      children: (
+        <div>
+          <Alert
+            message="Zona de Perigo"
+            description="As acoes nesta secao sao irreversiveis. Tenha certeza do que esta fazendo."
+            type="error"
+            showIcon
+            icon={<ExclamationCircleOutlined />}
+            style={{ marginBottom: 24 }}
+          />
+
+          <Card
+            title={
+              <Space>
+                <DeleteOutlined style={{ color: '#ff4d4f' }} />
+                <span>Deletar Empresa</span>
+              </Space>
+            }
+            style={{ borderColor: '#ff4d4f' }}
+          >
+            <Paragraph>
+              Esta acao ira desativar permanentemente sua empresa e todos os usuarios.
+              Os dados serao mantidos no banco de dados, mas voce nao podera mais acessar o sistema.
+            </Paragraph>
+            <Paragraph type="secondary">
+              Apos a delecao, entre em contato com o suporte caso precise recuperar a conta.
+            </Paragraph>
+            <Button
+              danger
+              type="primary"
+              icon={<DeleteOutlined />}
+              onClick={() => {
+                setDeleteConfirmName('');
+                setDeleteModalVisible(true);
+              }}
+            >
+              Deletar Minha Empresa
+            </Button>
+          </Card>
+        </div>
+      ),
+    }] : []),
   ];
 
   return (
@@ -1125,6 +1206,58 @@ const Settings = () => {
           </div>
         </Form>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title={
+          <Space>
+            <DeleteOutlined style={{ color: '#ff4d4f' }} />
+            <span>Deletar Empresa</span>
+          </Space>
+        }
+        open={deleteModalVisible}
+        onCancel={() => {
+          setDeleteModalVisible(false);
+          setDeleteConfirmName('');
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setDeleteModalVisible(false)}>
+            Cancelar
+          </Button>,
+          <Button
+            key="delete"
+            type="primary"
+            danger
+            icon={<DeleteOutlined />}
+            disabled={deleteConfirmName !== tenant?.name}
+            loading={deleting}
+            onClick={handleDeleteTenant}
+          >
+            Deletar Empresa
+          </Button>,
+        ]}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size={16}>
+          <Alert
+            type="warning"
+            showIcon
+            message="Esta acao ira desativar permanentemente sua empresa e todos os usuarios."
+            description="Os dados serao mantidos no banco de dados, mas voce nao podera mais acessar o sistema. Voce sera desconectado apos a delecao."
+          />
+          <div>
+            <Text>Para confirmar, digite o nome da sua empresa:</Text>
+            <Text strong style={{ display: 'block', marginTop: 4, marginBottom: 8 }}>
+              {tenant?.name}
+            </Text>
+            <Input
+              placeholder="Digite o nome da empresa"
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              status={deleteConfirmName && deleteConfirmName !== tenant?.name ? 'error' : ''}
+            />
+          </div>
+        </Space>
+      </Modal>
     </div>
   );
 };

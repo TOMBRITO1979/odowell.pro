@@ -450,6 +450,7 @@ func main() {
 		// Tenant Settings
 		tenanted.GET("/settings", middleware.PermissionMiddleware("settings", "view"), handlers.GetTenantSettings)
 		tenanted.PUT("/settings", middleware.PermissionMiddleware("settings", "edit"), handlers.UpdateTenantSettings)
+		tenanted.DELETE("/settings/tenant", handlers.DeleteOwnTenant) // Admin can delete own company
 		tenanted.POST("/settings/smtp/test", middleware.PermissionMiddleware("settings", "edit"), handlers.TestSMTPConnection)
 
 		// API Key Management (for WhatsApp/AI integrations)
@@ -537,6 +538,7 @@ func main() {
 		superAdmin.GET("/tenants", handlers.GetAllTenants)
 		superAdmin.GET("/tenants/:id", handlers.GetTenantDetails)
 		superAdmin.PATCH("/tenants/:id", handlers.UpdateTenantStatus)
+		superAdmin.DELETE("/tenants/:id", handlers.DeleteTenant)
 		superAdmin.GET("/tenants/:id/users", handlers.GetAdminTenantUsers)
 		superAdmin.PATCH("/tenants/:id/users/:userId", handlers.UpdateTenantUserStatus)
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Tag, Button, Space, Typography, Statistic, Row, Col, Switch, Modal, Select, InputNumber, message, Drawer, Alert, List, Badge } from 'antd';
+import { Table, Card, Tag, Button, Space, Typography, Statistic, Row, Col, Switch, Modal, Select, InputNumber, Input, message, Drawer, Alert, List, Badge } from 'antd';
 import {
   ShopOutlined,
   UserOutlined,
@@ -13,7 +13,8 @@ import {
   SettingOutlined,
   MailOutlined,
   WarningOutlined,
-  StopOutlined
+  StopOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import { adminAPI } from '../../services/api';
 import dayjs from 'dayjs';
@@ -34,6 +35,10 @@ const AdminTenants = () => {
   const [unverifiedTenants, setUnverifiedTenants] = useState([]);
   const [expiringTrials, setExpiringTrials] = useState([]);
   const [inactiveTenants, setInactiveTenants] = useState([]);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -115,6 +120,33 @@ const AdminTenants = () => {
       loadData();
     } catch (error) {
       message.error('Erro ao atualizar clínica');
+    }
+  };
+
+  const handleOpenDeleteModal = (tenant) => {
+    setTenantToDelete(tenant);
+    setDeleteConfirmName('');
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteTenant = async () => {
+    if (deleteConfirmName !== tenantToDelete?.name) {
+      message.error('O nome digitado não confere');
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await adminAPI.deleteTenant(tenantToDelete.id);
+      message.success('Clínica deletada com sucesso');
+      setDeleteModalVisible(false);
+      setTenantToDelete(null);
+      setDeleteConfirmName('');
+      loadData();
+    } catch (error) {
+      message.error('Erro ao deletar clínica');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -237,6 +269,14 @@ const AdminTenants = () => {
             onClick={() => handleEditTenant(record)}
           >
             Editar
+          </Button>
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleOpenDeleteModal(record)}
+          >
+            Deletar
           </Button>
         </Space>
       ),
@@ -581,6 +621,59 @@ const AdminTenants = () => {
               onChange={(value) => setEditForm({ ...editForm, patient_limit: value })}
               min={100}
               max={100000}
+            />
+          </div>
+        </Space>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title={
+          <Space>
+            <DeleteOutlined style={{ color: '#ff4d4f' }} />
+            <span>Deletar Empresa</span>
+          </Space>
+        }
+        open={deleteModalVisible}
+        onCancel={() => {
+          setDeleteModalVisible(false);
+          setTenantToDelete(null);
+          setDeleteConfirmName('');
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setDeleteModalVisible(false)}>
+            Cancelar
+          </Button>,
+          <Button
+            key="delete"
+            type="primary"
+            danger
+            icon={<DeleteOutlined />}
+            disabled={deleteConfirmName !== tenantToDelete?.name}
+            loading={deleting}
+            onClick={handleDeleteTenant}
+          >
+            Deletar Empresa
+          </Button>,
+        ]}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size={16}>
+          <Alert
+            type="warning"
+            showIcon
+            message="Esta acao ira desativar permanentemente a empresa e todos os seus usuarios."
+            description="Os dados serao mantidos no banco de dados, mas a empresa nao podera mais acessar o sistema."
+          />
+          <div>
+            <Text>Para confirmar, digite o nome da empresa:</Text>
+            <Text strong style={{ display: 'block', marginTop: 4, marginBottom: 8 }}>
+              {tenantToDelete?.name}
+            </Text>
+            <Input
+              placeholder="Digite o nome da empresa"
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              status={deleteConfirmName && deleteConfirmName !== tenantToDelete?.name ? 'error' : ''}
             />
           </div>
         </Space>

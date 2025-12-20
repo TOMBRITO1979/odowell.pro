@@ -239,6 +239,8 @@ export const settingsAPI = {
   getEmbedToken: () => api.get('/settings/embed-token'),
   generateEmbedToken: () => api.post('/settings/embed-token'),
   revokeEmbedToken: () => api.delete('/settings/embed-token'),
+  // Danger Zone - Delete Tenant
+  deleteTenant: () => api.delete('/settings/tenant'),
 };
 
 // Exams API
@@ -398,6 +400,7 @@ export const adminAPI = {
   getAllTenants: () => api.get('/admin/tenants'),
   getTenantDetails: (id) => api.get(`/admin/tenants/${id}`),
   updateTenantStatus: (id, data) => api.patch(`/admin/tenants/${id}`, data),
+  deleteTenant: (id) => api.delete(`/admin/tenants/${id}`),
   getTenantUsers: (id) => api.get(`/admin/tenants/${id}/users`),
   updateTenantUserStatus: (tenantId, userId, data) => api.patch(`/admin/tenants/${tenantId}/users/${userId}`, data),
 

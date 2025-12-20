@@ -391,3 +391,32 @@ func GetInactiveTenants(c *gin.Context) {
 		"count":   len(result),
 	})
 }
+
+// DeleteTenant soft deletes a tenant and deactivates all its users (super admin only)
+func DeleteTenant(c *gin.Context) {
+	tenantID := c.Param("id")
+
+	var tenant models.Tenant
+	if err := database.DB.First(&tenant, tenantID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Clínica não encontrada"})
+		return
+	}
+
+	// Soft delete the tenant - GORM will set deleted_at automatically
+	if err := database.DB.Delete(&tenant).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao deletar clínica"})
+		return
+	}
+
+	// Deactivate all users of this tenant
+	if err := database.DB.Model(&models.User{}).
+		Where("tenant_id = ?", tenantID).
+		Update("active", false).Error; err != nil {
+		// Log but don't fail - tenant is already deleted
+		fmt.Printf("Warning: failed to deactivate users for tenant %s: %v\n", tenantID, err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Clínica deletada com sucesso",
+	})
+}
