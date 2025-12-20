@@ -452,8 +452,15 @@ func TestSMTPConnection(c *gin.Context) {
 // DeleteOwnTenant allows an admin to soft delete their own tenant/company
 func DeleteOwnTenant(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
-	user := c.MustGet("user").(models.User)
 	tenantID := c.GetUint("tenant_id")
+	userID := c.GetUint("user_id")
+
+	// Get user from database to check role
+	var user models.User
+	if err := db.Table("public.users").Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não encontrado"})
+		return
+	}
 
 	// Verify user is admin
 	if user.Role != "admin" {
