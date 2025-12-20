@@ -97,6 +97,9 @@ func migrateNewTablesOnly(schema string) error {
 		&models.Lead{},           // CRM leads for WhatsApp integration
 		&models.Patient{},        // Added for phone/cell_phone indexes (WhatsApp optimization)
 		&models.DataRequest{},    // LGPD data requests (Right to Access, Deletion, etc.)
+		&models.Task{},           // Task management
+		&models.TaskUser{},       // Task responsible users (many-to-many)
+		&models.TaskAssignment{}, // Task assignments to entities
 	)
 
 	return err
@@ -139,6 +142,8 @@ func autoMigrateTenantSchema(db *gorm.DB) error {
 
 		// Utility tables
 		&models.Task{},
+		&models.TaskUser{},       // Task responsible users (many-to-many)
+		&models.TaskAssignment{}, // Task assignments to entities
 		&models.WaitingList{},
 
 		// CRM tables
