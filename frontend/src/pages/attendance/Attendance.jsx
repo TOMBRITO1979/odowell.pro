@@ -362,13 +362,17 @@ const Attendance = () => {
   const RoomColumn = ({ room, appointments }) => (
     <Card
       title={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#5a6a7a' }}>{room}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: '#5a6a7a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room}</span>
           <Tag
             style={{
               backgroundColor: calmColors.chartGreen,
               color: '#4a5a4a',
               border: 'none',
+              minWidth: 28,
+              textAlign: 'center',
+              flexShrink: 0,
+              margin: 0,
             }}
           >
             {appointments.length}
