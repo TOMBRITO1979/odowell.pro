@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"crypto/tls"
+	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
 	"encoding/hex"
@@ -451,13 +452,13 @@ func TestSMTPConnection(c *gin.Context) {
 
 // DeleteOwnTenant allows an admin to soft delete their own tenant/company
 func DeleteOwnTenant(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
 	tenantID := c.GetUint("tenant_id")
 	userID := c.GetUint("user_id")
 
+	// Use database.DB directly to avoid tenant scope conflicts
 	// Get user from database to check role
 	var user models.User
-	if err := db.Table("public.users").Where("id = ?", userID).First(&user).Error; err != nil {
+	if err := database.DB.Table("public.users").Where("id = ?", userID).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não encontrado"})
 		return
 	}
@@ -470,19 +471,19 @@ func DeleteOwnTenant(c *gin.Context) {
 
 	// Get tenant to verify it exists
 	var tenant models.Tenant
-	if err := db.Table("public.tenants").First(&tenant, tenantID).Error; err != nil {
+	if err := database.DB.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Empresa não encontrada"})
 		return
 	}
 
 	// Soft delete the tenant
-	if err := db.Table("public.tenants").Delete(&tenant).Error; err != nil {
+	if err := database.DB.Table("public.tenants").Where("id = ?", tenantID).Delete(&tenant).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao deletar empresa"})
 		return
 	}
 
 	// Deactivate all users of this tenant
-	if err := db.Table("public.users").
+	if err := database.DB.Table("public.users").
 		Where("tenant_id = ?", tenantID).
 		Update("active", false).Error; err != nil {
 		// Log but don't fail - tenant is already deleted
