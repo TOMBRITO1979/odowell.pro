@@ -111,6 +111,17 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Check if tenant email is verified (skip for super admins)
+	if !tenant.EmailVerified && !user.IsSuperAdmin {
+		helpers.AuditLogin(c, req.Email, false, map[string]interface{}{"reason": "email_not_verified"})
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":              "Email não verificado. Por favor, verifique seu email para ativar a conta.",
+			"email_not_verified": true,
+			"tenant_email":       tenant.Email,
+		})
+		return
+	}
+
 	// Generate JWT token
 	token, err := generateToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin)
 	if err != nil {

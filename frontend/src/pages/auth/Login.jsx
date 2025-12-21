@@ -1,26 +1,48 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Form, Input, Button, Card, Typography, message } from 'antd';
-import { UserOutlined, LockOutlined, MedicineBoxOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, message, Alert } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { authAPI } from '../../services/api';
 
 const { Title } = Typography;
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [emailNotVerified, setEmailNotVerified] = useState(null);
   const navigate = useNavigate();
   const { login } = useAuth();
 
   const onFinish = async (values) => {
     setLoading(true);
+    setEmailNotVerified(null);
     try {
       await login(values);
       message.success('Login realizado com sucesso!');
       navigate('/');
     } catch (error) {
-      message.error(error.response?.data?.error || 'Erro ao fazer login');
+      const data = error.response?.data;
+      if (data?.email_not_verified) {
+        setEmailNotVerified(data.tenant_email);
+      } else {
+        message.error(data?.error || 'Erro ao fazer login');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!emailNotVerified) return;
+    setResendingEmail(true);
+    try {
+      await authAPI.resendVerification(emailNotVerified);
+      message.success('Email de verificação reenviado! Verifique sua caixa de entrada.');
+    } catch (error) {
+      message.error('Erro ao reenviar email de verificação');
+    } finally {
+      setResendingEmail(false);
     }
   };
 
@@ -50,6 +72,29 @@ const Login = () => {
           <Title level={2} style={{ color: '#4CAF50', marginTop: 0 }}>OdoWell</Title>
           <Typography.Text type="secondary">Gestão Odontológica</Typography.Text>
         </div>
+
+        {emailNotVerified && (
+          <Alert
+            message="Email não verificado"
+            description={
+              <div>
+                <p>Por favor, verifique seu email para ativar a conta.</p>
+                <Button
+                  type="link"
+                  icon={<MailOutlined />}
+                  loading={resendingEmail}
+                  onClick={handleResendVerification}
+                  style={{ padding: 0 }}
+                >
+                  Reenviar email de verificação
+                </Button>
+              </div>
+            }
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
         <Form
           name="login"
