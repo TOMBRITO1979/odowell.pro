@@ -50,6 +50,10 @@ const CreateTenant = () => {
                   Por favor, verifique sua caixa de entrada e clique no link de verificação
                   para ativar sua conta.
                 </p>
+                <p style={{ marginTop: 12, fontSize: 13, color: '#666', background: '#fffbe6', padding: 12, borderRadius: 6 }}>
+                  <strong>Dica:</strong> Verifique também sua <strong>caixa de spam</strong>.
+                  Se o email estiver lá, marque como "Não é spam" para receber nossos emails normalmente.
+                </p>
               </div>
             }
             extra={[

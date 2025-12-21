@@ -79,12 +79,16 @@ const Login = () => {
             description={
               <div>
                 <p>Por favor, verifique seu email para ativar a conta.</p>
+                <p style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+                  <strong>Dica:</strong> Verifique também sua <strong>caixa de spam</strong>.
+                  Se o email estiver lá, marque como "Não é spam" para receber nossos emails normalmente.
+                </p>
                 <Button
                   type="link"
                   icon={<MailOutlined />}
                   loading={resendingEmail}
                   onClick={handleResendVerification}
-                  style={{ padding: 0 }}
+                  style={{ padding: 0, marginTop: 8 }}
                 >
                   Reenviar email de verificação
                 </Button>
