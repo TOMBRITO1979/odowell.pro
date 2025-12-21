@@ -237,22 +237,23 @@ func SendVerificationEmail(to, name, token, baseURL string) error {
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #1890ff; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header { background: linear-gradient(135deg, #66BB6A 0%%, #4CAF50 100%%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
         .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background: #1890ff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .button { display: inline-block; background: #4CAF50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .button:hover { background: #45a049; }
         .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>%s</h1>
+            <h1>🦷 %s</h1>
         </div>
         <div class="content">
             <h2>Olá, %s!</h2>
             <p>Bem-vindo ao %s! Para ativar sua conta e começar a usar nosso sistema de gestão odontológica, clique no botão abaixo:</p>
             <p style="text-align: center;">
-                <a href="%s" class="button">Verificar Minha Conta</a>
+                <a href="%s" class="button" style="color: white;">Verificar Minha Conta</a>
             </p>
             <p>Ou copie e cole este link no seu navegador:</p>
             <p style="word-break: break-all; background: #eee; padding: 10px; border-radius: 4px;">%s</p>
@@ -261,7 +262,7 @@ func SendVerificationEmail(to, name, token, baseURL string) error {
         </div>
         <div class="footer">
             <p>Este é um email automático, por favor não responda.</p>
-            <p>&copy; 2024 %s - Sistema de Gestão Odontológica</p>
+            <p>&copy; 2025 %s - Sistema de Gestão Odontológica</p>
         </div>
     </div>
 </body>
@@ -285,9 +286,10 @@ func SendPasswordResetEmail(to, name, token, baseURL string) error {
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #1890ff; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header { background: linear-gradient(135deg, #66BB6A 0%%, #4CAF50 100%%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
         .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background: #1890ff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .button { display: inline-block; background: #4CAF50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .button:hover { background: #45a049; }
         .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
         .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 4px; margin: 15px 0; }
     </style>
@@ -295,13 +297,13 @@ func SendPasswordResetEmail(to, name, token, baseURL string) error {
 <body>
     <div class="container">
         <div class="header">
-            <h1>%s</h1>
+            <h1>🦷 %s</h1>
         </div>
         <div class="content">
             <h2>Olá, %s!</h2>
             <p>Recebemos uma solicitação para redefinir a senha da sua conta no %s.</p>
             <p style="text-align: center;">
-                <a href="%s" class="button">Redefinir Minha Senha</a>
+                <a href="%s" class="button" style="color: white;">Redefinir Minha Senha</a>
             </p>
             <p>Ou copie e cole este link no seu navegador:</p>
             <p style="word-break: break-all; background: #eee; padding: 10px; border-radius: 4px;">%s</p>
@@ -312,7 +314,7 @@ func SendPasswordResetEmail(to, name, token, baseURL string) error {
         </div>
         <div class="footer">
             <p>Este é um email automático, por favor não responda.</p>
-            <p>&copy; 2024 %s - Sistema de Gestão Odontológica</p>
+            <p>&copy; 2025 %s - Sistema de Gestão Odontológica</p>
         </div>
     </div>
 </body>
@@ -522,7 +524,7 @@ func BuildCampaignEmailBody(clinicName, patientName, message string) string {
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #1890ff; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header { background: linear-gradient(135deg, #66BB6A 0%%, #4CAF50 100%%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
         .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
         .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
     </style>
@@ -530,7 +532,7 @@ func BuildCampaignEmailBody(clinicName, patientName, message string) string {
 <body>
     <div class="container">
         <div class="header">
-            <h1>%s</h1>
+            <h1>🦷 %s</h1>
         </div>
         <div class="content">
             <p>Olá, %s!</p>
