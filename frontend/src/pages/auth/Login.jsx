@@ -131,6 +131,8 @@ const Login = () => {
 
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
             <Link to="/forgot-password">Esqueci minha senha</Link>
+            <span style={{ margin: '0 8px' }}>|</span>
+            <Link to="/resend-verification">Reenviar verificação</Link>
           </div>
 
           <div style={{ textAlign: 'center' }}>

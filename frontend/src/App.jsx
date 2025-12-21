@@ -12,6 +12,7 @@ import CreateTenant from './pages/auth/CreateTenant';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import VerifyEmail from './pages/auth/VerifyEmail';
+import ResendVerification from './pages/auth/ResendVerification';
 
 // Legal pages (public)
 import TermsOfService from './pages/legal/TermsOfService';
@@ -153,6 +154,7 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/resend-verification" element={<ResendVerification />} />
 
       {/* Legal pages (public) */}
       <Route path="/termos-de-uso" element={<TermsOfService />} />

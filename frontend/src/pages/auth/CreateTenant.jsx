@@ -64,6 +64,13 @@ const CreateTenant = () => {
                 size="large"
               >
                 Ir para Login
+              </Button>,
+              <Button
+                key="resend"
+                onClick={() => navigate('/resend-verification')}
+                size="large"
+              >
+                Não recebeu o email?
               </Button>
             ]}
           />
