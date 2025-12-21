@@ -1,12 +1,15 @@
 package helpers
 
 import (
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/smtp"
 	"os"
 	"strings"
+	"time"
 )
 
 // loginAuth implements smtp.Auth for LOGIN authentication (required by Outlook/Hotmail)
@@ -192,14 +195,29 @@ func sendWithStartTLS(addr string, config EmailConfig, to, msg string) error {
 	return client.Quit()
 }
 
-// buildMessage builds the email message
+// generateMessageID creates a unique Message-ID for email headers
+func generateMessageID() string {
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	return fmt.Sprintf("<%s.%d@odowell.pro>", hex.EncodeToString(bytes), time.Now().UnixNano())
+}
+
+// buildMessage builds the email message with proper headers for deliverability
 func buildMessage(from, to, subject, body string) string {
+	appName := GetAppName()
+
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("From: %s\r\n", from))
+	// Add display name to From header
+	sb.WriteString(fmt.Sprintf("From: %s <%s>\r\n", appName, from))
 	sb.WriteString(fmt.Sprintf("To: %s\r\n", to))
 	sb.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	// Date header is required by RFC 2822
+	sb.WriteString(fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z)))
+	// Message-ID helps with email identification and anti-spam
+	sb.WriteString(fmt.Sprintf("Message-ID: %s\r\n", generateMessageID()))
 	sb.WriteString("MIME-Version: 1.0\r\n")
 	sb.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
+	sb.WriteString("X-Mailer: OdoWell-Mailer/1.0\r\n")
 	sb.WriteString("\r\n")
 	sb.WriteString(body)
 	return sb.String()
