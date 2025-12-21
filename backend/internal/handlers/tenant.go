@@ -198,28 +198,55 @@ func autoMigrateTenantTables(db interface{}) error {
 	}
 
 	return gormDB.AutoMigrate(
+		// Core tables
 		&models.Patient{},
 		&models.Appointment{},
 		&models.MedicalRecord{},
+
+		// Financial tables
 		&models.Budget{},
 		&models.Payment{},
 		&models.Commission{},
 		&models.Treatment{},
 		&models.TreatmentPayment{},
+
+		// Inventory tables
 		&models.Product{},
 		&models.Supplier{},
 		&models.StockMovement{},
+
+		// Marketing tables
 		&models.Campaign{},
 		&models.CampaignRecipient{},
+
+		// Document tables
 		&models.Attachment{},
 		&models.Exam{},
 		&models.Prescription{},
-		&models.Task{},
-		&models.TenantSettings{},
-		&models.WaitingList{},
+
+		// Clinical tables
 		&models.TreatmentProtocol{},
 		&models.ConsentTemplate{},
 		&models.PatientConsent{},
+
+		// Task management
+		&models.Task{},
+		&models.TaskUser{},
+		&models.TaskAssignment{},
+
+		// Utility tables
+		&models.TenantSettings{},
+		&models.WaitingList{},
+
+		// CRM tables
+		&models.Lead{},
+
+		// LGPD tables
+		&models.DataRequest{},
+
+		// Patient subscriptions
+		&models.PatientSubscription{},
+		&models.PatientSubscriptionPayment{},
 	)
 }
 
