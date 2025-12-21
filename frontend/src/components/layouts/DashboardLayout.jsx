@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Avatar, Dropdown, Typography, Badge, Drawer, Button } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Typography, Badge, Drawer, Button, Alert } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
@@ -28,6 +28,7 @@ import {
   UsergroupAddOutlined,
   SafetyOutlined,
   SafetyCertificateOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI, paymentsAPI } from '../../services/api';
@@ -100,6 +101,32 @@ const DashboardLayout = () => {
       console.error('Erro ao carregar contas vencidas:', error);
     }
   };
+
+  // Calculate trial days remaining
+  const getTrialInfo = () => {
+    if (!tenant) return null;
+
+    if (tenant.subscription_status === 'trialing' && tenant.trial_ends_at) {
+      const trialEnd = new Date(tenant.trial_ends_at);
+      const now = new Date();
+      const diffTime = trialEnd - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 0) {
+        return { status: 'trialing', daysRemaining: diffDays };
+      } else {
+        return { status: 'expired', daysRemaining: 0 };
+      }
+    }
+
+    if (tenant.subscription_status === 'past_due') {
+      return { status: 'past_due', daysRemaining: 0 };
+    }
+
+    return null;
+  };
+
+  const trialInfo = getTrialInfo();
 
   // Filter menu items based on permissions
   const allMenuItems = [
@@ -461,6 +488,37 @@ const DashboardLayout = () => {
         </Header>
 
         <Content style={contentStyle}>
+          {/* Trial/Subscription Warning Banner */}
+          {trialInfo && isAdmin && (
+            <Alert
+              message={
+                trialInfo.status === 'trialing'
+                  ? `Periodo de teste: ${trialInfo.daysRemaining} dia${trialInfo.daysRemaining > 1 ? 's' : ''} restante${trialInfo.daysRemaining > 1 ? 's' : ''}`
+                  : trialInfo.status === 'expired'
+                  ? 'Seu periodo de teste expirou'
+                  : 'Pagamento pendente'
+              }
+              description={
+                trialInfo.status === 'trialing'
+                  ? 'Assine agora para continuar usando o sistema apos o periodo de teste.'
+                  : 'Assine ou regularize o pagamento para continuar usando o sistema.'
+              }
+              type={trialInfo.status === 'trialing' ? 'warning' : 'error'}
+              showIcon
+              icon={<WarningOutlined />}
+              action={
+                <Button
+                  size="small"
+                  type="primary"
+                  onClick={() => navigate('/subscription')}
+                >
+                  Ver Planos
+                </Button>
+              }
+              style={{ marginBottom: 16 }}
+              closable
+            />
+          )}
           <Outlet />
         </Content>
       </Layout>

@@ -221,8 +221,11 @@ func Login(c *gin.Context) {
 			"is_super_admin": user.IsSuperAdmin,
 		},
 		"tenant": gin.H{
-			"id":   tenant.ID,
-			"name": tenant.Name,
+			"id":                  tenant.ID,
+			"name":                tenant.Name,
+			"subscription_status": tenant.SubscriptionStatus,
+			"trial_ends_at":       tenant.TrialEndsAt,
+			"plan_type":           tenant.PlanType,
 		},
 	})
 }
@@ -352,8 +355,11 @@ func GetMe(c *gin.Context) {
 			"is_super_admin":  user.IsSuperAdmin,
 		},
 		"tenant": gin.H{
-			"id":   tenant.ID,
-			"name": tenant.Name,
+			"id":                  tenant.ID,
+			"name":                tenant.Name,
+			"subscription_status": tenant.SubscriptionStatus,
+			"trial_ends_at":       tenant.TrialEndsAt,
+			"plan_type":           tenant.PlanType,
 		},
 	})
 }
