@@ -11,6 +11,7 @@ import Register from './pages/auth/Register';
 import CreateTenant from './pages/auth/CreateTenant';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import VerifyEmail from './pages/auth/VerifyEmail';
 
 // Legal pages (public)
 import TermsOfService from './pages/legal/TermsOfService';
@@ -151,6 +152,7 @@ function App() {
       <Route path="/create-tenant" element={<CreateTenant />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Legal pages (public) */}
       <Route path="/termos-de-uso" element={<TermsOfService />} />

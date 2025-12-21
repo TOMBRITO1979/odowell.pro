@@ -63,6 +63,8 @@ export const authAPI = {
   uploadProfilePicture: (formData) => api.post('/auth/profile/picture', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  verifyEmail: (token) => api.get(`/auth/verify-email?token=${token}`),
+  resendVerification: (email) => api.post('/auth/resend-verification', { email }),
 };
 
 // Patients API
