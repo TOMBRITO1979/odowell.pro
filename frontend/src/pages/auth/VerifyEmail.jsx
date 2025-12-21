@@ -10,6 +10,8 @@ const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState('loading'); // loading, success, error
   const [errorMessage, setErrorMessage] = useState('');
+  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [tenantName, setTenantName] = useState('');
 
   const token = searchParams.get('token');
 
@@ -22,7 +24,9 @@ const VerifyEmail = () => {
       }
 
       try {
-        await authAPI.verifyEmail(token);
+        const response = await authAPI.verifyEmail(token);
+        setVerifiedEmail(response.data.email || '');
+        setTenantName(response.data.tenant_name || '');
         setStatus('success');
       } catch (error) {
         setStatus('error');
@@ -72,7 +76,13 @@ const VerifyEmail = () => {
           <Result
             icon={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
             title="Email verificado com sucesso!"
-            subTitle="Sua conta está ativa. Agora você pode fazer login e começar a usar o sistema."
+            subTitle={
+              <div>
+                {tenantName && <div style={{ marginBottom: 8 }}><strong>Empresa:</strong> {tenantName}</div>}
+                {verifiedEmail && <div style={{ marginBottom: 8 }}><strong>Email:</strong> {verifiedEmail}</div>}
+                <div>Sua conta esta ativa. Agora voce pode fazer login e comecar a usar o sistema.</div>
+              </div>
+            }
             extra={[
               <Button type="primary" key="login">
                 <Link to="/login">Fazer Login</Link>

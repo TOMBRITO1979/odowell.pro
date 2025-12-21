@@ -12,6 +12,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// getTenantName returns the tenant name for the given ID
+func getTenantName(tenantID uint) string {
+	if tenantID == 0 {
+		return ""
+	}
+	var tenant models.Tenant
+	if err := database.GetDB().Select("name").First(&tenant, tenantID).Error; err != nil {
+		return ""
+	}
+	return tenant.Name
+}
+
 // VerifyEmail handles email verification requests
 func VerifyEmail(c *gin.Context) {
 	token := c.Query("token")
@@ -61,7 +73,9 @@ func VerifyEmail(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Email verified successfully. You can now log in.",
+		"message":      "Email verified successfully. You can now log in.",
+		"email":        verification.Email,
+		"tenant_name":  getTenantName(verification.TenantID),
 	})
 }
 
