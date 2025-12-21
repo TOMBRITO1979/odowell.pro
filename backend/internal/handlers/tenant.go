@@ -157,18 +157,15 @@ func CreateTenant(c *gin.Context) {
 		}
 	}()
 
-	// Generate token for immediate login
-	token, _ := generateToken(adminUser.ID, adminUser.TenantID, adminUser.Email, adminUser.Role, false)
-
+	// NOTE: Token is NOT generated here - user must verify email and login separately
 	c.JSON(http.StatusCreated, gin.H{
-		"message":            "Tenant created successfully. Please check your email to verify your account.",
+		"message":            "Consultório criado com sucesso! Verifique seu email para ativar a conta.",
 		"verification_sent":  true,
 		"verification_email": tenant.Email,
 		"tenant": gin.H{
 			"id":             tenant.ID,
 			"name":           tenant.Name,
 			"subdomain":      tenant.Subdomain,
-			"schema":         tenant.DBSchema,
 			"email_verified": false,
 		},
 		"admin": gin.H{
@@ -176,7 +173,6 @@ func CreateTenant(c *gin.Context) {
 			"name":  adminUser.Name,
 			"email": adminUser.Email,
 		},
-		"token": token,
 	})
 }
 

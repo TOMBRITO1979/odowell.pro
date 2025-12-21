@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Form, Input, Button, Card, Typography, message, Steps } from 'antd';
-import { ShopOutlined, UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, MedicineBoxOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, message, Result } from 'antd';
+import { ShopOutlined, UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { Title } = Typography;
 
 const CreateTenant = () => {
   const [loading, setLoading] = useState(false);
-  const [current, setCurrent] = useState(0);
+  const [success, setSuccess] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
   const navigate = useNavigate();
   const { createTenant } = useAuth();
   const [form] = Form.useForm();
@@ -16,15 +17,56 @@ const CreateTenant = () => {
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      await createTenant(values);
-      message.success('Consultório criado com sucesso!');
-      navigate('/');
+      const response = await createTenant(values);
+      setVerificationEmail(response.verification_email);
+      setSuccess(true);
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao criar consultório');
     } finally {
       setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #f5fcf7 0%, #e8f8ed 50%, #dff5e5 100%)',
+        padding: 24
+      }}>
+        <Card style={{ width: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.1)', borderRadius: 12 }}>
+          <Result
+            icon={<CheckCircleOutlined style={{ color: '#4CAF50' }} />}
+            status="success"
+            title="Consultório criado com sucesso!"
+            subTitle={
+              <div>
+                <p>Enviamos um email de verificação para:</p>
+                <p style={{ fontWeight: 'bold', color: '#4CAF50', fontSize: 16 }}>{verificationEmail}</p>
+                <p style={{ marginTop: 16 }}>
+                  Por favor, verifique sua caixa de entrada e clique no link de verificação
+                  para ativar sua conta.
+                </p>
+              </div>
+            }
+            extra={[
+              <Button
+                type="primary"
+                key="login"
+                onClick={() => navigate('/login')}
+                size="large"
+              >
+                Ir para Login
+              </Button>
+            ]}
+          />
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div style={{

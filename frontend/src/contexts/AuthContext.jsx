@@ -77,19 +77,7 @@ export const AuthProvider = ({ children }) => {
 
   const createTenant = async (data) => {
     const response = await authAPI.createTenant(data);
-    const { token, admin, tenant: tenantData } = response.data;
-
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(admin));
-    localStorage.setItem('tenant', JSON.stringify(tenantData));
-
-    // Extract and set permissions
-    const perms = extractPermissions(token);
-    setPermissions(perms);
-
-    setUser(admin);
-    setTenant(tenantData);
-
+    // NOTE: No longer auto-logging in - user must verify email first
     return response.data;
   };
 
