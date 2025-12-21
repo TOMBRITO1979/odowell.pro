@@ -7,11 +7,15 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Enable cookies for cross-origin requests (httpOnly auth cookies)
+  withCredentials: true,
 });
 
-// Add token to requests
+// Add token to requests (fallback for localStorage during migration)
 api.interceptors.request.use(
   (config) => {
+    // Only add Authorization header if token exists in localStorage
+    // This is for backward compatibility - cookies are now the primary auth method
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -23,15 +27,78 @@ api.interceptors.request.use(
   }
 );
 
+// Flag to prevent multiple refresh attempts
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+const subscribeTokenRefresh = (callback) => {
+  refreshSubscribers.push(callback);
+};
+
+const onTokenRefreshed = (token) => {
+  refreshSubscribers.forEach((callback) => callback(token));
+  refreshSubscribers = [];
+};
+
+const onTokenRefreshFailed = () => {
+  refreshSubscribers.forEach((callback) => callback(null));
+  refreshSubscribers = [];
+};
+
 // Handle responses
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Handle 401 Unauthorized - try to refresh token first
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Wait for the refresh to complete
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh((token) => {
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(api(originalRequest));
+            } else {
+              reject(error);
+            }
+          });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Try to refresh the token
+        const response = await api.post('/auth/refresh');
+        const newToken = response.data.token;
+
+        // Update localStorage if token was stored there
+        if (localStorage.getItem('token')) {
+          localStorage.setItem('token', newToken);
+        }
+
+        isRefreshing = false;
+        onTokenRefreshed(newToken);
+
+        // Retry the original request
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        isRefreshing = false;
+        onTokenRefreshFailed();
+
+        // Refresh failed - logout
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('tenant');
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
     }
+
     // Handle 402 Payment Required - subscription expired
     if (error.response?.status === 402) {
       const currentPath = window.location.pathname;
@@ -46,6 +113,14 @@ api.interceptors.response.use(
         window.location.href = '/subscription';
       }
     }
+    // Handle 403 Forbidden - insufficient permissions
+    if (error.response?.status === 403) {
+      const message = error.response?.data?.error || 'Você não tem permissão para acessar este recurso';
+      // Import message from antd dynamically to show notification
+      import('antd').then(({ message: antdMessage }) => {
+        antdMessage.error(message);
+      });
+    }
     return Promise.reject(error);
   }
 );
@@ -55,6 +130,7 @@ export default api;
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
+  logout: () => api.post('/auth/logout'),
   register: (data) => api.post('/auth/register', data),
   getMe: () => api.get('/auth/me'),
   createTenant: (data) => api.post('/tenants', data),

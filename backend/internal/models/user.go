@@ -34,6 +34,11 @@ type User struct {
 
 	// UI preferences
 	HideSidebar bool `gorm:"default:false" json:"hide_sidebar"`
+
+	// Two-Factor Authentication (2FA) - TOTP
+	TwoFactorEnabled     bool   `gorm:"default:false" json:"two_factor_enabled"`
+	TwoFactorSecret      string `json:"-"` // Encrypted TOTP secret, never exposed in JSON
+	TwoFactorBackupCodes string `json:"-"` // Encrypted backup codes (JSON array), never exposed
 }
 
 // TableName specifies the table name for User model

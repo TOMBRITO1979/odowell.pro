@@ -4,6 +4,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -142,4 +144,71 @@ func DecryptIfNeeded(ciphertext string) (string, error) {
 		return ciphertext, nil
 	}
 	return Decrypt(ciphertext)
+}
+
+// HashAPIKey creates a SHA-256 hash of an API key
+// Used for secure storage - the original key cannot be recovered
+func HashAPIKey(apiKey string) string {
+	hash := sha256.Sum256([]byte(apiKey))
+	return hex.EncodeToString(hash[:])
+}
+
+// VerifyAPIKey compares a plain API key with its hash using constant-time comparison
+// Returns true if they match
+func VerifyAPIKey(plainKey, hashedKey string) bool {
+	computedHash := HashAPIKey(plainKey)
+	return subtle.ConstantTimeCompare([]byte(computedHash), []byte(hashedKey)) == 1
+}
+
+// IsAPIKeyHash checks if a string looks like an API key hash (64 hex chars = SHA-256)
+func IsAPIKeyHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
+// EncryptAES encrypts data using AES-256-GCM with a custom key
+func EncryptAES(plaintext []byte, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	return gcm.Seal(nonce, nonce, plaintext, nil), nil
+}
+
+// DecryptAES decrypts data using AES-256-GCM with a custom key
+func DecryptAES(ciphertext []byte, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ciphertext) < gcm.NonceSize() {
+		return nil, errors.New("ciphertext too short")
+	}
+
+	nonce, ciphertextBytes := ciphertext[:gcm.NonceSize()], ciphertext[gcm.NonceSize():]
+	return gcm.Open(nil, nonce, ciphertextBytes, nil)
 }

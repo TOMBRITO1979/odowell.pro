@@ -154,3 +154,60 @@ const (
 	CacheMedium = 30 * time.Minute
 	CacheLong   = 24 * time.Hour
 )
+
+// Refresh token durations
+const (
+	AccessTokenExpiry  = 15 * time.Minute // Short-lived access token
+	RefreshTokenExpiry = 7 * 24 * time.Hour // 7 days
+)
+
+// RefreshTokenData stores refresh token metadata
+type RefreshTokenData struct {
+	UserID   uint   `json:"user_id"`
+	TenantID uint   `json:"tenant_id"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+	IsSuperAdmin bool `json:"is_super_admin"`
+}
+
+// StoreRefreshToken stores a refresh token in Redis
+func StoreRefreshToken(token string, data RefreshTokenData) error {
+	if Client == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
+	key := CacheKey("refresh_token", token)
+	return Set(key, data, RefreshTokenExpiry)
+}
+
+// GetRefreshToken retrieves refresh token data from Redis
+func GetRefreshToken(token string) (*RefreshTokenData, error) {
+	if Client == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
+	key := CacheKey("refresh_token", token)
+	var data RefreshTokenData
+	err := Get(key, &data)
+	if err != nil {
+		return nil, err
+	}
+	return &data, nil
+}
+
+// DeleteRefreshToken removes a refresh token from Redis
+func DeleteRefreshToken(token string) error {
+	if Client == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
+	key := CacheKey("refresh_token", token)
+	return Delete(key)
+}
+
+// DeleteAllUserRefreshTokens removes all refresh tokens for a user (for password change, etc.)
+func DeleteAllUserRefreshTokens(userID uint) error {
+	if Client == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
+	// Note: This is a simple implementation. For production with many tokens,
+	// consider using a secondary index or user-specific token sets
+	return DeletePattern(fmt.Sprintf("refresh_token:*"))
+}

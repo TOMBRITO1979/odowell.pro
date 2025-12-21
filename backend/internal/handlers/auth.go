@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -122,11 +125,53 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token
-	token, err := generateToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+	// Check if 2FA is enabled for this user
+	if user.TwoFactorEnabled {
+		// Generate temporary token for 2FA verification
+		tempToken, err := helpers.GenerateTempToken(user.ID, user.TenantID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate 2FA token"})
+			return
+		}
+
+		helpers.LogSecurityEvent("2fa_required", user.ID, user.TenantID, true, nil)
+
+		c.JSON(http.StatusOK, gin.H{
+			"requires_2fa": true,
+			"temp_token":   tempToken,
+			"user_id":      user.ID,
+			"message":      "Por favor, insira o código de autenticação de dois fatores",
+		})
 		return
+	}
+
+	// Generate access token (short-lived)
+	accessToken, err := generateAccessToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate access token"})
+		return
+	}
+
+	// Generate refresh token (long-lived, stored in Redis)
+	refreshToken, err := generateSecureToken(32) // 64 hex characters
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate refresh token"})
+		return
+	}
+
+	// Store refresh token in Redis (if Redis is available)
+	if cache.GetClient() != nil {
+		tokenData := cache.RefreshTokenData{
+			UserID:       user.ID,
+			TenantID:     user.TenantID,
+			Email:        user.Email,
+			Role:         user.Role,
+			IsSuperAdmin: user.IsSuperAdmin,
+		}
+		if err := cache.StoreRefreshToken(refreshToken, tokenData); err != nil {
+			log.Printf("WARNING: Failed to store refresh token in Redis: %v", err)
+			// Continue without refresh token - access token will still work
+		}
 	}
 
 	// Log successful login
@@ -136,8 +181,36 @@ func Login(c *gin.Context) {
 		"role":      user.Role,
 	})
 
+	// Set HTTP-only cookies with tokens
+	// Cookie settings for security:
+	// - HttpOnly: prevents JavaScript access (XSS protection)
+	// - Secure: only sent over HTTPS (in production)
+	// - SameSite=Lax: CSRF protection while allowing normal navigation
+	secure := os.Getenv("GIN_MODE") == "release"
+	accessMaxAge := int(cache.AccessTokenExpiry.Seconds())
+	refreshMaxAge := int(cache.RefreshTokenExpiry.Seconds())
+
+	// Set access token cookie (short-lived)
+	c.Header("Set-Cookie", fmt.Sprintf("auth_token=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s",
+		accessToken, accessMaxAge, func() string {
+			if secure {
+				return "; Secure"
+			}
+			return ""
+		}()))
+
+	// Set refresh token cookie (long-lived) - only for /api/auth path
+	c.Writer.Header().Add("Set-Cookie", fmt.Sprintf("refresh_token=%s; Path=/api/auth; Max-Age=%d; HttpOnly; SameSite=Lax%s",
+		refreshToken, refreshMaxAge, func() string {
+			if secure {
+				return "; Secure"
+			}
+			return ""
+		}()))
+
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
+		"token": accessToken, // Keep for backward compatibility during migration
+		"expires_in": accessMaxAge,
 		"user": gin.H{
 			"id":             user.ID,
 			"name":           user.Name,
@@ -148,10 +221,45 @@ func Login(c *gin.Context) {
 			"is_super_admin": user.IsSuperAdmin,
 		},
 		"tenant": gin.H{
-			"id":       tenant.ID,
-			"name":     tenant.Name,
-			"db_schema": tenant.DBSchema,
+			"id":   tenant.ID,
+			"name": tenant.Name,
 		},
+	})
+}
+
+// Logout clears auth and refresh cookies and invalidates refresh token
+func Logout(c *gin.Context) {
+	secure := os.Getenv("GIN_MODE") == "release"
+
+	// Delete refresh token from Redis if present
+	if refreshToken, err := c.Cookie("refresh_token"); err == nil && refreshToken != "" {
+		if cache.GetClient() != nil {
+			if err := cache.DeleteRefreshToken(refreshToken); err != nil {
+				log.Printf("WARNING: Failed to delete refresh token from Redis: %v", err)
+			}
+		}
+	}
+
+	// Clear auth token cookie
+	c.Header("Set-Cookie", fmt.Sprintf("auth_token=; Path=/; Max-Age=-1; HttpOnly; SameSite=Lax%s",
+		func() string {
+			if secure {
+				return "; Secure"
+			}
+			return ""
+		}()))
+
+	// Clear refresh token cookie
+	c.Writer.Header().Add("Set-Cookie", fmt.Sprintf("refresh_token=; Path=/api/auth; Max-Age=-1; HttpOnly; SameSite=Lax%s",
+		func() string {
+			if secure {
+				return "; Secure"
+			}
+			return ""
+		}()))
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Logged out successfully",
 	})
 }
 
@@ -433,7 +541,61 @@ func UploadProfilePicture(c *gin.Context) {
 	})
 }
 
-// Helper function to generate JWT token
+// generateSecureToken creates a cryptographically secure random token
+func generateSecureToken(length int) (string, error) {
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+// generateAccessToken creates a short-lived JWT access token
+func generateAccessToken(userID, tenantID uint, email, role string, isSuperAdmin bool) (string, error) {
+	// Get user permissions (admins get all permissions in the middleware, but we still include them for consistency)
+	var permissions map[string]map[string]bool
+	var err error
+
+	if role == "admin" {
+		// Admins get all permissions
+		permissions, err = middleware.GetAllUserPermissionsWithDefaults(userID)
+		if err != nil {
+			// Log error but continue - admin will have bypass anyway
+			permissions = make(map[string]map[string]bool)
+		}
+	} else {
+		// Regular users get their assigned permissions
+		permissions, err = middleware.GetUserPermissions(userID)
+		if err != nil {
+			// Log error but continue with empty permissions
+			log.Printf("ERROR loading permissions for user %d: %v", userID, err)
+			permissions = make(map[string]map[string]bool)
+		} else {
+			log.Printf("DEBUG: Loaded %d modules permissions for user %d (%s)", len(permissions), userID, email)
+			for module, perms := range permissions {
+				log.Printf("  - %s: %v", module, perms)
+			}
+		}
+	}
+
+	claims := Claims{
+		UserID:       userID,
+		TenantID:     tenantID,
+		Email:        email,
+		Role:         role,
+		IsSuperAdmin: isSuperAdmin,
+		Permissions:  permissions,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(cache.AccessTokenExpiry)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+}
+
+// generateToken creates a JWT token (legacy - uses 24 hour expiry for backward compatibility)
 func generateToken(userID, tenantID uint, email, role string, isSuperAdmin bool) (string, error) {
 	// Get user permissions (admins get all permissions in the middleware, but we still include them for consistency)
 	var permissions map[string]map[string]bool
@@ -476,4 +638,65 @@ func generateToken(userID, tenantID uint, email, role string, isSuperAdmin bool)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+}
+
+// RefreshToken handles token refresh using refresh token cookie
+func RefreshToken(c *gin.Context) {
+	// Get refresh token from cookie
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil || refreshToken == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token required"})
+		return
+	}
+
+	// Validate refresh token in Redis
+	tokenData, err := cache.GetRefreshToken(refreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
+		return
+	}
+
+	// Verify user still exists and is active
+	db := database.GetDB()
+	var user models.User
+	if err := db.First(&user, tokenData.UserID).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+
+	if !user.Active {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User account is inactive"})
+		return
+	}
+
+	// Verify tenant is still active
+	var tenant models.Tenant
+	if err := db.Where("id = ? AND active = ?", user.TenantID, true).First(&tenant).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tenant is inactive"})
+		return
+	}
+
+	// Generate new access token
+	accessToken, err := generateAccessToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	// Set new access token cookie
+	secure := os.Getenv("GIN_MODE") == "release"
+	accessMaxAge := int(cache.AccessTokenExpiry.Seconds())
+
+	c.Header("Set-Cookie", fmt.Sprintf("auth_token=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s",
+		accessToken, accessMaxAge, func() string {
+			if secure {
+				return "; Secure"
+			}
+			return ""
+		}()))
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": accessToken, // For backward compatibility
+		"expires_in": accessMaxAge,
+	})
 }

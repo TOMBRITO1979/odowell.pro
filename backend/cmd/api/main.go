@@ -1,21 +1,38 @@
 package main
 
 import (
+	"context"
 	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/handlers"
+	"drcrwell/backend/internal/helpers"
+	"drcrwell/backend/internal/metrics"
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/scheduler"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
+// serverStartTime tracks when the server started for uptime calculation
+var serverStartTime time.Time
+
+func init() {
+	serverStartTime = time.Now()
+}
+
 func main() {
+	// Validate required environment variables
+	validateRequiredEnvVars()
+
 	// Initialize timezone - critical for correct date/time handling
 	initTimezone()
 
@@ -30,11 +47,23 @@ func main() {
 		// Don't fail startup - app can work without cache
 	}
 
+	// Initialize Sentry for error tracking
+	if err := helpers.InitSentry(); err != nil {
+		log.Printf("WARNING: Sentry initialization failed: %v (error tracking disabled)", err)
+	}
+	defer helpers.CloseSentry()
+
 	// Run migrations for all existing tenant schemas
 	// This ensures new tables are created in all tenants on startup
 	if err := database.RunAllMigrations(); err != nil {
 		log.Printf("WARNING: Migration errors occurred: %v", err)
 		// Don't fail startup, just log the warning
+	}
+
+	// Apply performance indexes and FK constraints
+	// This is idempotent - safe to run on every startup
+	if err := database.ApplyAllIndexesAndConstraints(); err != nil {
+		log.Printf("WARNING: Index/constraint errors occurred: %v", err)
 	}
 
 	// Start background schedulers (trial expiration, data retention cleanup)
@@ -57,21 +86,40 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Health check with detailed status
+	// Sentry middleware - captures panics and sends to Sentry
+	r.Use(middleware.SentryMiddleware())
+
+	// Request ID middleware - adds unique ID to each request for tracing
+	r.Use(middleware.RequestIDMiddleware())
+
+	// Security headers middleware - protects against common web vulnerabilities
+	r.Use(middleware.SecurityHeadersMiddleware())
+
+	// JSON structured logging middleware - logs all requests in JSON format
+	r.Use(middleware.JSONLoggerMiddleware())
+
+	// Prometheus metrics middleware - collects request metrics
+	r.Use(metrics.PrometheusMiddleware())
+
+	// Prometheus metrics endpoint
+	r.GET("/metrics", metrics.MetricsHandler())
+
+	// Health check with detailed status and metrics
 	r.GET("/health", func(c *gin.Context) {
 		pgStatus := "healthy"
 		redisStatus := "healthy"
 		pgError := ""
 		redisError := ""
+		var pgLatencyMs float64
 
-		// Check PostgreSQL using direct ping
+		// Check PostgreSQL using direct ping with latency measurement
+		pgStart := time.Now()
 		err := database.Health()
+		pgLatencyMs = float64(time.Since(pgStart).Microseconds()) / 1000.0
 		if err != nil {
 			pgStatus = "unhealthy"
 			pgError = err.Error()
 			log.Printf("Health check - PostgreSQL error: %v", err)
-		} else {
-			log.Printf("Health check - PostgreSQL OK")
 		}
 
 		// Check Redis
@@ -88,15 +136,49 @@ func main() {
 			overallStatus = "degraded"
 		}
 
+		// Get runtime metrics
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+
+		// Calculate uptime
+		uptime := time.Since(serverStartTime)
+
+		// Get database pool stats
+		var dbPoolStats gin.H
+		if sqlDB, err := database.GetDB().DB(); err == nil {
+			stats := sqlDB.Stats()
+			dbPoolStats = gin.H{
+				"open_connections": stats.OpenConnections,
+				"in_use":           stats.InUse,
+				"idle":             stats.Idle,
+				"max_open":         stats.MaxOpenConnections,
+				"wait_count":       stats.WaitCount,
+				"wait_duration_ms": stats.WaitDuration.Milliseconds(),
+			}
+		}
+
 		response := gin.H{
 			"status": overallStatus,
 			"services": gin.H{
 				"postgres": pgStatus,
 				"redis":    redisStatus,
 			},
+			"metrics": gin.H{
+				"uptime_seconds":   int64(uptime.Seconds()),
+				"uptime_human":     uptime.Round(time.Second).String(),
+				"goroutines":       runtime.NumGoroutine(),
+				"memory_alloc_mb":  float64(memStats.Alloc) / 1024 / 1024,
+				"memory_sys_mb":    float64(memStats.Sys) / 1024 / 1024,
+				"gc_runs":          memStats.NumGC,
+				"pg_latency_ms":    pgLatencyMs,
+				"db_pool":          dbPoolStats,
+			},
+			"version": gin.H{
+				"go": runtime.Version(),
+			},
 		}
 
-		// Add error details in debug mode or when unhealthy
+		// Add error details when unhealthy
 		if pgError != "" || redisError != "" {
 			response["errors"] = gin.H{}
 			if pgError != "" {
@@ -120,6 +202,10 @@ func main() {
 		public.POST("/tenants", handlers.CreateTenant)
 		// Login with rate limiting: 5 attempts per minute, 15 min block (Redis distributed)
 		public.POST("/auth/login", middleware.RedisLoginRateLimiter.RateLimitMiddleware(), handlers.Login)
+		// Logout (clears httpOnly cookies and invalidates refresh token)
+		public.POST("/auth/logout", handlers.Logout)
+		// Refresh token (generates new access token using refresh token)
+		public.POST("/auth/refresh", handlers.RefreshToken)
 		// Email verification
 		public.GET("/auth/verify-email", handlers.VerifyEmail)
 		public.POST("/auth/resend-verification", handlers.ResendVerificationEmail)
@@ -127,6 +213,8 @@ func main() {
 		public.POST("/auth/forgot-password", handlers.ForgotPassword)
 		public.POST("/auth/reset-password", handlers.ResetPassword)
 		public.GET("/auth/validate-reset-token", handlers.ValidateResetToken)
+		// 2FA verification during login (public - requires temp token)
+		public.POST("/auth/2fa/verify", handlers.Verify2FALogin)
 	}
 
 	// Static file serving for uploads
@@ -140,6 +228,16 @@ func main() {
 		protected.PUT("/auth/profile", handlers.UpdateProfile)
 		protected.PUT("/auth/password", handlers.ChangePassword)
 		protected.POST("/auth/profile/picture", handlers.UploadProfilePicture)
+
+		// Two-Factor Authentication (2FA) management
+		twoFA := protected.Group("/auth/2fa")
+		{
+			twoFA.GET("/status", handlers.Get2FAStatus)
+			twoFA.POST("/setup", handlers.Setup2FA)
+			twoFA.POST("/confirm", handlers.Verify2FA)
+			twoFA.POST("/disable", handlers.Disable2FA)
+			twoFA.POST("/backup-codes", handlers.RegenerateBackupCodes)
+		}
 
 		// Digital Certificates (user-level, not tenant-level)
 		certificates := protected.Group("/certificates")
@@ -450,15 +548,15 @@ func main() {
 		// Tenant Settings
 		tenanted.GET("/settings", middleware.PermissionMiddleware("settings", "view"), handlers.GetTenantSettings)
 		tenanted.PUT("/settings", middleware.PermissionMiddleware("settings", "edit"), handlers.UpdateTenantSettings)
-		tenanted.DELETE("/settings/tenant", handlers.DeleteOwnTenant) // Admin can delete own company
+		tenanted.DELETE("/settings/tenant", middleware.RoleMiddleware("admin"), handlers.DeleteOwnTenant) // Admin can delete own company
 		tenanted.POST("/settings/smtp/test", middleware.PermissionMiddleware("settings", "edit"), handlers.TestSMTPConnection)
 
 		// API Key Management (for WhatsApp/AI integrations)
-		tenanted.POST("/settings/api-key/generate", handlers.GenerateAPIKey)
-		tenanted.GET("/settings/api-key/status", handlers.GetAPIKeyStatus)
-		tenanted.PATCH("/settings/api-key/toggle", handlers.ToggleAPIKey)
-		tenanted.DELETE("/settings/api-key", handlers.RevokeAPIKey)
-		tenanted.GET("/settings/api-key/docs", handlers.WhatsAppAPIDocumentation)
+		tenanted.POST("/settings/api-key/generate", middleware.PermissionMiddleware("settings", "edit"), handlers.GenerateAPIKey)
+		tenanted.GET("/settings/api-key/status", middleware.PermissionMiddleware("settings", "view"), handlers.GetAPIKeyStatus)
+		tenanted.PATCH("/settings/api-key/toggle", middleware.PermissionMiddleware("settings", "edit"), handlers.ToggleAPIKey)
+		tenanted.DELETE("/settings/api-key", middleware.PermissionMiddleware("settings", "edit"), handlers.RevokeAPIKey)
+		tenanted.GET("/settings/api-key/docs", middleware.PermissionMiddleware("settings", "view"), handlers.WhatsAppAPIDocumentation)
 
 		// Embed Token Management (for Chatwell/external panels)
 		tenanted.GET("/settings/embed-token", middleware.PermissionMiddleware("settings", "view"), handlers.GetEmbedToken)
@@ -468,14 +566,15 @@ func main() {
 		// User Management (admin only)
 		users := tenanted.Group("/users")
 		{
-			users.GET("", handlers.GetTenantUsers)
-			users.POST("", handlers.CreateTenantUser)
-			users.PUT("/:id", handlers.UpdateTenantUser)
-			users.PATCH("/:id/sidebar", handlers.UpdateUserSidebar)
+			users.GET("", middleware.PermissionMiddleware("users", "view"), handlers.GetTenantUsers)
+			users.POST("", middleware.PermissionMiddleware("users", "create"), handlers.CreateTenantUser)
+			users.PUT("/:id", middleware.PermissionMiddleware("users", "edit"), handlers.UpdateTenantUser)
+			users.PATCH("/:id/sidebar", handlers.UpdateUserSidebar) // User can update own sidebar
 		}
 
 		// Permission Management (admin only)
 		permissions := tenanted.Group("/permissions")
+		permissions.Use(middleware.RoleMiddleware("admin"))
 		{
 			permissions.GET("/modules", handlers.GetModules)
 			permissions.GET("/all", handlers.GetAllPermissions)
@@ -487,6 +586,7 @@ func main() {
 
 		// Audit Logs (admin only) - LGPD compliance
 		audit := tenanted.Group("/audit")
+		audit.Use(middleware.PermissionMiddleware("audit_logs", "view"))
 		{
 			audit.GET("/logs", handlers.GetAuditLogs)
 			audit.GET("/stats", handlers.GetAuditLogStats)
@@ -511,6 +611,7 @@ func main() {
 
 		// LGPD Data Deletion (admin only)
 		lgpd := tenanted.Group("/lgpd")
+		lgpd.Use(middleware.PermissionMiddleware("data_requests", "delete"))
 		{
 			lgpd.GET("/patients/:id/deletion-preview", handlers.GetPatientDeletionPreview)
 			lgpd.DELETE("/patients/:id/permanent", handlers.PermanentDeletePatient)
@@ -519,6 +620,7 @@ func main() {
 
 		// Data Retention (admin only)
 		retention := tenanted.Group("/retention")
+		retention.Use(middleware.RoleMiddleware("admin"))
 		{
 			retention.GET("/stats", handlers.GetRetentionStats)
 			retention.GET("/policy", handlers.GetRetentionPolicy)
@@ -632,8 +734,39 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("Server starting on port %s", port)
-	r.Run(":" + port)
+	// Create HTTP server with graceful shutdown support
+	srv := &http.Server{
+		Addr:         ":" + port,
+		Handler:      r,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Start server in a goroutine
+	go func() {
+		log.Printf("Server starting on port %s", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed to start: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server gracefully...")
+
+	// Give outstanding requests 30 seconds to complete
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exited gracefully")
 }
 
 // initTimezone initializes the application timezone
@@ -653,4 +786,34 @@ func initTimezone() {
 
 	time.Local = loc
 	log.Printf("Timezone initialized: %s (current time: %s)", tz, time.Now().Format("2006-01-02 15:04:05 MST"))
+}
+
+// validateRequiredEnvVars ensures critical environment variables are set
+func validateRequiredEnvVars() {
+	required := []string{
+		"JWT_SECRET",
+		"DB_HOST",
+		"DB_USER",
+		"DB_PASSWORD",
+		"DB_NAME",
+	}
+
+	missing := []string{}
+	for _, env := range required {
+		if os.Getenv(env) == "" {
+			missing = append(missing, env)
+		}
+	}
+
+	if len(missing) > 0 {
+		log.Fatalf("FATAL: Missing required environment variables: %v", missing)
+	}
+
+	// Validate JWT_SECRET has minimum length (32 bytes recommended)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if len(jwtSecret) < 32 {
+		log.Fatalf("FATAL: JWT_SECRET must be at least 32 characters long (current: %d)", len(jwtSecret))
+	}
+
+	log.Println("Environment variables validated successfully")
 }

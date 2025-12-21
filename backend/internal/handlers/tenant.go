@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
 	"encoding/hex"
 	"fmt"
@@ -268,9 +269,12 @@ func GenerateAPIKey(c *gin.Context) {
 		return
 	}
 
-	// Update tenant with new API key
+	// Hash the API key before storing (security: only the hash is stored)
+	apiKeyHash := helpers.HashAPIKey(apiKey)
+
+	// Update tenant with hashed API key
 	if err := db.Model(&tenant).Updates(map[string]interface{}{
-		"api_key":        apiKey,
+		"api_key":        apiKeyHash, // Store the hash, not the plain key
 		"api_key_active": true,
 	}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -280,12 +284,13 @@ func GenerateAPIKey(c *gin.Context) {
 		return
 	}
 
+	// Return the plain key to the user (this is the only time they'll see it)
 	c.JSON(http.StatusOK, gin.H{
 		"error":   false,
 		"message": "Chave de API gerada com sucesso",
-		"api_key": apiKey,
+		"api_key": apiKey, // Return plain key only once - cannot be recovered later
 		"active":  true,
-		"note":    "IMPORTANTE: Guarde esta chave em local seguro. Ela só será exibida uma vez.",
+		"note":    "IMPORTANTE: Guarde esta chave em local seguro. Ela NÃO poderá ser recuperada depois.",
 	})
 }
 
@@ -308,17 +313,13 @@ func GetAPIKeyStatus(c *gin.Context) {
 	hasKey := tenant.APIKey != ""
 	isActive := tenant.APIKeyActive
 
-	// Show masked version of key if it exists
-	maskedKey := ""
-	if hasKey {
-		maskedKey = tenant.APIKey[:8] + "..." + tenant.APIKey[len(tenant.APIKey)-4:]
-	}
-
+	// Note: We no longer show the masked key since we now store hashes
+	// The original key was only shown once at generation time
 	c.JSON(http.StatusOK, gin.H{
-		"error":      false,
-		"has_key":    hasKey,
-		"active":     isActive,
-		"masked_key": maskedKey,
+		"error":   false,
+		"has_key": hasKey,
+		"active":  isActive,
+		"note":    "A chave de API é armazenada de forma segura e não pode ser visualizada.",
 	})
 }
 

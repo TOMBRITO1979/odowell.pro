@@ -351,22 +351,40 @@ func AnonymizePatient(c *gin.Context) {
 	// Anonymize the patient data
 	anonymizedID := fmt.Sprintf("ANON-%d-%d", patientID, time.Now().Unix())
 
+	// Clear all personally identifiable information
 	patient.Name = "Paciente Anonimizado"
 	patient.CPF = anonymizedID
 	patient.RG = ""
 	patient.Email = ""
 	patient.Phone = ""
+	patient.CellPhone = ""       // Also clear cell phone
 	patient.Address = ""
+	patient.Number = ""          // House/apt number
+	patient.Complement = ""
+	patient.District = ""
 	patient.City = ""
 	patient.State = ""
 	patient.ZipCode = ""
-	patient.Notes = "Dados anonimizados conforme LGPD"
+	patient.InsuranceName = ""   // Insurance info is PII
+	patient.InsuranceNumber = ""
+	patient.Notes = "Dados anonimizados conforme LGPD em " + time.Now().Format("02/01/2006")
 	patient.Tags = ""
 
 	if err := db.Save(&patient).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao anonimizar paciente"})
 		return
 	}
+
+	// Also anonymize patient consents (they contain signature data)
+	db.Model(&models.PatientConsent{}).
+		Where("patient_id = ?", patientID).
+		Updates(map[string]interface{}{
+			"signature_data":   nil,
+			"signature_ip":     "",
+			"legal_guardian":   "",
+			"witness_name":     "",
+			"witness_document": "",
+		})
 
 	// Audit log
 	helpers.AuditAction(c, "anonymize", "patients", uint(patientID), true, originalInfo)

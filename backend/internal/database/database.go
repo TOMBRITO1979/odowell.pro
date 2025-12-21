@@ -57,15 +57,27 @@ func Connect() error {
 		tz,
 	)
 
-	// Configure logger based on environment
-	logMode := logger.Warn
+	// Configure logger based on environment with slow query logging
+	logLevel := logger.Warn
 	if os.Getenv("ENV") == "development" {
-		logMode = logger.Info
+		logLevel = logger.Info
 	}
+
+	// Custom logger configuration with slow query threshold
+	// Queries taking longer than 200ms will be logged as warnings
+	customLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond, // Log queries slower than 200ms
+			LogLevel:                  logLevel,
+			IgnoreRecordNotFoundError: true,  // Don't log ErrRecordNotFound
+			Colorful:                  false, // Disable colors in production logs
+		},
+	)
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger:                 logger.Default.LogMode(logMode),
+		Logger:                 customLogger,
 		SkipDefaultTransaction: true, // Better performance for read-heavy workloads
 	})
 

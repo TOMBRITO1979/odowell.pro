@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
 	"fmt"
 	"net/http"
@@ -23,28 +24,40 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// AuthMiddleware validates JWT token
+// AuthMiddleware validates JWT token from cookie or Authorization header
+// Priority: 1) HttpOnly cookie (more secure) 2) Authorization header (for API compatibility)
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			c.Abort()
-			return
+		var tokenString string
+
+		// First, try to get token from HttpOnly cookie (more secure)
+		if cookie, err := c.Cookie("auth_token"); err == nil && cookie != "" {
+			tokenString = cookie
+		} else {
+			// Fall back to Authorization header (for API access and backward compatibility)
+			authHeader := c.GetHeader("Authorization")
+			if authHeader == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+				c.Abort()
+				return
+			}
+
+			// Extract token from "Bearer <token>"
+			parts := strings.Split(authHeader, " ")
+			if len(parts) != 2 || parts[0] != "Bearer" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
+				c.Abort()
+				return
+			}
+			tokenString = parts[1]
 		}
 
-		// Extract token from "Bearer <token>"
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
-			c.Abort()
-			return
-		}
-
-		tokenString := parts[1]
-
-		// Parse and validate token
+		// Parse and validate token with algorithm validation
 		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+			// Validate signing algorithm to prevent "alg:none" attacks
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		})
 
@@ -144,6 +157,7 @@ func SuperAdminMiddleware() gin.HandlerFunc {
 
 // APIKeyMiddleware validates API key for external integrations (WhatsApp, AI bots)
 // The API key should be passed in the X-API-Key header
+// Security: API keys are stored as hashes, so we hash the incoming key and compare
 func APIKeyMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-API-Key")
@@ -156,18 +170,29 @@ func APIKeyMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Find tenant by API key
+		// Hash the incoming API key
+		apiKeyHash := helpers.HashAPIKey(apiKey)
+
+		// Find tenant by hashed API key
 		db := database.GetDB()
 		var tenant models.Tenant
-		result := db.Where("api_key = ? AND api_key_active = ? AND active = ?", apiKey, true, true).First(&tenant)
+
+		// Try hashed key first (new format)
+		result := db.Where("api_key = ? AND api_key_active = ? AND active = ?", apiKeyHash, true, true).First(&tenant)
 
 		if result.Error != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error":   true,
-				"message": "Invalid or inactive API key",
-			})
-			c.Abort()
-			return
+			// Fallback: try direct comparison for legacy keys (migration period)
+			// This allows old unhashed keys to still work temporarily
+			result = db.Where("api_key = ? AND api_key_active = ? AND active = ?", apiKey, true, true).First(&tenant)
+
+			if result.Error != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error":   true,
+					"message": "Invalid or inactive API key",
+				})
+				c.Abort()
+				return
+			}
 		}
 
 		// Set tenant info in context

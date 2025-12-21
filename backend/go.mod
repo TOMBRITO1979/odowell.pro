@@ -4,10 +4,14 @@ go 1.21
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
+	github.com/getsentry/sentry-go v0.27.0
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v5 v5.2.0
+	github.com/google/uuid v1.6.0
 	github.com/jung-kurt/gofpdf v1.16.2
+	github.com/pquerna/otp v1.4.0
+	github.com/prometheus/client_golang v1.18.0
 	github.com/redis/go-redis/v9 v9.3.0
 	github.com/stripe/stripe-go/v76 v76.25.0
 	github.com/xuri/excelize/v2 v2.8.0

@@ -59,3 +59,7 @@ type Patient struct {
 	MedicalRecords   []MedicalRecord `gorm:"foreignKey:PatientID" json:"medical_records,omitempty"`
 	Attachments      []Attachment `gorm:"foreignKey:PatientID" json:"attachments,omitempty"`
 }
+
+// Note: Encryption of sensitive fields (CPF, RG, InsuranceNumber) is handled
+// at the handler level in patient.go to avoid import cycles.
+// See CreatePatient and UpdatePatient handlers for encryption implementation.

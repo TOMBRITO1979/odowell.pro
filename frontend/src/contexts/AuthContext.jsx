@@ -81,7 +81,15 @@ export const AuthProvider = ({ children }) => {
     return response.data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Clear httpOnly cookie via API
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      // Ignore errors - we're logging out anyway
+      console.error('Logout API error:', error);
+    }
+    // Clear local storage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('tenant');

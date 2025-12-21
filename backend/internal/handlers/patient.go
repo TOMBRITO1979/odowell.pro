@@ -11,6 +11,20 @@ import (
 	"gorm.io/gorm"
 )
 
+// decryptPatientFields decrypts sensitive patient fields after loading from DB
+func decryptPatientFields(patient *models.Patient) {
+	patient.CPF, _ = helpers.DecryptIfNeeded(patient.CPF)
+	patient.RG, _ = helpers.DecryptIfNeeded(patient.RG)
+	patient.InsuranceNumber, _ = helpers.DecryptIfNeeded(patient.InsuranceNumber)
+}
+
+// decryptPatientsFields decrypts sensitive fields for a slice of patients
+func decryptPatientsFields(patients []models.Patient) {
+	for i := range patients {
+		decryptPatientFields(&patients[i])
+	}
+}
+
 // CreatePatient - Criar novo paciente
 func CreatePatient(c *gin.Context) {
 	var patient models.Patient
@@ -25,6 +39,11 @@ func CreatePatient(c *gin.Context) {
 		return
 	}
 
+	// Encrypt sensitive fields before saving
+	patient.CPF, _ = helpers.EncryptIfNeeded(patient.CPF)
+	patient.RG, _ = helpers.EncryptIfNeeded(patient.RG)
+	patient.InsuranceNumber, _ = helpers.EncryptIfNeeded(patient.InsuranceNumber)
+
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
 	if err := db.Create(&patient).Error; err != nil {
 		helpers.AuditAction(c, "create", "patients", 0, false, map[string]interface{}{
@@ -35,12 +54,14 @@ func CreatePatient(c *gin.Context) {
 		return
 	}
 
-	// Log detalhado da criação
+	// Log detalhado da criação (use original CPF, not encrypted)
 	helpers.AuditAction(c, "create", "patients", patient.ID, true, map[string]interface{}{
 		"name":  patient.Name,
-		"cpf":   patient.CPF,
 		"phone": patient.Phone,
 	})
+
+	// Decrypt fields before returning to client
+	decryptPatientFields(&patient)
 
 	c.JSON(http.StatusCreated, gin.H{"patient": patient})
 }
@@ -58,13 +79,17 @@ func GetPatients(c *gin.Context) {
 
 	query := db.Model(&models.Patient{})
 
-	// Filtro de busca (nome, CPF, telefone fixo e celular)
+	// Filtro de busca (nome, telefone fixo e celular)
+	// Note: CPF is encrypted so we cannot search by it with ILIKE
 	if search := c.Query("search"); search != "" {
-		query = query.Where("name ILIKE ? OR cpf ILIKE ? OR phone ILIKE ? OR cell_phone ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+		query = query.Where("name ILIKE ? OR phone ILIKE ? OR cell_phone ILIKE ? OR email ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 
 	query.Count(&total)
 	query.Offset(offset).Limit(pageSize).Order("name ASC").Find(&patients)
+
+	// Decrypt sensitive fields before returning
+	decryptPatientsFields(patients)
 
 	c.JSON(http.StatusOK, gin.H{
 		"patients":  patients,
@@ -84,6 +109,9 @@ func GetPatient(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Paciente não encontrado"})
 		return
 	}
+
+	// Decrypt sensitive fields before returning
+	decryptPatientFields(&patient)
 
 	c.JSON(http.StatusOK, gin.H{"patient": patient})
 }
@@ -114,6 +142,11 @@ func UpdatePatient(c *gin.Context) {
 		return
 	}
 
+	// Encrypt sensitive fields before SQL update (since raw SQL bypasses GORM hooks)
+	cpfEncrypted, _ := helpers.EncryptIfNeeded(input.CPF)
+	rgEncrypted, _ := helpers.EncryptIfNeeded(input.RG)
+	insuranceNumEncrypted, _ := helpers.EncryptIfNeeded(input.InsuranceNumber)
+
 	// UPDATE usando SQL RAW para evitar bug do GORM com soft delete
 	sql := `UPDATE patients SET
 		name = ?, cpf = ?, rg = ?, birth_date = ?, gender = ?,
@@ -126,11 +159,11 @@ func UpdatePatient(c *gin.Context) {
 		WHERE id = ? AND deleted_at IS NULL`
 
 	if err := db.Exec(sql,
-		input.Name, input.CPF, input.RG, input.BirthDate, input.Gender,
+		input.Name, cpfEncrypted, rgEncrypted, input.BirthDate, input.Gender,
 		input.Email, input.Phone, input.CellPhone,
 		input.Address, input.Number, input.Complement, input.District, input.City, input.State, input.ZipCode,
 		input.Allergies, input.Medications, input.SystemicDiseases, input.BloodType,
-		input.HasInsurance, input.InsuranceName, input.InsuranceNumber,
+		input.HasInsurance, input.InsuranceName, insuranceNumEncrypted,
 		input.Tags, input.Active, input.Notes,
 		id,
 	).Error; err != nil {
@@ -144,6 +177,9 @@ func UpdatePatient(c *gin.Context) {
 	// Buscar paciente atualizado
 	var patient models.Patient
 	db.First(&patient, id)
+
+	// Decrypt fields before returning and logging
+	decryptPatientFields(&patient)
 
 	// Log detalhado da atualização com dados antes/depois
 	helpers.AuditAction(c, "update", "patients", uint(patientID), true, map[string]interface{}{

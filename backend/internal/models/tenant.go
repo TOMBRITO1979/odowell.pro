@@ -16,7 +16,7 @@ type Tenant struct {
 	// Tenant identification
 	Name       string `gorm:"not null" json:"name"`
 	Subdomain  string `gorm:"unique;not null" json:"subdomain"`
-	DBSchema   string `gorm:"unique;not null" json:"db_schema"`
+	DBSchema   string `gorm:"unique;not null" json:"-"` // Hidden from API responses for security
 
 	// Contact info
 	Email      string `json:"email"`
