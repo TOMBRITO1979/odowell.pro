@@ -449,7 +449,12 @@ func GenerateTemplatePDF(c *gin.Context) {
 	// Get tenant info for clinic data
 	tenantID, _ := c.Get("tenant_id")
 	var tenant models.Tenant
-	dbPublic := middleware.GetDBFromContext(c).(*gorm.DB)
+	dbPublicRaw := middleware.GetDBFromContext(c)
+	dbPublic, ok := dbPublicRaw.(*gorm.DB)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro interno: conexão com banco de dados"})
+		return
+	}
 	dbPublic.Exec("SET search_path TO public")
 	dbPublic.First(&tenant, tenantID)
 

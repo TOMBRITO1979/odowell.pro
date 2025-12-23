@@ -48,6 +48,28 @@ func getTimezone() *time.Location {
 	return loc
 }
 
+// getDBSafe safely retrieves DB from context for WhatsApp API handlers
+// Returns nil and false if DB is not available or has wrong type
+func getDBSafe(c *gin.Context) (*gorm.DB, bool) {
+	dbVal, exists := c.Get("db")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: conexão não disponível",
+		})
+		return nil, false
+	}
+	db, ok := dbVal.(*gorm.DB)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: tipo de conexão inválido",
+		})
+		return nil, false
+	}
+	return db, true
+}
+
 // WhatsAppVerifyRequest represents the identity verification request
 type WhatsAppVerifyRequest struct {
 	CPF       string `json:"cpf" binding:"required"`
@@ -181,7 +203,10 @@ func getProcedureLabel(procedure string) string {
 // WhatsAppVerifyIdentity verifies patient identity by CPF and birth date
 // POST /api/whatsapp/verify
 func WhatsAppVerifyIdentity(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 
 	var req WhatsAppVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -325,7 +350,10 @@ func normalizePhoneQuery(schemaName string) string {
 // GET /api/whatsapp/appointments?patient_id=X
 // GET /api/whatsapp/appointments?phone=11999998888
 func WhatsAppGetAppointments(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 	patientID := c.Query("patient_id")
 	phone := c.Query("phone")
 
@@ -454,7 +482,10 @@ func WhatsAppGetAppointments(c *gin.Context) {
 // GET /api/whatsapp/appointments/history?patient_id=X&limit=10
 // GET /api/whatsapp/appointments/history?phone=11999998888&limit=10
 func WhatsAppGetAppointmentHistory(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 	limit := c.DefaultQuery("limit", "10")
 
 	// Get patient ID from phone or direct ID
@@ -543,7 +574,10 @@ func WhatsAppGetAppointmentHistory(c *gin.Context) {
 // POST /api/whatsapp/appointments/cancel?patient_id=X
 // POST /api/whatsapp/appointments/cancel?phone=11999998888
 func WhatsAppCancelAppointment(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 
 	var req WhatsAppCancelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -645,7 +679,10 @@ func WhatsAppCancelAppointment(c *gin.Context) {
 // WhatsAppGetAvailableSlots returns available time slots for a specific date
 // GET /api/whatsapp/slots?date=YYYY-MM-DD&dentist_id=X
 func WhatsAppGetAvailableSlots(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 	dateStr := c.Query("date")
 	dentistID := c.Query("dentist_id")
 
@@ -789,7 +826,10 @@ func WhatsAppGetAvailableSlots(c *gin.Context) {
 // POST /api/whatsapp/appointments/reschedule?patient_id=X
 // POST /api/whatsapp/appointments/reschedule?phone=11999998888
 func WhatsAppRescheduleAppointment(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 
 	var req WhatsAppRescheduleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -948,7 +988,10 @@ func WhatsAppRescheduleAppointment(c *gin.Context) {
 // POST /api/whatsapp/waiting-list?patient_id=X
 // POST /api/whatsapp/waiting-list?phone=11999998888
 func WhatsAppAddToWaitingList(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 
 	var req WhatsAppWaitingListRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1071,7 +1114,10 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 // GET /api/whatsapp/waiting-list?patient_id=X
 // GET /api/whatsapp/waiting-list?phone=11999998888
 func WhatsAppGetWaitingListStatus(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 
 	// Get patient ID from phone or direct ID
 	patientID, errMsg := getPatientIDFromPhoneOrID(c, db)
@@ -1162,7 +1208,10 @@ func WhatsAppGetWaitingListStatus(c *gin.Context) {
 // DELETE /api/whatsapp/waiting-list/:id?patient_id=X
 // DELETE /api/whatsapp/waiting-list/:id?phone=11999998888
 func WhatsAppRemoveFromWaitingList(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 	entryID := c.Param("id")
 
 	// Get patient ID from phone or direct ID
@@ -1244,7 +1293,10 @@ func WhatsAppGetProcedures(c *gin.Context) {
 // WhatsAppGetDentists returns available dentists list
 // GET /api/whatsapp/dentists
 func WhatsAppGetDentists(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 
 	type DentistResponse struct {
 		ID        uint   `json:"id"`
@@ -1311,7 +1363,10 @@ type WhatsAppCreateLeadRequest struct {
 // WhatsAppCreateLead creates a new lead via WhatsApp API (without user authentication)
 // POST /api/whatsapp/leads
 func WhatsAppCreateLead(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 
 	var req WhatsAppCreateLeadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1407,7 +1462,10 @@ func WhatsAppCreateLead(c *gin.Context) {
 // WhatsAppCreateAppointment creates a new appointment via WhatsApp API
 // POST /api/whatsapp/appointments
 func WhatsAppCreateAppointment(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 
 	var req WhatsAppCreateAppointmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1598,7 +1656,10 @@ type WhatsAppDentistAppointmentResponse struct {
 // GET /api/whatsapp/appointments/by-dentist?dentist_id=X&date=YYYY-MM-DD
 // GET /api/whatsapp/appointments/by-dentist?dentist_id=X&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
 func WhatsAppGetDentistAppointments(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := getDBSafe(c)
+	if !ok {
+		return
+	}
 	dentistID := c.Query("dentist_id")
 	dateStr := c.Query("date")
 	startDateStr := c.Query("start_date")
