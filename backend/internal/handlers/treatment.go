@@ -335,7 +335,7 @@ func CreateTreatmentPayment(c *gin.Context) {
 	}
 	userID, ok := userIDVal.(uint)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Tipo de ID de usuário inválido"})
 		return
 	}
 
@@ -423,7 +423,7 @@ func CreateTreatmentPayment(c *gin.Context) {
 	}
 
 	// Load payment with created data
-	db.Raw("SELECT * FROM treatment_payments WHERE id = ?", payment.ID).Scan(&payment)
+	db.Raw("SELECT * FROM treatment_payments WHERE id = ? AND deleted_at IS NULL", payment.ID).Scan(&payment)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"payment":   payment,
@@ -557,7 +557,7 @@ func UpdateTreatmentPayment(c *gin.Context) {
 		}
 	}
 
-	db.Raw("SELECT * FROM treatment_payments WHERE id = ?", payment.ID).Scan(&payment)
+	db.Raw("SELECT * FROM treatment_payments WHERE id = ? AND deleted_at IS NULL", payment.ID).Scan(&payment)
 
 	c.JSON(http.StatusOK, gin.H{"payment": payment})
 }
@@ -900,11 +900,11 @@ func CreateTreatmentFromBudgetRaw(db *gorm.DB, budget *models.Budget, totalInsta
 
 	// Load the treatment with relationships
 	var treatment models.Treatment
-	db.Raw("SELECT * FROM treatments WHERE id = ?", treatmentID).Scan(&treatment)
+	db.Raw("SELECT * FROM treatments WHERE id = ? AND deleted_at IS NULL", treatmentID).Scan(&treatment)
 
 	// Load patient
 	var patient models.Patient
-	db.Raw("SELECT * FROM patients WHERE id = ?", treatment.PatientID).Scan(&patient)
+	db.Raw("SELECT * FROM patients WHERE id = ? AND deleted_at IS NULL", treatment.PatientID).Scan(&patient)
 	treatment.Patient = &patient
 
 	return &treatment, nil

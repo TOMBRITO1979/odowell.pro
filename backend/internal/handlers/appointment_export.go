@@ -21,7 +21,7 @@ func ExportAppointmentsCSV(c *gin.Context) {
 	sqlQuery := "SELECT * FROM appointments WHERE deleted_at IS NULL ORDER BY start_time DESC"
 	var appointments []models.Appointment
 	if err := db.Raw(sqlQuery).Scan(&appointments).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch appointments"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar agendamentos"})
 		return
 	}
 
@@ -113,7 +113,7 @@ func GenerateAppointmentsListPDF(c *gin.Context) {
 	pdf.SetFont("Arial", "", 7)
 	for _, apt := range appointments {
 		var patientName, dentistName string
-		db.Raw("SELECT name FROM patients WHERE id = ?", apt.PatientID).Scan(&patientName)
+		db.Raw("SELECT name FROM patients WHERE id = ? AND deleted_at IS NULL", apt.PatientID).Scan(&patientName)
 		db.Raw("SELECT name FROM public.users WHERE id = ?", apt.DentistID).Scan(&dentistName)
 
 		if len(patientName) > 25 {

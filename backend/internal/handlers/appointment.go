@@ -65,7 +65,7 @@ func CreateAppointment(c *gin.Context) {
 	}
 
 	if err := db.Create(&appointment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create appointment"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar agendamento"})
 		return
 	}
 
@@ -110,7 +110,7 @@ func GetAppointments(c *gin.Context) {
 	var appointments []models.Appointment
 	if err := query.Preload("Patient").Preload("Dentist").Offset(offset).Limit(pageSize).Order("start_time ASC").
 		Find(&appointments).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch appointments"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar agendamentos"})
 		return
 	}
 
@@ -128,7 +128,7 @@ func GetAppointment(c *gin.Context) {
 
 	var appointment models.Appointment
 	if err := db.Preload("Patient").Preload("Dentist").First(&appointment, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Appointment not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Agendamento não encontrado"})
 		return
 	}
 
@@ -141,7 +141,7 @@ func UpdateAppointment(c *gin.Context) {
 
 	var appointment models.Appointment
 	if err := db.First(&appointment, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Appointment not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Agendamento não encontrado"})
 		return
 	}
 
@@ -193,7 +193,7 @@ func UpdateAppointment(c *gin.Context) {
 		appointment.Procedure, appointment.Notes,
 		appointment.Room, appointment.Confirmed, appointment.IsRecurring,
 		appointment.RecurrenceRule, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update appointment"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar agendamento"})
 		return
 	}
 
@@ -208,11 +208,11 @@ func DeleteAppointment(c *gin.Context) {
 	db, ok := middleware.GetDBFromContextSafe(c); if !ok { return }
 
 	if err := db.Delete(&models.Appointment{}, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete appointment"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao excluir agendamento"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Appointment deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Agendamento excluído com sucesso"})
 }
 
 func UpdateAppointmentStatus(c *gin.Context) {
@@ -230,13 +230,13 @@ func UpdateAppointmentStatus(c *gin.Context) {
 
 	var appointment models.Appointment
 	if err := db.First(&appointment, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Appointment not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Agendamento não encontrado"})
 		return
 	}
 
 	appointment.Status = req.Status
 	if err := db.Save(&appointment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar status"})
 		return
 	}
 

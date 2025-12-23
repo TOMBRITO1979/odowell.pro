@@ -28,12 +28,24 @@ RUN apk add --no-cache wget
 # Copy built files from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Fix permissions for all files
-RUN chmod -R 755 /usr/share/nginx/html && \
-    find /usr/share/nginx/html -type f -exec chmod 644 {} \;
-
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Create directories and fix permissions for non-root nginx user
+RUN mkdir -p /var/cache/nginx/client_temp \
+             /var/cache/nginx/proxy_temp \
+             /var/cache/nginx/fastcgi_temp \
+             /var/cache/nginx/uwsgi_temp \
+             /var/cache/nginx/scgi_temp \
+             /var/run && \
+    chown -R nginx:nginx /var/cache/nginx /var/run /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html && \
+    # Allow nginx to write pid file
+    touch /var/run/nginx.pid && \
+    chown nginx:nginx /var/run/nginx.pid
+
+# Use non-root user (nginx user already exists in nginx:alpine with uid 101)
+USER nginx
 
 # Expose port
 EXPOSE 80

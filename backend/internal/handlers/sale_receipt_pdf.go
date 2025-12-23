@@ -29,7 +29,7 @@ func GenerateSaleReceiptPDF(c *gin.Context) {
 	var tenant models.Tenant
 	if err := db.Session(&gorm.Session{NewDB: true}).Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
 		log.Printf("GenerateSaleReceiptPDF: Failed to load tenant: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao carregar informações da clínica"})
 		return
 	}
 
@@ -39,16 +39,16 @@ func GenerateSaleReceiptPDF(c *gin.Context) {
 	if err := db.Session(&gorm.Session{NewDB: true}).Preload("Product").First(&movement, movementID).Error; err != nil {
 		log.Printf("GenerateSaleReceiptPDF: Failed to find movement %s: %v", movementID, err)
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Movement not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Movimentação não encontrada"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro no banco de dados"})
 		}
 		return
 	}
 
 	// Validate it's a sale
 	if movement.Reason != "sale" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "This movement is not a sale"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Esta movimentação não é uma venda"})
 		return
 	}
 
@@ -254,7 +254,7 @@ func GenerateSaleReceiptPDF(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=recibo_venda_%d.pdf", movement.ID))
 
 	if err := pdf.Output(c.Writer); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate receipt"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao gerar recibo"})
 		return
 	}
 }
