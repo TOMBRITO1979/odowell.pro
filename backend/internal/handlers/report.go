@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/middleware"
 	"net/http"
 
@@ -8,73 +9,141 @@ import (
 	"gorm.io/gorm"
 )
 
+// DashboardBasicResponse represents basic dashboard data for caching
+type DashboardBasicResponse struct {
+	TotalPatients      int64   `json:"total_patients"`
+	AppointmentsToday  int64   `json:"appointments_today"`
+	AppointmentsMonth  int64   `json:"appointments_month"`
+	TotalAppointments  int64   `json:"total_appointments"`
+	RevenueMonth       float64 `json:"revenue_month"`
+	TotalRevenue       float64 `json:"total_revenue"`
+	PendingPayments    float64 `json:"pending_payments"`
+	LowStockCount      int64   `json:"low_stock_count"`
+	PendingBudgets     int64   `json:"pending_budgets"`
+	PendingTasks       int64   `json:"pending_tasks"`
+}
+
+// AdvancedDashboardResponse represents advanced dashboard data for caching
+type AdvancedDashboardResponse struct {
+	DailyAppointments        []DailyAppointments        `json:"daily_appointments"`
+	ProfessionalAppointments []ProfessionalAppointments `json:"professional_appointments"`
+	ProceduresByDentist      []ProceduresByDentist      `json:"procedures_by_dentist"`
+	RevenueByDentist         []RevenueByDentist         `json:"revenue_by_dentist"`
+	TotalAppointments        int64                      `json:"total_appointments"`
+	CompletedAppointments    int64                      `json:"completed_appointments"`
+	CancelledAppointments    int64                      `json:"cancelled_appointments"`
+	NoShows                  int64                      `json:"no_shows"`
+	Reschedules              int64                      `json:"reschedules"`
+	AttendanceRate           float64                    `json:"attendance_rate"`
+	DailyBudgets             []DailyBudgets             `json:"daily_budgets"`
+	BudgetStatus             []BudgetStatus             `json:"budget_status"`
+	TotalPatients            int64                      `json:"total_patients"`
+	NewPatients              int64                      `json:"new_patients"`
+}
+
+// Types for advanced dashboard
+type DailyAppointments struct {
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
+}
+
+type ProfessionalAppointments struct {
+	Professional string `json:"professional"`
+	Count        int64  `json:"count"`
+}
+
+type ProceduresByDentist struct {
+	Professional string `json:"professional"`
+	Procedure    string `json:"procedure"`
+	Count        int64  `json:"count"`
+}
+
+type RevenueByDentist struct {
+	Professional   string  `json:"professional"`
+	TotalBudgets   int64   `json:"total_budgets"`
+	TotalRevenue   float64 `json:"total_revenue"`
+	PaidRevenue    float64 `json:"paid_revenue"`
+	PendingRevenue float64 `json:"pending_revenue"`
+}
+
+type DailyBudgets struct {
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
+}
+
+type BudgetStatus struct {
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}
+
 func GetDashboard(c *gin.Context) {
 	db, ok := middleware.GetDBFromContextSafe(c)
 	if !ok {
 		return
 	}
 
-	// Total patients
-	var totalPatients int64
-	db.Session(&gorm.Session{NewDB: true}).Table("patients").Where("active = ?", true).Count(&totalPatients)
+	// Get tenant ID for cache key
+	tenantID := c.GetUint("tenant_id")
+	cacheKey := cache.DashboardBasicKey(tenantID)
 
-	// Appointments today
-	var appointmentsToday int64
-	db.Session(&gorm.Session{NewDB: true}).Table("appointments").
-		Where("DATE(start_time) = CURRENT_DATE AND status != ?", "cancelled").
-		Count(&appointmentsToday)
+	// Use cached data with 5-minute TTL
+	result, err := cache.GetOrSetTyped[DashboardBasicResponse](cacheKey, cache.TTLDashboard, func() (DashboardBasicResponse, error) {
+		var data DashboardBasicResponse
 
-	// Appointments this month
-	var appointmentsMonth int64
-	db.Session(&gorm.Session{NewDB: true}).Table("appointments").
-		Where("EXTRACT(MONTH FROM start_time) = EXTRACT(MONTH FROM CURRENT_DATE)").
-		Where("EXTRACT(YEAR FROM start_time) = EXTRACT(YEAR FROM CURRENT_DATE)").
-		Count(&appointmentsMonth)
+		// Total patients
+		db.Session(&gorm.Session{NewDB: true}).Table("patients").Where("active = ?", true).Count(&data.TotalPatients)
 
-	// Revenue this month
-	var revenueMonth float64
-	db.Session(&gorm.Session{NewDB: true}).Table("payments").
-		Where("type = ? AND status = ?", "income", "paid").
-		Where("EXTRACT(MONTH FROM paid_date) = EXTRACT(MONTH FROM CURRENT_DATE)").
-		Where("EXTRACT(YEAR FROM paid_date) = EXTRACT(YEAR FROM CURRENT_DATE)").
-		Select("COALESCE(SUM(amount), 0)").Scan(&revenueMonth)
+		// Appointments today
+		db.Session(&gorm.Session{NewDB: true}).Table("appointments").
+			Where("DATE(start_time) = CURRENT_DATE AND status != ?", "cancelled").
+			Count(&data.AppointmentsToday)
 
-	// Pending payments
-	var pendingPayments float64
-	db.Session(&gorm.Session{NewDB: true}).Table("payments").
-		Where("status = ?", "pending").
-		Select("COALESCE(SUM(amount), 0)").Scan(&pendingPayments)
+		// Appointments this month
+		db.Session(&gorm.Session{NewDB: true}).Table("appointments").
+			Where("EXTRACT(MONTH FROM start_time) = EXTRACT(MONTH FROM CURRENT_DATE)").
+			Where("EXTRACT(YEAR FROM start_time) = EXTRACT(YEAR FROM CURRENT_DATE)").
+			Count(&data.AppointmentsMonth)
 
-	// Low stock products
-	var lowStockCount int64
-	db.Session(&gorm.Session{NewDB: true}).Table("products").
-		Where("quantity <= minimum_stock AND active = ?", true).
-		Count(&lowStockCount)
+		// Revenue this month
+		db.Session(&gorm.Session{NewDB: true}).Table("payments").
+			Where("type = ? AND status = ?", "income", "paid").
+			Where("EXTRACT(MONTH FROM paid_date) = EXTRACT(MONTH FROM CURRENT_DATE)").
+			Where("EXTRACT(YEAR FROM paid_date) = EXTRACT(YEAR FROM CURRENT_DATE)").
+			Select("COALESCE(SUM(amount), 0)").Scan(&data.RevenueMonth)
 
-	// Pending budgets
-	var pendingBudgets int64
-	db.Session(&gorm.Session{NewDB: true}).Table("budgets").
-		Where("status = ?", "pending").
-		Count(&pendingBudgets)
+		// Pending payments
+		db.Session(&gorm.Session{NewDB: true}).Table("payments").
+			Where("status = ?", "pending").
+			Select("COALESCE(SUM(amount), 0)").Scan(&data.PendingPayments)
 
-	// Pending tasks
-	var pendingTasks int64
-	db.Session(&gorm.Session{NewDB: true}).Table("tasks").
-		Where("status = ?", "pending").
-		Count(&pendingTasks)
+		// Low stock products
+		db.Session(&gorm.Session{NewDB: true}).Table("products").
+			Where("quantity <= minimum_stock AND active = ?", true).
+			Count(&data.LowStockCount)
 
-	c.JSON(http.StatusOK, gin.H{
-		"total_patients":      totalPatients,
-		"appointments_today":  appointmentsToday,
-		"appointments_month":  appointmentsMonth,
-		"total_appointments":  appointmentsMonth, // Alias for frontend compatibility
-		"revenue_month":       revenueMonth,
-		"total_revenue":       revenueMonth, // Alias for frontend compatibility
-		"pending_payments":    pendingPayments,
-		"low_stock_count":     lowStockCount,
-		"pending_budgets":     pendingBudgets,
-		"pending_tasks":       pendingTasks,
+		// Pending budgets
+		db.Session(&gorm.Session{NewDB: true}).Table("budgets").
+			Where("status = ?", "pending").
+			Count(&data.PendingBudgets)
+
+		// Pending tasks
+		db.Session(&gorm.Session{NewDB: true}).Table("tasks").
+			Where("status = ?", "pending").
+			Count(&data.PendingTasks)
+
+		// Set aliases
+		data.TotalAppointments = data.AppointmentsMonth
+		data.TotalRevenue = data.RevenueMonth
+
+		return data, nil
 	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao carregar dashboard"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 func GetRevenueReport(c *gin.Context) {
@@ -477,246 +546,199 @@ func GetAdvancedDashboard(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 
-	// Appointments by day
-	type DailyAppointments struct {
-		Date  string `json:"date"`
-		Count int64  `json:"count"`
-	}
+	// Get tenant ID for cache key
+	tenantID := c.GetUint("tenant_id")
+	cacheKey := cache.DashboardKey(tenantID, startDate, endDate)
 
-	appointmentsQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments")
-	if startDate != "" {
-		appointmentsQuery = appointmentsQuery.Where("DATE(start_time) >= ?", startDate)
-	}
-	if endDate != "" {
-		appointmentsQuery = appointmentsQuery.Where("DATE(start_time) <= ?", endDate)
-	}
+	// Use cached data with 5-minute TTL
+	result, err := cache.GetOrSetTyped[AdvancedDashboardResponse](cacheKey, cache.TTLDashboard, func() (AdvancedDashboardResponse, error) {
+		var data AdvancedDashboardResponse
 
-	var dailyAppointments []DailyAppointments
-	appointmentsQuery.
-		Select("TO_CHAR(start_time, 'DD/MM/YYYY') as date, COUNT(*) as count").
-		Group("date").
-		Order("date ASC").
-		Scan(&dailyAppointments)
+		// Appointments by day
+		appointmentsQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments")
+		if startDate != "" {
+			appointmentsQuery = appointmentsQuery.Where("DATE(start_time) >= ?", startDate)
+		}
+		if endDate != "" {
+			appointmentsQuery = appointmentsQuery.Where("DATE(start_time) <= ?", endDate)
+		}
 
-	// Appointments by professional (dentist)
-	type ProfessionalAppointments struct {
-		Professional string `json:"professional"`
-		Count        int64  `json:"count"`
-	}
+		appointmentsQuery.
+			Select("TO_CHAR(start_time, 'DD/MM/YYYY') as date, COUNT(*) as count").
+			Group("date").
+			Order("date ASC").
+			Scan(&data.DailyAppointments)
 
-	var professionalAppointments []ProfessionalAppointments
-	professionalQuery := db.Session(&gorm.Session{NewDB: true}).
-		Table("appointments a").
-		Select("u.name as professional, COUNT(*) as count").
-		Joins("JOIN public.users u ON a.dentist_id = u.id").
-		Where("a.status = ?", "completed")
+		// Appointments by professional (dentist)
+		professionalQuery := db.Session(&gorm.Session{NewDB: true}).
+			Table("appointments a").
+			Select("u.name as professional, COUNT(*) as count").
+			Joins("JOIN public.users u ON a.dentist_id = u.id").
+			Where("a.status = ?", "completed")
 
-	if startDate != "" {
-		professionalQuery = professionalQuery.Where("DATE(a.start_time) >= ?", startDate)
-	}
-	if endDate != "" {
-		professionalQuery = professionalQuery.Where("DATE(a.start_time) <= ?", endDate)
-	}
+		if startDate != "" {
+			professionalQuery = professionalQuery.Where("DATE(a.start_time) >= ?", startDate)
+		}
+		if endDate != "" {
+			professionalQuery = professionalQuery.Where("DATE(a.start_time) <= ?", endDate)
+		}
 
-	professionalQuery.
-		Group("u.name").
-		Order("count DESC").
-		Scan(&professionalAppointments)
+		professionalQuery.
+			Group("u.name").
+			Order("count DESC").
+			Scan(&data.ProfessionalAppointments)
 
-	// Procedures by dentist (for detailed breakdown)
-	type ProceduresByDentist struct {
-		Professional string `json:"professional"`
-		Procedure    string `json:"procedure"`
-		Count        int64  `json:"count"`
-	}
+		// Procedures by dentist (for detailed breakdown)
+		proceduresQuery := db.Session(&gorm.Session{NewDB: true}).
+			Table("appointments a").
+			Select("u.name as professional, a.procedure, COUNT(*) as count").
+			Joins("JOIN public.users u ON a.dentist_id = u.id").
+			Where("a.status = ? AND a.procedure != ''", "completed")
 
-	var proceduresByDentist []ProceduresByDentist
-	proceduresQuery := db.Session(&gorm.Session{NewDB: true}).
-		Table("appointments a").
-		Select("u.name as professional, a.procedure, COUNT(*) as count").
-		Joins("JOIN public.users u ON a.dentist_id = u.id").
-		Where("a.status = ? AND a.procedure != ''", "completed")
+		if startDate != "" {
+			proceduresQuery = proceduresQuery.Where("DATE(a.start_time) >= ?", startDate)
+		}
+		if endDate != "" {
+			proceduresQuery = proceduresQuery.Where("DATE(a.start_time) <= ?", endDate)
+		}
 
-	if startDate != "" {
-		proceduresQuery = proceduresQuery.Where("DATE(a.start_time) >= ?", startDate)
-	}
-	if endDate != "" {
-		proceduresQuery = proceduresQuery.Where("DATE(a.start_time) <= ?", endDate)
-	}
+		proceduresQuery.
+			Group("u.name, a.procedure").
+			Order("u.name, count DESC").
+			Scan(&data.ProceduresByDentist)
 
-	proceduresQuery.
-		Group("u.name, a.procedure").
-		Order("u.name, count DESC").
-		Scan(&proceduresByDentist)
+		// Reschedules count - set to 0 for now
+		data.Reschedules = 0
 
-	// Reschedules count - counting appointments with notes containing "remarcad" or similar
-	// Since there's no rescheduled field, we'll set this to 0 for now
-	var reschedulesCount int64 = 0
+		// No-shows count
+		noShowsQuery := db.Session(&gorm.Session{NewDB: true}).
+			Table("appointments").
+			Where("status = ?", "no_show")
 
-	// No-shows count
-	var noShowsCount int64
-	noShowsQuery := db.Session(&gorm.Session{NewDB: true}).
-		Table("appointments").
-		Where("status = ?", "no_show")
+		if startDate != "" {
+			noShowsQuery = noShowsQuery.Where("DATE(start_time) >= ?", startDate)
+		}
+		if endDate != "" {
+			noShowsQuery = noShowsQuery.Where("DATE(start_time) <= ?", endDate)
+		}
+		noShowsQuery.Count(&data.NoShows)
 
-	if startDate != "" {
-		noShowsQuery = noShowsQuery.Where("DATE(start_time) >= ?", startDate)
-	}
-	if endDate != "" {
-		noShowsQuery = noShowsQuery.Where("DATE(start_time) <= ?", endDate)
-	}
-	noShowsQuery.Count(&noShowsCount)
+		// Cancelled appointments
+		cancelledQuery := db.Session(&gorm.Session{NewDB: true}).
+			Table("appointments").
+			Where("status = ?", "cancelled")
 
-	// Cancelled appointments
-	var cancelledCount int64
-	cancelledQuery := db.Session(&gorm.Session{NewDB: true}).
-		Table("appointments").
-		Where("status = ?", "cancelled")
+		if startDate != "" {
+			cancelledQuery = cancelledQuery.Where("DATE(start_time) >= ?", startDate)
+		}
+		if endDate != "" {
+			cancelledQuery = cancelledQuery.Where("DATE(start_time) <= ?", endDate)
+		}
+		cancelledQuery.Count(&data.CancelledAppointments)
 
-	if startDate != "" {
-		cancelledQuery = cancelledQuery.Where("DATE(start_time) >= ?", startDate)
-	}
-	if endDate != "" {
-		cancelledQuery = cancelledQuery.Where("DATE(start_time) <= ?", endDate)
-	}
-	cancelledQuery.Count(&cancelledCount)
+		// Completed appointments
+		completedQuery := db.Session(&gorm.Session{NewDB: true}).
+			Table("appointments").
+			Where("status = ?", "completed")
 
-	// Completed appointments
-	var completedCount int64
-	completedQuery := db.Session(&gorm.Session{NewDB: true}).
-		Table("appointments").
-		Where("status = ?", "completed")
+		if startDate != "" {
+			completedQuery = completedQuery.Where("DATE(start_time) >= ?", startDate)
+		}
+		if endDate != "" {
+			completedQuery = completedQuery.Where("DATE(start_time) <= ?", endDate)
+		}
+		completedQuery.Count(&data.CompletedAppointments)
 
-	if startDate != "" {
-		completedQuery = completedQuery.Where("DATE(start_time) >= ?", startDate)
-	}
-	if endDate != "" {
-		completedQuery = completedQuery.Where("DATE(start_time) <= ?", endDate)
-	}
-	completedQuery.Count(&completedCount)
+		// Total appointments
+		totalQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments")
+		if startDate != "" {
+			totalQuery = totalQuery.Where("DATE(start_time) >= ?", startDate)
+		}
+		if endDate != "" {
+			totalQuery = totalQuery.Where("DATE(start_time) <= ?", endDate)
+		}
+		totalQuery.Count(&data.TotalAppointments)
 
-	// Total appointments
-	var totalAppointments int64
-	totalQuery := db.Session(&gorm.Session{NewDB: true}).Table("appointments")
-	if startDate != "" {
-		totalQuery = totalQuery.Where("DATE(start_time) >= ?", startDate)
-	}
-	if endDate != "" {
-		totalQuery = totalQuery.Where("DATE(start_time) <= ?", endDate)
-	}
-	totalQuery.Count(&totalAppointments)
+		// Budgets by day
+		budgetsQuery := db.Session(&gorm.Session{NewDB: true}).Table("budgets")
+		if startDate != "" {
+			budgetsQuery = budgetsQuery.Where("DATE(created_at) >= ?", startDate)
+		}
+		if endDate != "" {
+			budgetsQuery = budgetsQuery.Where("DATE(created_at) <= ?", endDate)
+		}
 
-	// Budgets by day
-	type DailyBudgets struct {
-		Date  string `json:"date"`
-		Count int64  `json:"count"`
-	}
+		budgetsQuery.
+			Select("TO_CHAR(created_at, 'DD/MM/YYYY') as date, COUNT(*) as count").
+			Group("date").
+			Order("date ASC").
+			Scan(&data.DailyBudgets)
 
-	var dailyBudgets []DailyBudgets
-	budgetsQuery := db.Session(&gorm.Session{NewDB: true}).Table("budgets")
-	if startDate != "" {
-		budgetsQuery = budgetsQuery.Where("DATE(created_at) >= ?", startDate)
-	}
-	if endDate != "" {
-		budgetsQuery = budgetsQuery.Where("DATE(created_at) <= ?", endDate)
-	}
+		// Budgets by status
+		statusQuery := db.Session(&gorm.Session{NewDB: true}).Table("budgets")
+		if startDate != "" {
+			statusQuery = statusQuery.Where("DATE(created_at) >= ?", startDate)
+		}
+		if endDate != "" {
+			statusQuery = statusQuery.Where("DATE(created_at) <= ?", endDate)
+		}
 
-	budgetsQuery.
-		Select("TO_CHAR(created_at, 'DD/MM/YYYY') as date, COUNT(*) as count").
-		Group("date").
-		Order("date ASC").
-		Scan(&dailyBudgets)
+		statusQuery.
+			Select("status, COUNT(*) as count").
+			Group("status").
+			Scan(&data.BudgetStatus)
 
-	// Budgets by status
-	type BudgetStatus struct {
-		Status string `json:"status"`
-		Count  int64  `json:"count"`
-	}
+		// Attendance rate
+		if data.TotalAppointments > 0 {
+			data.AttendanceRate = (float64(data.CompletedAppointments) / float64(data.TotalAppointments)) * 100
+		}
 
-	var budgetStatus []BudgetStatus
-	statusQuery := db.Session(&gorm.Session{NewDB: true}).Table("budgets")
-	if startDate != "" {
-		statusQuery = statusQuery.Where("DATE(created_at) >= ?", startDate)
-	}
-	if endDate != "" {
-		statusQuery = statusQuery.Where("DATE(created_at) <= ?", endDate)
-	}
+		// Total patients
+		db.Session(&gorm.Session{NewDB: true}).Table("patients").Where("active = ?", true).Count(&data.TotalPatients)
 
-	statusQuery.
-		Select("status, COUNT(*) as count").
-		Group("status").
-		Scan(&budgetStatus)
+		// New patients in period
+		newPatientsQuery := db.Session(&gorm.Session{NewDB: true}).Table("patients")
+		if startDate != "" {
+			newPatientsQuery = newPatientsQuery.Where("DATE(created_at) >= ?", startDate)
+		}
+		if endDate != "" {
+			newPatientsQuery = newPatientsQuery.Where("DATE(created_at) <= ?", endDate)
+		}
+		newPatientsQuery.Count(&data.NewPatients)
 
-	// Attendance rate
-	var attendanceRate float64
-	if totalAppointments > 0 {
-		attendanceRate = (float64(completedCount) / float64(totalAppointments)) * 100
-	}
+		// Revenue by dentist (from approved budgets)
+		revenueQuery := db.Session(&gorm.Session{NewDB: true}).
+			Table("budgets b").
+			Select(`
+				u.name as professional,
+				COUNT(DISTINCT b.id) as total_budgets,
+				COALESCE(SUM(b.total_value), 0) as total_revenue,
+				COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) as paid_revenue,
+				COALESCE(SUM(b.total_value), 0) - COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) as pending_revenue
+			`).
+			Joins("JOIN public.users u ON b.dentist_id = u.id").
+			Joins("LEFT JOIN payments p ON p.budget_id = b.id").
+			Where("b.status = ?", "approved")
 
-	// Total patients
-	var totalPatients int64
-	db.Session(&gorm.Session{NewDB: true}).Table("patients").Where("active = ?", true).Count(&totalPatients)
+		if startDate != "" {
+			revenueQuery = revenueQuery.Where("DATE(b.created_at) >= ?", startDate)
+		}
+		if endDate != "" {
+			revenueQuery = revenueQuery.Where("DATE(b.created_at) <= ?", endDate)
+		}
 
-	// New patients in period
-	var newPatients int64
-	newPatientsQuery := db.Session(&gorm.Session{NewDB: true}).Table("patients")
-	if startDate != "" {
-		newPatientsQuery = newPatientsQuery.Where("DATE(created_at) >= ?", startDate)
-	}
-	if endDate != "" {
-		newPatientsQuery = newPatientsQuery.Where("DATE(created_at) <= ?", endDate)
-	}
-	newPatientsQuery.Count(&newPatients)
+		revenueQuery.
+			Group("u.name").
+			Order("total_revenue DESC").
+			Scan(&data.RevenueByDentist)
 
-	// Revenue by dentist (from approved budgets)
-	type RevenueByDentist struct {
-		Professional   string  `json:"professional"`
-		TotalBudgets   int64   `json:"total_budgets"`
-		TotalRevenue   float64 `json:"total_revenue"`
-		PaidRevenue    float64 `json:"paid_revenue"`
-		PendingRevenue float64 `json:"pending_revenue"`
-	}
-
-	var revenueByDentist []RevenueByDentist
-	revenueQuery := db.Session(&gorm.Session{NewDB: true}).
-		Table("budgets b").
-		Select(`
-			u.name as professional,
-			COUNT(DISTINCT b.id) as total_budgets,
-			COALESCE(SUM(b.total_value), 0) as total_revenue,
-			COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) as paid_revenue,
-			COALESCE(SUM(b.total_value), 0) - COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) as pending_revenue
-		`).
-		Joins("JOIN public.users u ON b.dentist_id = u.id").
-		Joins("LEFT JOIN payments p ON p.budget_id = b.id").
-		Where("b.status = ?", "approved")
-
-	if startDate != "" {
-		revenueQuery = revenueQuery.Where("DATE(b.created_at) >= ?", startDate)
-	}
-	if endDate != "" {
-		revenueQuery = revenueQuery.Where("DATE(b.created_at) <= ?", endDate)
-	}
-
-	revenueQuery.
-		Group("u.name").
-		Order("total_revenue DESC").
-		Scan(&revenueByDentist)
-
-	c.JSON(http.StatusOK, gin.H{
-		"daily_appointments":        dailyAppointments,
-		"professional_appointments": professionalAppointments,
-		"procedures_by_dentist":     proceduresByDentist,
-		"revenue_by_dentist":        revenueByDentist,
-		"total_appointments":        totalAppointments,
-		"completed_appointments":    completedCount,
-		"cancelled_appointments":    cancelledCount,
-		"no_shows":                  noShowsCount,
-		"reschedules":               reschedulesCount,
-		"attendance_rate":           attendanceRate,
-		"daily_budgets":             dailyBudgets,
-		"budget_status":             budgetStatus,
-		"total_patients":            totalPatients,
-		"new_patients":              newPatients,
+		return data, nil
 	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao carregar dashboard avançado"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }

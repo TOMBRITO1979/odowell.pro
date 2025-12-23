@@ -16,6 +16,7 @@ const (
 	TTLCounts       = 1 * time.Minute  // Contagem de pendências
 	TTLPatientList  = 2 * time.Minute  // Lista de pacientes
 	TTLAppointments = 1 * time.Minute  // Lista de agendamentos
+	TTLDashboard    = 5 * time.Minute  // Dashboard data
 )
 
 // Cache key prefixes
@@ -59,11 +60,11 @@ func GetOrSet(key string, ttl time.Duration, fetchFunc func() (interface{}, erro
 		return nil, err
 	}
 
-	// Store in cache (async, don't block on cache write errors)
-	go func() {
+	// Store in cache (async, using worker pool)
+	AsyncCacheWrite(func() {
 		data, _ := json.Marshal(result)
 		Client.Set(ctx, key, data, ttl)
-	}()
+	})
 
 	return result, nil
 }
@@ -92,11 +93,11 @@ func GetOrSetTyped[T any](key string, ttl time.Duration, fetchFunc func() (T, er
 		return result, err
 	}
 
-	// Store in cache (async)
-	go func() {
+	// Store in cache (async, using worker pool)
+	AsyncCacheWrite(func() {
 		data, _ := json.Marshal(result)
 		Client.Set(ctx, key, data, ttl)
-	}()
+	})
 
 	return result, nil
 }
@@ -164,6 +165,11 @@ func OverdueCountKey(tenantID uint) string {
 // DashboardKey returns the cache key for tenant's dashboard data
 func DashboardKey(tenantID uint, startDate, endDate string) string {
 	return CacheKey(PrefixDashboard, tenantID, startDate, endDate)
+}
+
+// DashboardBasicKey returns the cache key for tenant's basic dashboard
+func DashboardBasicKey(tenantID uint) string {
+	return CacheKey(PrefixDashboard, tenantID, "basic")
 }
 
 // Helper function to invalidate common cache patterns

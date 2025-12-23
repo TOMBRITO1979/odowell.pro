@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/models"
 	"drcrwell/backend/internal/scheduler"
@@ -11,6 +12,28 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// AdminDashboardResponse represents admin dashboard data for caching
+type AdminDashboardResponse struct {
+	TotalTenants        int64 `json:"total_tenants"`
+	ActiveTenants       int64 `json:"active_tenants"`
+	TrialTenants        int64 `json:"trial_tenants"`
+	TotalUsers          int64 `json:"total_users"`
+	ActiveSubscriptions int64 `json:"active_subscriptions"`
+	MonthlyRevenue      int64 `json:"monthly_revenue"`
+	UnverifiedTenants   int64 `json:"unverified_tenants"`
+	TrialStats          struct {
+		Active       int64 `json:"active"`
+		ExpiringSoon int64 `json:"expiring_soon"`
+		Expired      int64 `json:"expired"`
+	} `json:"trial_stats"`
+	InactiveStats struct {
+		Expired  int64 `json:"expired"`
+		Canceled int64 `json:"canceled"`
+		PastDue  int64 `json:"past_due"`
+		Total    int64 `json:"total"`
+	} `json:"inactive_stats"`
+}
 
 // TenantWithStats represents tenant with subscription and payment info
 type TenantWithStats struct {
@@ -30,29 +53,81 @@ func GetAllTenants(c *gin.Context) {
 		return
 	}
 
+	// Batch query: Get user counts per tenant (1 query instead of N)
+	type UserCountResult struct {
+		TenantID uint
+		Count    int64
+	}
+	var userCounts []UserCountResult
+	database.DB.Model(&models.User{}).
+		Select("tenant_id, COUNT(*) as count").
+		Group("tenant_id").
+		Scan(&userCounts)
+
+	// Create map for fast lookup
+	userCountMap := make(map[uint]int64)
+	for _, uc := range userCounts {
+		userCountMap[uc.TenantID] = uc.Count
+	}
+
+	// Batch query: Get all subscriptions (1 query instead of N)
+	var subscriptions []models.Subscription
+	database.DB.Find(&subscriptions)
+
+	// Create map for fast lookup
+	subscriptionMap := make(map[uint]*models.Subscription)
+	for i := range subscriptions {
+		subscriptionMap[subscriptions[i].TenantID] = &subscriptions[i]
+	}
+
+	// Batch query: Get patient counts using a dynamic UNION query
+	// This is unavoidable due to schema-per-tenant, but we do it in one query
+	patientCountMap := make(map[uint]int64)
+	if len(tenants) > 0 {
+		// Build UNION query for all tenant schemas
+		var unionParts []string
+		for _, tenant := range tenants {
+			unionParts = append(unionParts, fmt.Sprintf(
+				"SELECT %d as tenant_id, COUNT(*) as count FROM tenant_%d.patients",
+				tenant.ID, tenant.ID,
+			))
+		}
+		if len(unionParts) > 0 {
+			unionQuery := ""
+			for i, part := range unionParts {
+				if i > 0 {
+					unionQuery += " UNION ALL "
+				}
+				unionQuery += part
+			}
+
+			type PatientCountResult struct {
+				TenantID uint  `gorm:"column:tenant_id"`
+				Count    int64 `gorm:"column:count"`
+			}
+			var patientCounts []PatientCountResult
+			database.DB.Raw(unionQuery).Scan(&patientCounts)
+
+			for _, pc := range patientCounts {
+				patientCountMap[pc.TenantID] = pc.Count
+			}
+		}
+	}
+
+	// Build result using maps (no additional queries)
 	var result []TenantWithStats
 	for _, tenant := range tenants {
 		stats := TenantWithStats{
-			Tenant: tenant,
+			Tenant:       tenant,
+			UserCount:    int(userCountMap[tenant.ID]),
+			PatientCount: int(patientCountMap[tenant.ID]),
 		}
 
-		// Get user count
-		var userCount int64
-		database.DB.Model(&models.User{}).Where("tenant_id = ?", tenant.ID).Count(&userCount)
-		stats.UserCount = int(userCount)
-
-		// Get patient count from tenant schema
-		var patientCount int64
-		tableName := fmt.Sprintf("tenant_%d.patients", tenant.ID)
-		database.DB.Raw("SELECT COUNT(*) FROM " + tableName).Scan(&patientCount)
-		stats.PatientCount = int(patientCount)
-
-		// Get subscription details
-		var subscription models.Subscription
-		if err := database.DB.Where("tenant_id = ?", tenant.ID).First(&subscription).Error; err == nil {
-			stats.SubscriptionDetails = &subscription
-			stats.LastPaymentDate = subscription.CurrentPeriodStart
-			stats.LastPaymentAmount = subscription.PriceMonthly
+		// Get subscription from map
+		if sub, ok := subscriptionMap[tenant.ID]; ok {
+			stats.SubscriptionDetails = sub
+			stats.LastPaymentDate = sub.CurrentPeriodStart
+			stats.LastPaymentAmount = sub.PriceMonthly
 		}
 
 		result = append(result, stats)
@@ -200,56 +275,46 @@ func UpdateTenantUserStatus(c *gin.Context) {
 
 // GetAdminDashboard returns overall system statistics
 func GetAdminDashboard(c *gin.Context) {
-	var totalTenants int64
-	var activeTenants int64
-	var trialTenants int64
-	var totalUsers int64
-	var activeSubscriptions int64
-	var unverifiedTenants int64
+	cacheKey := "admin_dashboard"
 
-	database.DB.Model(&models.Tenant{}).Count(&totalTenants)
-	database.DB.Model(&models.Tenant{}).Where("active = ?", true).Count(&activeTenants)
-	database.DB.Model(&models.Tenant{}).Where("subscription_status = ?", "trialing").Count(&trialTenants)
-	database.DB.Model(&models.User{}).Count(&totalUsers)
-	database.DB.Model(&models.Subscription{}).Where("status = ?", "active").Count(&activeSubscriptions)
-	database.DB.Model(&models.Tenant{}).Where("email_verified = ?", false).Count(&unverifiedTenants)
+	// Use cached data with 5-minute TTL
+	result, err := cache.GetOrSetTyped[AdminDashboardResponse](cacheKey, cache.TTLDashboard, func() (AdminDashboardResponse, error) {
+		var data AdminDashboardResponse
 
-	// Get revenue this month
-	var monthlyRevenue int64
-	database.DB.Model(&models.Subscription{}).
-		Where("status = ?", "active").
-		Select("COALESCE(SUM(price_monthly), 0)").
-		Scan(&monthlyRevenue)
+		database.DB.Model(&models.Tenant{}).Count(&data.TotalTenants)
+		database.DB.Model(&models.Tenant{}).Where("active = ?", true).Count(&data.ActiveTenants)
+		database.DB.Model(&models.Tenant{}).Where("subscription_status = ?", "trialing").Count(&data.TrialTenants)
+		database.DB.Model(&models.User{}).Count(&data.TotalUsers)
+		database.DB.Model(&models.Subscription{}).Where("status = ?", "active").Count(&data.ActiveSubscriptions)
+		database.DB.Model(&models.Tenant{}).Where("email_verified = ?", false).Count(&data.UnverifiedTenants)
 
-	// Get trial stats
-	activeTrials, expiringSoon, expiredTrials := scheduler.GetExpiredTrialStats()
+		// Get revenue this month
+		database.DB.Model(&models.Subscription{}).
+			Where("status = ?", "active").
+			Select("COALESCE(SUM(price_monthly), 0)").
+			Scan(&data.MonthlyRevenue)
 
-	// Get inactive tenants count (expired, canceled, past_due)
-	var expiredCount, canceledCount, pastDueCount int64
-	database.DB.Model(&models.Tenant{}).Where("subscription_status = ?", "expired").Count(&expiredCount)
-	database.DB.Model(&models.Tenant{}).Where("subscription_status = ?", "canceled").Count(&canceledCount)
-	database.DB.Model(&models.Tenant{}).Where("subscription_status = ?", "past_due").Count(&pastDueCount)
+		// Get trial stats
+		activeTrials, expiringSoon, expiredTrials := scheduler.GetExpiredTrialStats()
+		data.TrialStats.Active = activeTrials
+		data.TrialStats.ExpiringSoon = expiringSoon
+		data.TrialStats.Expired = expiredTrials
 
-	c.JSON(http.StatusOK, gin.H{
-		"total_tenants":        totalTenants,
-		"active_tenants":       activeTenants,
-		"trial_tenants":        trialTenants,
-		"total_users":          totalUsers,
-		"active_subscriptions": activeSubscriptions,
-		"monthly_revenue":      monthlyRevenue,
-		"unverified_tenants":   unverifiedTenants,
-		"trial_stats": gin.H{
-			"active":        activeTrials,
-			"expiring_soon": expiringSoon,
-			"expired":       expiredTrials,
-		},
-		"inactive_stats": gin.H{
-			"expired":  expiredCount,
-			"canceled": canceledCount,
-			"past_due": pastDueCount,
-			"total":    expiredCount + canceledCount + pastDueCount,
-		},
+		// Get inactive tenants count (expired, canceled, past_due)
+		database.DB.Model(&models.Tenant{}).Where("subscription_status = ?", "expired").Count(&data.InactiveStats.Expired)
+		database.DB.Model(&models.Tenant{}).Where("subscription_status = ?", "canceled").Count(&data.InactiveStats.Canceled)
+		database.DB.Model(&models.Tenant{}).Where("subscription_status = ?", "past_due").Count(&data.InactiveStats.PastDue)
+		data.InactiveStats.Total = data.InactiveStats.Expired + data.InactiveStats.Canceled + data.InactiveStats.PastDue
+
+		return data, nil
 	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao carregar dashboard administrativo"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 // GetUnverifiedTenants returns all tenants that haven't verified their email

@@ -15,7 +15,71 @@ import (
 var (
 	Client *redis.Client
 	ctx    = context.Background()
+
+	// Worker pool for async cache writes
+	cacheWritePool chan func()
+	poolSize       = 10  // Number of worker goroutines
+	poolBuffer     = 100 // Buffer size for pending tasks
 )
+
+// initWorkerPool initializes the background worker pool for cache writes
+func initWorkerPool() {
+	cacheWritePool = make(chan func(), poolBuffer)
+
+	// Start worker goroutines
+	for i := 0; i < poolSize; i++ {
+		go func(workerID int) {
+			for fn := range cacheWritePool {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Printf("[CacheWorker %d] Recovered from panic: %v", workerID, r)
+						}
+					}()
+					fn()
+				}()
+			}
+		}(i)
+	}
+
+	log.Printf("Cache worker pool initialized with %d workers and buffer size %d", poolSize, poolBuffer)
+}
+
+// AsyncCacheWrite submits a cache write task to the worker pool
+// Returns true if the task was submitted, false if the pool is full (task dropped)
+func AsyncCacheWrite(fn func()) bool {
+	if cacheWritePool == nil {
+		// Pool not initialized, run synchronously
+		go fn()
+		return true
+	}
+
+	select {
+	case cacheWritePool <- fn:
+		return true
+	default:
+		// Pool is full, drop the task (non-blocking)
+		log.Printf("[CacheWorker] Pool full, dropping cache write task")
+		return false
+	}
+}
+
+// AsyncSet stores a value in Redis asynchronously using the worker pool
+func AsyncSet(key string, value interface{}, expiration time.Duration) {
+	AsyncCacheWrite(func() {
+		if Client == nil {
+			return
+		}
+		data, err := json.Marshal(value)
+		if err != nil {
+			log.Printf("[CacheWorker] Failed to marshal value for key %s: %v", key, err)
+			return
+		}
+		if err := Client.Set(ctx, key, data, expiration).Err(); err != nil {
+			log.Printf("[CacheWorker] Failed to set key %s: %v", key, err)
+		}
+	})
+}
 
 // Connect establishes connection to Redis
 func Connect() error {
@@ -58,6 +122,10 @@ func Connect() error {
 	}
 
 	log.Printf("Redis connected successfully at %s:%s", redisHost, redisPort)
+
+	// Initialize worker pool for async cache writes
+	initWorkerPool()
+
 	return nil
 }
 
