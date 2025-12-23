@@ -177,22 +177,16 @@ func APIKeyMiddleware() gin.HandlerFunc {
 		db := database.GetDB()
 		var tenant models.Tenant
 
-		// Try hashed key first (new format)
+		// Find tenant by hashed API key (plain-text keys are not accepted for security)
 		result := db.Where("api_key = ? AND api_key_active = ? AND active = ?", apiKeyHash, true, true).First(&tenant)
 
 		if result.Error != nil {
-			// Fallback: try direct comparison for legacy keys (migration period)
-			// This allows old unhashed keys to still work temporarily
-			result = db.Where("api_key = ? AND api_key_active = ? AND active = ?", apiKey, true, true).First(&tenant)
-
-			if result.Error != nil {
-				c.JSON(http.StatusUnauthorized, gin.H{
-					"error":   true,
-					"message": "Invalid or inactive API key",
-				})
-				c.Abort()
-				return
-			}
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   true,
+				"message": "Invalid or inactive API key",
+			})
+			c.Abort()
+			return
 		}
 
 		// Set tenant info in context

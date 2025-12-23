@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"encoding/json"
@@ -46,33 +47,19 @@ func (e ExamResponse) MarshalJSON() ([]byte, error) {
 
 // enrichExamWithRelatedData adds patient and uploaded_by names to exam
 func enrichExamWithRelatedData(db *gorm.DB, exam *models.Exam) ExamResponse {
-	fmt.Printf("DEBUG enrichExam: Starting enrichment for exam ID %d, patient_id=%d, uploaded_by_id=%d\n",
-		exam.ID, exam.PatientID, exam.UploadedByID)
-
 	response := ExamResponse{Exam: *exam}
 
 	// Get patient name
 	var patient models.Patient
-	fmt.Printf("DEBUG enrichExam: Querying patient with ID %d\n", exam.PatientID)
 	if err := db.Select("name").First(&patient, exam.PatientID).Error; err == nil {
 		response.PatientName = patient.Name
-		fmt.Printf("DEBUG enrichExam: Found patient name: %s\n", patient.Name)
-	} else {
-		fmt.Printf("DEBUG enrichExam: Error getting patient: %v\n", err)
 	}
 
 	// Get uploaded_by user name (from public schema)
 	var user models.User
-	fmt.Printf("DEBUG enrichExam: Querying user with ID %d from public.users\n", exam.UploadedByID)
 	if err := db.Raw("SELECT name FROM public.users WHERE id = ? AND deleted_at IS NULL", exam.UploadedByID).Scan(&user).Error; err == nil {
 		response.UploadedByName = user.Name
-		fmt.Printf("DEBUG enrichExam: Found user name: %s\n", user.Name)
-	} else {
-		fmt.Printf("DEBUG enrichExam: Error getting user: %v\n", err)
 	}
-
-	fmt.Printf("DEBUG enrichExam: Response PatientName=%s, UploadedByName=%s\n",
-		response.PatientName, response.UploadedByName)
 
 	return response
 }
@@ -157,12 +144,9 @@ func CreateExam(c *gin.Context) {
 	userID := c.GetUint("user_id")
 
 	// Log request details for debugging
-	fmt.Printf("DEBUG: Content-Type: %s\n", c.ContentType())
-	fmt.Printf("DEBUG: Request method: %s\n", c.Request.Method)
 
 	// Parse form data
 	patientIDStr := c.PostForm("patient_id")
-	fmt.Printf("DEBUG: patient_id from form: '%s'\n", patientIDStr)
 	if patientIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "patient_id is required"})
 		return
@@ -170,38 +154,30 @@ func CreateExam(c *gin.Context) {
 
 	patientID, err := strconv.ParseUint(patientIDStr, 10, 32)
 	if err != nil {
-		fmt.Printf("DEBUG: Error parsing patient_id: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid patient_id format"})
 		return
 	}
 
 	name := c.PostForm("name")
-	fmt.Printf("DEBUG: name from form: '%s'\n", name)
 	if name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Exam name is required"})
 		return
 	}
 
 	// Get patient to obtain CPF for folder structure
-	fmt.Printf("DEBUG: About to fetch patient with ID: %d\n", patientID)
 	var patient models.Patient
 	if err := db.First(&patient, patientID).Error; err != nil {
-		fmt.Printf("DEBUG: Patient not found, error: %v\n", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Patient not found"})
 		return
 	}
-	fmt.Printf("DEBUG: Patient found: %s (CPF: %s)\n", patient.Name, patient.CPF)
 
 	// Get uploaded file
-	fmt.Printf("DEBUG: About to get file from form\n")
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
-		fmt.Printf("DEBUG: Error getting file: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "File is required", "details": err.Error()})
 		return
 	}
 	defer file.Close()
-	fmt.Printf("DEBUG: File received: %s (size: %d bytes)\n", header.Filename, header.Size)
 
 	// Validate file size (50MB max)
 	const maxFileSize = 50 * 1024 * 1024 // 50MB
@@ -223,6 +199,17 @@ func CreateExam(c *gin.Context) {
 	}
 	if contentType != "" && !allowedTypes[contentType] {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file type. Allowed: PDF, JPEG, PNG, GIF, ZIP"})
+		return
+	}
+
+	// Validate file magic number (security: prevents extension spoofing)
+	valid, err := helpers.ValidateMedicalFile(file)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to validate file type"})
+		return
+	}
+	if !valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file content. File type does not match content."})
 		return
 	}
 
@@ -438,17 +425,13 @@ func GetExam(c *gin.Context) {
 	// Get patient name (from current tenant schema)
 	var patientName string
 	if err := db.Raw("SELECT name FROM patients WHERE id = ? AND deleted_at IS NULL", exam.PatientID).Scan(&patientName).Error; err == nil {
-		fmt.Printf("DEBUG GetExam: Found patient: %s (ID: %d)\n", patientName, exam.PatientID)
 	} else {
-		fmt.Printf("DEBUG GetExam: Error finding patient ID %d: %v\n", exam.PatientID, err)
 	}
 
 	// Get uploaded_by user name (from public schema)
 	var uploadedByName string
 	if err := db.Raw("SELECT name FROM public.users WHERE id = ? AND deleted_at IS NULL", exam.UploadedByID).Scan(&uploadedByName).Error; err == nil {
-		fmt.Printf("DEBUG GetExam: Found user: %s (ID: %d)\n", uploadedByName, exam.UploadedByID)
 	} else {
-		fmt.Printf("DEBUG GetExam: Error finding user ID %d: %v\n", exam.UploadedByID, err)
 	}
 
 	// Build response manually
@@ -472,7 +455,6 @@ func GetExam(c *gin.Context) {
 		"uploaded_by_name": uploadedByName,
 	}
 
-	fmt.Printf("DEBUG GetExam: Returning patient_name=%s, uploaded_by_name=%s\n", patientName, uploadedByName)
 
 	c.JSON(http.StatusOK, gin.H{"exam": response})
 }

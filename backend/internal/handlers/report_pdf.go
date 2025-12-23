@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/models"
+	"drcrwell/backend/internal/middleware"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,7 +13,10 @@ import (
 )
 
 func GenerateRevenuePDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -174,7 +178,10 @@ func GenerateRevenuePDF(c *gin.Context) {
 }
 
 func GenerateAttendancePDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -297,7 +304,10 @@ func GenerateAttendancePDF(c *gin.Context) {
 }
 
 func GenerateProceduresPDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -384,7 +394,10 @@ func GenerateProceduresPDF(c *gin.Context) {
 }
 
 func GenerateBudgetConversionPDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -499,7 +512,10 @@ func GenerateBudgetConversionPDF(c *gin.Context) {
 }
 
 func GenerateOverduePaymentsPDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -585,7 +601,10 @@ func GenerateOverduePaymentsPDF(c *gin.Context) {
 }
 
 func GenerateDashboardPDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header

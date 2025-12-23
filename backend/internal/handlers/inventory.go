@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"log"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Products
@@ -18,7 +20,10 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	if err := db.Create(&product).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
 		return
@@ -31,7 +36,10 @@ func CreateProduct(c *gin.Context) {
 }
 
 func GetProducts(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
@@ -69,7 +77,10 @@ func GetProducts(c *gin.Context) {
 
 func GetProduct(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var product models.Product
 	if err := db.Preload("Supplier").First(&product, id).Error; err != nil {
@@ -82,7 +93,10 @@ func GetProduct(c *gin.Context) {
 
 func UpdateProduct(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Check if product exists
 	var count int64
@@ -126,7 +140,10 @@ func UpdateProduct(c *gin.Context) {
 
 func DeleteProduct(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	if err := db.Delete(&models.Product{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
@@ -137,7 +154,10 @@ func DeleteProduct(c *gin.Context) {
 }
 
 func GetLowStockProducts(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var products []models.Product
 	if err := db.Where("quantity <= minimum_stock AND active = ?", true).
@@ -157,7 +177,10 @@ func CreateSupplier(c *gin.Context) {
 		return
 	}
 
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	if err := db.Create(&supplier).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create supplier"})
 		return
@@ -167,7 +190,10 @@ func CreateSupplier(c *gin.Context) {
 }
 
 func GetSuppliers(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var suppliers []models.Supplier
 	if err := db.Order("name ASC").Find(&suppliers).Error; err != nil {
@@ -180,7 +206,10 @@ func GetSuppliers(c *gin.Context) {
 
 func GetSupplier(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var supplier models.Supplier
 	if err := db.First(&supplier, id).Error; err != nil {
@@ -193,7 +222,10 @@ func GetSupplier(c *gin.Context) {
 
 func UpdateSupplier(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Check if supplier exists
 	var count int64
@@ -235,7 +267,10 @@ func UpdateSupplier(c *gin.Context) {
 
 func DeleteSupplier(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	if err := db.Delete(&models.Supplier{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete supplier"})
@@ -265,7 +300,10 @@ func CreateStockMovement(c *gin.Context) {
 		return
 	}
 
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	userID := c.GetUint("user_id")
 	movement.UserID = userID
 
@@ -278,7 +316,7 @@ func CreateStockMovement(c *gin.Context) {
 
 	// Get product with row lock to prevent race conditions
 	var product models.Product
-	if err := tx.Clauses().First(&product, movement.ProductID).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&product, movement.ProductID).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
 		return
@@ -350,7 +388,10 @@ func CreateStockMovement(c *gin.Context) {
 }
 
 func GetStockMovements(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
@@ -383,7 +424,10 @@ func GetStockMovements(c *gin.Context) {
 
 func GetStockMovement(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var movement models.StockMovement
 	if err := db.Preload("Product").Preload("User").First(&movement, id).Error; err != nil {
@@ -396,7 +440,10 @@ func GetStockMovement(c *gin.Context) {
 
 func UpdateStockMovement(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Check if movement exists
 	var existingMovement models.StockMovement
@@ -438,7 +485,10 @@ func UpdateStockMovement(c *gin.Context) {
 
 func DeleteStockMovement(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Get the movement to reverse the stock change
 	var movement models.StockMovement
@@ -551,7 +601,10 @@ type MovementsByProductType struct {
 
 // GetStockMovementStats returns statistics for stock movements
 func GetStockMovementStats(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Parse query parameters
 	startDate := c.Query("start_date")

@@ -36,7 +36,7 @@ import { tasksAPI, paymentsAPI } from '../../services/api';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_URL = import.meta.env.VITE_API_URL ;
 
 const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);

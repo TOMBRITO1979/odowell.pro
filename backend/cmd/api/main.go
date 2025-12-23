@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
+
 	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/handlers"
@@ -199,7 +201,8 @@ func main() {
 	// Public routes
 	public := r.Group("/api")
 	{
-		public.POST("/tenants", handlers.CreateTenant)
+		// Tenant registration (very strict rate limit: 3 per hour per IP)
+		public.POST("/tenants", middleware.TenantRegistrationRateLimiter.RateLimitMiddleware(), handlers.CreateTenant)
 		// Login with rate limiting: 5 attempts per minute, 15 min block (Redis distributed)
 		public.POST("/auth/login", middleware.RedisLoginRateLimiter.RateLimitMiddleware(), handlers.Login)
 		// Logout (clears httpOnly cookies and invalidates refresh token)
@@ -209,12 +212,12 @@ func main() {
 		// Email verification
 		public.GET("/auth/verify-email", handlers.VerifyEmail)
 		public.POST("/auth/resend-verification", handlers.ResendVerificationEmail)
-		// Password reset
-		public.POST("/auth/forgot-password", handlers.ForgotPassword)
-		public.POST("/auth/reset-password", handlers.ResetPassword)
+		// Password reset (rate limited to prevent abuse)
+		public.POST("/auth/forgot-password", middleware.ForgotPasswordRateLimiter.RateLimitMiddleware(), handlers.ForgotPassword)
+		public.POST("/auth/reset-password", middleware.ForgotPasswordRateLimiter.RateLimitMiddleware(), handlers.ResetPassword)
 		public.GET("/auth/validate-reset-token", handlers.ValidateResetToken)
-		// 2FA verification during login (public - requires temp token)
-		public.POST("/auth/2fa/verify", handlers.Verify2FALogin)
+		// 2FA verification during login (rate limited to prevent brute force)
+		public.POST("/auth/2fa/verify", middleware.TwoFARateLimiter.RateLimitMiddleware(), handlers.Verify2FALogin)
 	}
 
 	// Static file serving for uploads
@@ -797,6 +800,7 @@ func validateRequiredEnvVars() {
 		"DB_USER",
 		"DB_PASSWORD",
 		"DB_NAME",
+		"ENCRYPTION_KEY",
 	}
 
 	missing := []string{}
@@ -814,6 +818,16 @@ func validateRequiredEnvVars() {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if len(jwtSecret) < 32 {
 		log.Fatalf("FATAL: JWT_SECRET must be at least 32 characters long (current: %d)", len(jwtSecret))
+	}
+
+	// Validate ENCRYPTION_KEY format (must be 64 hex chars = 32 bytes for AES-256)
+	encryptionKey := os.Getenv("ENCRYPTION_KEY")
+	if len(encryptionKey) != 64 {
+		log.Fatalf("FATAL: ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes for AES-256), current: %d", len(encryptionKey))
+	}
+	// Validate it's valid hex
+	if _, err := hex.DecodeString(encryptionKey); err != nil {
+		log.Fatalf("FATAL: ENCRYPTION_KEY must be valid hexadecimal: %v", err)
 	}
 
 	log.Println("Environment variables validated successfully")

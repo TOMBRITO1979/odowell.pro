@@ -50,11 +50,11 @@ log "Container PostgreSQL: $POSTGRES_CONTAINER"
 # Criar backup
 log "Criando dump do banco de dados..."
 docker exec "$POSTGRES_CONTAINER" pg_dump \
-    -U odowell_app \
+    -U drcrwell_user \
     -d drcrwell_db \
     --no-owner \
     --no-acl \
-    2>/dev/null | gzip > "$BACKUP_FILE"
+    2>&1 | gzip > "$BACKUP_FILE"
 
 if [ $? -eq 0 ]; then
     BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)

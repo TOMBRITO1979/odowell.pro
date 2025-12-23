@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"fmt"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 const uploadPath = "./uploads"
@@ -22,7 +22,10 @@ func init() {
 }
 
 func UploadAttachment(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	userID := c.GetUint("user_id")
 
 	// Get patient ID from form
@@ -80,7 +83,10 @@ func UploadAttachment(c *gin.Context) {
 
 func GetAttachment(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var attachment models.Attachment
 	if err := db.Preload("Patient").Preload("UploadedBy").First(&attachment, id).Error; err != nil {
@@ -106,7 +112,10 @@ func GetAttachment(c *gin.Context) {
 
 func DeleteAttachment(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var attachment models.Attachment
 	if err := db.First(&attachment, id).Error; err != nil {

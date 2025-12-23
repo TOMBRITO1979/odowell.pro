@@ -1,10 +1,115 @@
 package helpers
 
 import (
+	"bytes"
+	"io"
+	"mime/multipart"
 	"regexp"
 	"strings"
 	"unicode"
 )
+
+// Magic number signatures for file type validation
+var (
+	magicJPEG = []byte{0xFF, 0xD8, 0xFF}
+	magicPNG  = []byte{0x89, 0x50, 0x4E, 0x47}
+	magicGIF  = []byte{0x47, 0x49, 0x46}
+	magicPDF  = []byte{0x25, 0x50, 0x44, 0x46}
+	magicZIP  = []byte{0x50, 0x4B} // DOCX, XLSX, ODT, etc
+	magicWebP = []byte{0x52, 0x49, 0x46, 0x46} // RIFF header
+)
+
+// FileType represents validated file types
+type FileType string
+
+const (
+	FileTypeImage    FileType = "image"
+	FileTypePDF      FileType = "pdf"
+	FileTypeDocument FileType = "document"
+	FileTypeUnknown  FileType = "unknown"
+)
+
+// ValidateFileMagicNumber reads the first bytes of a file and validates it against known magic numbers
+// Returns the detected file type and whether it's valid for the expected types
+func ValidateFileMagicNumber(file multipart.File, allowedTypes []FileType) (FileType, bool, error) {
+	// Read first 12 bytes for magic number detection
+	header := make([]byte, 12)
+	n, err := file.Read(header)
+	if err != nil && err != io.EOF {
+		return FileTypeUnknown, false, err
+	}
+	header = header[:n]
+
+	// Reset file position
+	if seeker, ok := file.(io.Seeker); ok {
+		_, _ = seeker.Seek(0, io.SeekStart)
+	}
+
+	detectedType := detectFileType(header)
+
+	// Check if detected type is in allowed list
+	for _, allowed := range allowedTypes {
+		if detectedType == allowed {
+			return detectedType, true, nil
+		}
+	}
+
+	return detectedType, false, nil
+}
+
+// detectFileType determines file type from magic bytes
+func detectFileType(header []byte) FileType {
+	if len(header) < 3 {
+		return FileTypeUnknown
+	}
+
+	// Check for image types
+	if bytes.HasPrefix(header, magicJPEG) {
+		return FileTypeImage
+	}
+	if bytes.HasPrefix(header, magicPNG) {
+		return FileTypeImage
+	}
+	if bytes.HasPrefix(header, magicGIF) {
+		return FileTypeImage
+	}
+	if bytes.HasPrefix(header, magicWebP) && len(header) >= 12 {
+		// WebP has RIFF header, check for WEBP at offset 8
+		if bytes.Equal(header[8:12], []byte("WEBP")) {
+			return FileTypeImage
+		}
+	}
+
+	// Check for PDF
+	if bytes.HasPrefix(header, magicPDF) {
+		return FileTypePDF
+	}
+
+	// Check for ZIP-based documents (DOCX, XLSX, etc.)
+	if bytes.HasPrefix(header, magicZIP) {
+		return FileTypeDocument
+	}
+
+	return FileTypeUnknown
+}
+
+// ValidateImageFile validates that a file is a valid image (JPEG, PNG, GIF, WebP)
+func ValidateImageFile(file multipart.File) (bool, error) {
+	_, valid, err := ValidateFileMagicNumber(file, []FileType{FileTypeImage})
+	return valid, err
+}
+
+// ValidatePDFFile validates that a file is a valid PDF
+func ValidatePDFFile(file multipart.File) (bool, error) {
+	_, valid, err := ValidateFileMagicNumber(file, []FileType{FileTypePDF})
+	return valid, err
+}
+
+// ValidateMedicalFile validates that a file is a valid medical document (PDF, image, or document)
+func ValidateMedicalFile(file multipart.File) (bool, error) {
+	_, valid, err := ValidateFileMagicNumber(file, []FileType{FileTypeImage, FileTypePDF, FileTypeDocument})
+	return valid, err
+}
 
 // SanitizeString removes potentially dangerous characters
 func SanitizeString(s string) string {

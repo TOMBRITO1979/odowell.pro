@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/models"
+	"drcrwell/backend/internal/middleware"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,7 +13,10 @@ import (
 )
 
 func GenerateRevenueExcel(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -205,7 +209,10 @@ func GenerateRevenueExcel(c *gin.Context) {
 }
 
 func GenerateAttendanceExcel(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -355,7 +362,10 @@ func GenerateAttendanceExcel(c *gin.Context) {
 }
 
 func GenerateProceduresExcel(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -470,7 +480,10 @@ func GenerateProceduresExcel(c *gin.Context) {
 }
 
 func GenerateBudgetConversionExcel(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header
@@ -613,7 +626,10 @@ func GenerateBudgetConversionExcel(c *gin.Context) {
 }
 
 func GenerateOverduePaymentsExcel(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant info for header

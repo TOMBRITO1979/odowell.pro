@@ -185,13 +185,13 @@ func Login(c *gin.Context) {
 	// Cookie settings for security:
 	// - HttpOnly: prevents JavaScript access (XSS protection)
 	// - Secure: only sent over HTTPS (in production)
-	// - SameSite=Lax: CSRF protection while allowing normal navigation
+	// - SameSite=Strict: CSRF protection while allowing normal navigation
 	secure := os.Getenv("GIN_MODE") == "release"
 	accessMaxAge := int(cache.AccessTokenExpiry.Seconds())
 	refreshMaxAge := int(cache.RefreshTokenExpiry.Seconds())
 
 	// Set access token cookie (short-lived)
-	c.Header("Set-Cookie", fmt.Sprintf("auth_token=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s",
+	c.Header("Set-Cookie", fmt.Sprintf("auth_token=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Strict%s",
 		accessToken, accessMaxAge, func() string {
 			if secure {
 				return "; Secure"
@@ -200,7 +200,7 @@ func Login(c *gin.Context) {
 		}()))
 
 	// Set refresh token cookie (long-lived) - only for /api/auth path
-	c.Writer.Header().Add("Set-Cookie", fmt.Sprintf("refresh_token=%s; Path=/api/auth; Max-Age=%d; HttpOnly; SameSite=Lax%s",
+	c.Writer.Header().Add("Set-Cookie", fmt.Sprintf("refresh_token=%s; Path=/api/auth; Max-Age=%d; HttpOnly; SameSite=Strict%s",
 		refreshToken, refreshMaxAge, func() string {
 			if secure {
 				return "; Secure"
@@ -244,7 +244,7 @@ func Logout(c *gin.Context) {
 	}
 
 	// Clear auth token cookie
-	c.Header("Set-Cookie", fmt.Sprintf("auth_token=; Path=/; Max-Age=-1; HttpOnly; SameSite=Lax%s",
+	c.Header("Set-Cookie", fmt.Sprintf("auth_token=; Path=/; Max-Age=-1; HttpOnly; SameSite=Strict%s",
 		func() string {
 			if secure {
 				return "; Secure"
@@ -253,7 +253,7 @@ func Logout(c *gin.Context) {
 		}()))
 
 	// Clear refresh token cookie
-	c.Writer.Header().Add("Set-Cookie", fmt.Sprintf("refresh_token=; Path=/api/auth; Max-Age=-1; HttpOnly; SameSite=Lax%s",
+	c.Writer.Header().Add("Set-Cookie", fmt.Sprintf("refresh_token=; Path=/api/auth; Max-Age=-1; HttpOnly; SameSite=Strict%s",
 		func() string {
 			if secure {
 				return "; Secure"
@@ -576,11 +576,6 @@ func generateAccessToken(userID, tenantID uint, email, role string, isSuperAdmin
 			// Log error but continue with empty permissions
 			log.Printf("ERROR loading permissions for user %d: %v", userID, err)
 			permissions = make(map[string]map[string]bool)
-		} else {
-			log.Printf("DEBUG: Loaded %d modules permissions for user %d (%s)", len(permissions), userID, email)
-			for module, perms := range permissions {
-				log.Printf("  - %s: %v", module, perms)
-			}
 		}
 	}
 
@@ -621,11 +616,6 @@ func generateToken(userID, tenantID uint, email, role string, isSuperAdmin bool)
 			// Log error but continue with empty permissions
 			log.Printf("ERROR loading permissions for user %d: %v", userID, err)
 			permissions = make(map[string]map[string]bool)
-		} else {
-			log.Printf("DEBUG: Loaded %d modules permissions for user %d (%s)", len(permissions), userID, email)
-			for module, perms := range permissions {
-				log.Printf("  - %s: %v", module, perms)
-			}
 		}
 	}
 
@@ -693,7 +683,7 @@ func RefreshToken(c *gin.Context) {
 	secure := os.Getenv("GIN_MODE") == "release"
 	accessMaxAge := int(cache.AccessTokenExpiry.Seconds())
 
-	c.Header("Set-Cookie", fmt.Sprintf("auth_token=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s",
+	c.Header("Set-Cookie", fmt.Sprintf("auth_token=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Strict%s",
 		accessToken, accessMaxAge, func() string {
 			if secure {
 				return "; Secure"

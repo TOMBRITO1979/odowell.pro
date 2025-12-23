@@ -3,7 +3,6 @@ package handlers
 import (
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -132,11 +131,6 @@ func GetAppointment(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Appointment not found"})
 		return
 	}
-
-	// Debug timezone - temporary log
-	log.Printf("[DEBUG TZ] Appointment %d - StartTime: %v",
-		appointment.ID,
-		appointment.StartTime)
 
 	c.JSON(http.StatusOK, gin.H{"appointment": appointment})
 }

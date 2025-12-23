@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/models"
+	"drcrwell/backend/internal/middleware"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,7 +21,10 @@ type BudgetItem struct {
 }
 
 func GenerateBudgetPDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 	budgetID := c.Param("id")
 
@@ -199,7 +203,10 @@ func getStatusLabel(status string) string {
 }
 
 func GenerateBudgetPaymentsPDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 	budgetID := c.Param("id")
 

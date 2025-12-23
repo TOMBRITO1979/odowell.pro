@@ -6,6 +6,7 @@ import (
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
+	"drcrwell/backend/internal/middleware"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -87,7 +88,10 @@ func GetClinicInfo(db *gorm.DB, tenantID uint) ClinicInfo {
 }
 
 func GetTenantSettings(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	var settings models.TenantSettings
@@ -129,7 +133,10 @@ func UpdateTenantSettings(c *gin.Context) {
 		return
 	}
 
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Encrypt SMTP password if provided
@@ -239,7 +246,10 @@ func UpdateTenantSettings(c *gin.Context) {
 
 // GetEmbedToken returns the current embed token status
 func GetEmbedToken(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	var tenant models.Tenant
@@ -271,7 +281,10 @@ func GetEmbedToken(c *gin.Context) {
 
 // GenerateEmbedToken generates a new embed token for the tenant
 func GenerateEmbedToken(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Generate random token
@@ -303,7 +316,10 @@ func GenerateEmbedToken(c *gin.Context) {
 
 // RevokeEmbedToken removes the embed token for the tenant
 func RevokeEmbedToken(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	if err := db.Exec("UPDATE public.tenants SET embed_token = '', updated_at = NOW() WHERE id = ?", tenantID).Error; err != nil {
@@ -316,7 +332,10 @@ func RevokeEmbedToken(c *gin.Context) {
 
 // TestSMTPConnection tests the SMTP connection with tenant's settings
 func TestSMTPConnection(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	// Get tenant settings

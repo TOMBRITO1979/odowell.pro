@@ -43,30 +43,27 @@ func HandleStripeWebhook(c *gin.Context) {
 		return
 	}
 
-	// Verify webhook signature if secret is configured
+	// Verify webhook signature (REQUIRED for security)
 	var event stripe.Event
-	if settings.StripeWebhookSecret != "" {
-		// Decrypt webhook secret if encrypted
-		webhookSecret, decryptErr := helpers.DecryptIfNeeded(settings.StripeWebhookSecret)
-		if decryptErr != nil {
-			log.Printf("Webhook: Could not decrypt webhook secret: %v", decryptErr)
-			webhookSecret = settings.StripeWebhookSecret // Fallback to raw value
-		}
+	if settings.StripeWebhookSecret == "" {
+		log.Printf("Webhook: No webhook secret configured for tenant %d - rejecting request", tenantID)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Webhook secret not configured. Please configure Stripe webhook secret in settings."})
+		return
+	}
 
-		sigHeader := c.GetHeader("Stripe-Signature")
-		event, err = webhook.ConstructEvent(payload, sigHeader, webhookSecret)
-		if err != nil {
-			log.Printf("Webhook: Signature verification failed: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Webhook signature verification failed"})
-			return
-		}
-	} else {
-		// Parse without verification (not recommended for production)
-		if err := json.Unmarshal(payload, &event); err != nil {
-			log.Printf("Webhook: Error parsing event: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Error parsing event"})
-			return
-		}
+	// Decrypt webhook secret if encrypted
+	webhookSecret, decryptErr := helpers.DecryptIfNeeded(settings.StripeWebhookSecret)
+	if decryptErr != nil {
+		log.Printf("Webhook: Could not decrypt webhook secret: %v", decryptErr)
+		webhookSecret = settings.StripeWebhookSecret // Fallback to raw value
+	}
+
+	sigHeader := c.GetHeader("Stripe-Signature")
+	event, err = webhook.ConstructEvent(payload, sigHeader, webhookSecret)
+	if err != nil {
+		log.Printf("Webhook: Signature verification failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Webhook signature verification failed"})
+		return
 	}
 
 	log.Printf("Webhook: Received event %s for tenant %d", event.Type, tenantID)

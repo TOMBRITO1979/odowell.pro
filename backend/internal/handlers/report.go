@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/middleware"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -8,7 +9,10 @@ import (
 )
 
 func GetDashboard(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Total patients
 	var totalPatients int64
@@ -74,7 +78,10 @@ func GetDashboard(c *gin.Context) {
 }
 
 func GetRevenueReport(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
@@ -139,7 +146,10 @@ func GetRevenueReport(c *gin.Context) {
 }
 
 func GetProceduresReport(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
@@ -201,7 +211,10 @@ func GetProceduresReport(c *gin.Context) {
 }
 
 func GetAttendanceReport(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
@@ -303,7 +316,10 @@ func GetAttendanceReport(c *gin.Context) {
 }
 
 func GetBudgetConversionReport(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
@@ -376,7 +392,10 @@ func GetBudgetConversionReport(c *gin.Context) {
 }
 
 func GetOverduePaymentsReport(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Overdue payments by patient
 	type OverduePatient struct {
@@ -450,7 +469,10 @@ func GetOverduePaymentsReport(c *gin.Context) {
 }
 
 func GetAdvancedDashboard(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")

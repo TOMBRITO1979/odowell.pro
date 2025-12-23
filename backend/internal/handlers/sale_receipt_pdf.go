@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/models"
+	"drcrwell/backend/internal/middleware"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,7 +15,10 @@ import (
 
 // GenerateSaleReceiptPDF generates a PDF receipt for a sale movement
 func GenerateSaleReceiptPDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 	movementID := c.Param("id")
 

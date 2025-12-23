@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/models"
+	"drcrwell/backend/internal/middleware"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,7 +14,10 @@ import (
 )
 
 func GenerateMedicalRecordPDF(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 	recordID := c.Param("id")
 

@@ -129,6 +129,18 @@ func (rl *RateLimiter) RateLimitMiddleware() gin.HandlerFunc {
 // Allows 5 attempts per minute, blocks for 15 minutes if exceeded
 var LoginRateLimiter = NewRateLimiter(5, time.Minute)
 
+// ForgotPasswordRateLimiter is a strict rate limiter for password reset requests
+// Allows 3 attempts per 15 minutes to prevent abuse
+var ForgotPasswordRateLimiter = NewRateLimiter(3, 15*time.Minute)
+
+// TwoFARateLimiter is a rate limiter for 2FA verification attempts
+// Allows 5 attempts per minute to prevent brute force
+var TwoFARateLimiter = NewRateLimiter(5, time.Minute)
+
+// TenantRegistrationRateLimiter is a very strict rate limiter for tenant registration
+// Allows 3 registrations per hour per IP to prevent spam
+var TenantRegistrationRateLimiter = NewRateLimiter(3, time.Hour)
+
 // WhatsAppRateLimiter is a pre-configured rate limiter for WhatsApp API endpoints
 // Allows 200 requests per minute per API key (higher limit for bot integrations)
 // This protects against abuse while allowing normal WhatsApp bot traffic

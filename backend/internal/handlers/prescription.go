@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"fmt"
 	"net/http"
@@ -10,12 +11,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jung-kurt/gofpdf"
-	"gorm.io/gorm"
 )
 
 // CreatePrescription creates a new prescription/medical report
 func CreatePrescription(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	userID := c.GetUint("user_id")
 	tenantID := c.GetUint("tenant_id")
 
@@ -111,7 +114,10 @@ func CreatePrescription(c *gin.Context) {
 
 // GetPrescriptions retrieves all prescriptions
 func GetPrescriptions(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -155,7 +161,10 @@ func GetPrescriptions(c *gin.Context) {
 // GetPrescription retrieves a single prescription
 func GetPrescription(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var prescription models.Prescription
 	if err := db.Preload("Patient").Preload("Dentist").Preload("Signer").
@@ -170,7 +179,10 @@ func GetPrescription(c *gin.Context) {
 // UpdatePrescription updates a prescription
 func UpdatePrescription(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Check if prescription exists using raw SQL
 	var prescription models.Prescription
@@ -220,7 +232,10 @@ func UpdatePrescription(c *gin.Context) {
 // IssuePrescription issues a prescription (changes status from draft to issued)
 func IssuePrescription(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var prescription models.Prescription
 	if err := db.First(&prescription, id).Error; err != nil {
@@ -254,7 +269,10 @@ func IssuePrescription(c *gin.Context) {
 // PrintPrescription marks a prescription as printed and increments print count
 func PrintPrescription(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var prescription models.Prescription
 	if err := db.First(&prescription, id).Error; err != nil {
@@ -280,7 +298,10 @@ func PrintPrescription(c *gin.Context) {
 // DeletePrescription soft deletes a prescription
 func DeletePrescription(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	if err := db.Delete(&models.Prescription{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete prescription"})
@@ -293,7 +314,10 @@ func DeletePrescription(c *gin.Context) {
 // GeneratePrescriptionPDF generates a PDF for a prescription
 func GeneratePrescriptionPDF(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var prescription models.Prescription
 	if err := db.Preload("Patient").First(&prescription, id).Error; err != nil {

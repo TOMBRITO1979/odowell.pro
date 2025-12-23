@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/helpers"
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"log"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func CreateCampaign(c *gin.Context) {
@@ -28,7 +28,10 @@ func CreateCampaign(c *gin.Context) {
 		campaign.Filters = "{}"
 	}
 
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	if err := db.Create(&campaign).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create campaign"})
 		return
@@ -41,7 +44,10 @@ func CreateCampaign(c *gin.Context) {
 }
 
 func GetCampaigns(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -77,7 +83,10 @@ func GetCampaigns(c *gin.Context) {
 
 func GetCampaign(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var campaign models.Campaign
 	if err := db.Preload("CreatedBy").Preload("Recipients").Preload("Recipients.Patient").
@@ -91,7 +100,10 @@ func GetCampaign(c *gin.Context) {
 
 func UpdateCampaign(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Check if campaign exists and is draft
 	var campaign models.Campaign
@@ -133,7 +145,10 @@ func UpdateCampaign(c *gin.Context) {
 
 func DeleteCampaign(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	if err := db.Delete(&models.Campaign{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete campaign"})
@@ -145,7 +160,10 @@ func DeleteCampaign(c *gin.Context) {
 
 func SendCampaign(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	var campaign models.Campaign

@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/helpers"
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func CreateMedicalRecord(c *gin.Context) {
@@ -17,7 +17,10 @@ func CreateMedicalRecord(c *gin.Context) {
 		return
 	}
 
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	if err := db.Create(&record).Error; err != nil {
 		helpers.AuditAction(c, "create", "medical_records", 0, false, map[string]interface{}{
 			"error":      "Failed to create medical record",
@@ -45,7 +48,10 @@ func CreateMedicalRecord(c *gin.Context) {
 }
 
 func GetMedicalRecords(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -82,7 +88,10 @@ func GetMedicalRecords(c *gin.Context) {
 func GetMedicalRecord(c *gin.Context) {
 	id := c.Param("id")
 	recordID, _ := strconv.ParseUint(id, 10, 32)
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var record models.MedicalRecord
 	if err := db.Preload("Patient").Preload("Dentist").First(&record, id).Error; err != nil {
@@ -103,7 +112,10 @@ func GetMedicalRecord(c *gin.Context) {
 func UpdateMedicalRecord(c *gin.Context) {
 	id := c.Param("id")
 	recordID, _ := strconv.ParseUint(id, 10, 32)
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Buscar prontuário existente para log de antes/depois
 	var oldRecord models.MedicalRecord
@@ -163,7 +175,10 @@ func UpdateMedicalRecord(c *gin.Context) {
 func DeleteMedicalRecord(c *gin.Context) {
 	id := c.Param("id")
 	recordID, _ := strconv.ParseUint(id, 10, 32)
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Buscar dados do prontuário antes de deletar para log
 	var record models.MedicalRecord

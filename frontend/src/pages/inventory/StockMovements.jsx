@@ -169,9 +169,6 @@ const StockMovements = () => {
       }
 
       const response = await stockMovementsAPI.getStats(params);
-      console.log('StockMovements stats response:', response.data);
-      console.log('exits_by_product:', response.data.exits_by_product);
-      console.log('exits_by_product_date:', response.data.exits_by_product_date);
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);

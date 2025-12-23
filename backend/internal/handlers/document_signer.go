@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
+	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"encoding/hex"
 	"fmt"
@@ -17,7 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jung-kurt/gofpdf"
 	pkcs12 "software.sslmate.com/src/go-pkcs12"
-	"gorm.io/gorm"
 )
 
 // SignDocumentRequest represents the request to sign a document
@@ -29,7 +29,10 @@ type SignDocumentRequest struct {
 func SignPrescription(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	prescriptionID := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var input SignDocumentRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -173,7 +176,10 @@ func SignPrescription(c *gin.Context) {
 func SignMedicalRecord(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	recordID := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var input SignDocumentRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -307,7 +313,10 @@ func SignMedicalRecord(c *gin.Context) {
 // GenerateSignedPrescriptionPDF generates a PDF with digital signature information
 func GenerateSignedPrescriptionPDF(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	tenantID := c.GetUint("tenant_id")
 
 	var prescription models.Prescription
@@ -467,7 +476,10 @@ func GenerateSignedPrescriptionPDF(c *gin.Context) {
 func VerifyDocumentSignature(c *gin.Context) {
 	docType := c.Param("type") // prescription or medical_record
 	docID := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var signatureInfo struct {
 		IsSigned              bool

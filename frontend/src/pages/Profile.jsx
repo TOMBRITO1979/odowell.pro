@@ -4,7 +4,7 @@ import { UserOutlined, LockOutlined, PhoneOutlined, MailOutlined, CameraOutlined
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_URL = import.meta.env.VITE_API_URL ;
 
 const Profile = () => {
   const { user, updateUser } = useAuth();

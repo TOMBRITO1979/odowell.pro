@@ -749,7 +749,10 @@ func GenerateConsentPDF(c *gin.Context) {
 
 	// Get tenant info
 	var tenant models.Tenant
-	tenantDB := c.MustGet("db").(*gorm.DB)
+	tenantDB, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	if err := tenantDB.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao carregar informações da clínica"})
 		return

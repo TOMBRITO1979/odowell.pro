@@ -36,9 +36,10 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		// Content Security Policy
 		// Restricts resources the page can load
 		// 'self' = only from same origin
-		// 'unsafe-inline' = allows inline scripts/styles (needed for many frameworks)
+		// 'unsafe-inline' = allows inline styles (needed for Ant Design)
 		// data: = allows data URIs (needed for some images/fonts)
-		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'")
+		// Note: 'unsafe-eval' removed for security (eval/Function constructor blocked)
+		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'")
 
 		// Prevent caching of sensitive data
 		// Only apply to API responses, not static files

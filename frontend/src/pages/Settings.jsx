@@ -128,12 +128,9 @@ const Settings = () => {
       stripe_publishable_key: stripePublishableKey,
       stripe_webhook_secret: stripeWebhookSecret,
     };
-    console.log('handleSaveStripe called with values:', values);
     setStripeLoading(true);
     try {
-      console.log('Calling stripeSettingsAPI.update...');
       const response = await stripeSettingsAPI.update(values);
-      console.log('stripeSettingsAPI.update response:', response);
       setStripeStatus(response.data);
       message.success('Credenciais do Stripe salvas com sucesso!');
       // Clear sensitive fields after save

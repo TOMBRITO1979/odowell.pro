@@ -9,6 +9,7 @@ import (
 
 	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/models"
+	"drcrwell/backend/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -16,7 +17,10 @@ import (
 
 // CreateLead creates a new lead
 func CreateLead(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	userID := c.MustGet("user_id").(uint)
 
 	var lead models.Lead
@@ -52,7 +56,10 @@ func CreateLead(c *gin.Context) {
 
 // GetLeads returns all leads with optional filtering
 func GetLeads(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var leads []models.Lead
 	query := db.Session(&gorm.Session{NewDB: true})
@@ -96,7 +103,10 @@ func GetLeads(c *gin.Context) {
 
 // GetLead returns a single lead by ID
 func GetLead(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 
 	var lead models.Lead
@@ -110,7 +120,10 @@ func GetLead(c *gin.Context) {
 
 // UpdateLead updates a lead
 func UpdateLead(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 
 	var lead models.Lead
@@ -154,7 +167,10 @@ func UpdateLead(c *gin.Context) {
 
 // DeleteLead soft deletes a lead
 func DeleteLead(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 
 	var lead models.Lead
@@ -177,7 +193,10 @@ func DeleteLead(c *gin.Context) {
 // Uses Redis cache to reduce database queries (cache TTL: 5 minutes)
 // If auto_create=true query param is set, automatically creates a lead for unknown numbers
 func CheckLeadByPhone(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	phone := c.Param("phone")
 	autoCreate := c.Query("auto_create") == "true"
 
@@ -295,7 +314,10 @@ func CheckLeadByPhone(c *gin.Context) {
 // This is called by the AI after collecting information from the user
 // PUT /api/whatsapp/leads/:id
 func WhatsAppUpdateLead(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 
 	var lead models.Lead
@@ -375,7 +397,10 @@ func WhatsAppUpdateLead(c *gin.Context) {
 
 // ConvertLeadToPatient converts a lead to a patient
 func ConvertLeadToPatient(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 
 	var lead models.Lead
@@ -482,7 +507,10 @@ func ConvertLeadToPatient(c *gin.Context) {
 
 // GetLeadStats returns statistics about leads
 func GetLeadStats(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	type StatusCount struct {
 		Status string `json:"status"`

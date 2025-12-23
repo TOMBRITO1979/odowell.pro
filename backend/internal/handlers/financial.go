@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"drcrwell/backend/internal/models"
+	"drcrwell/backend/internal/middleware"
 	"log"
 	"net/http"
 	"strconv"
@@ -19,7 +20,10 @@ func CreateBudget(c *gin.Context) {
 		return
 	}
 
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	if err := db.Create(&budget).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create budget"})
 		return
@@ -32,7 +36,10 @@ func CreateBudget(c *gin.Context) {
 }
 
 func GetBudgets(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -68,7 +75,10 @@ func GetBudgets(c *gin.Context) {
 
 func GetBudget(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var budget models.Budget
 	if err := db.Preload("Patient").Preload("Dentist").Preload("Payments").
@@ -82,7 +92,10 @@ func GetBudget(c *gin.Context) {
 
 func UpdateBudget(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Get current budget to check status change
 	var currentBudget models.Budget
@@ -107,8 +120,15 @@ func UpdateBudget(c *gin.Context) {
 		return
 	}
 
+	// Start transaction to ensure atomicity of budget update and treatment creation
+	tx := db.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+
 	// Update using Exec to avoid the duplicate table error
-	result := db.Exec(`
+	result := tx.Exec(`
 		UPDATE budgets
 		SET patient_id = ?, dentist_id = ?, description = ?, total_value = ?,
 		    items = ?, status = ?, valid_until = ?, notes = ?, updated_at = NOW()
@@ -117,42 +137,43 @@ func UpdateBudget(c *gin.Context) {
 		input.Items, input.Status, input.ValidUntil, input.Notes, id)
 
 	if result.Error != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update budget"})
 		return
 	}
 
 	// Load the updated budget with relationships
 	var budget models.Budget
-	db.Preload("Patient").Preload("Dentist").Preload("Payments").First(&budget, id)
+	tx.Preload("Patient").Preload("Dentist").Preload("Payments").First(&budget, id)
 
 	// If status changed to approved, auto-create treatment
 	var treatment *models.Treatment
 	if currentBudget.Status != "approved" && input.Status == "approved" {
-		log.Printf("DEBUG: Budget %d status changed to approved, checking for existing treatment...", budget.ID)
-
 		// Check if treatment already exists using raw SQL to avoid GORM model contamination
 		var existingTreatmentID uint
-		err := db.Raw("SELECT id FROM treatments WHERE budget_id = ? AND deleted_at IS NULL LIMIT 1", budget.ID).Scan(&existingTreatmentID).Error
+		err := tx.Raw("SELECT id FROM treatments WHERE budget_id = ? AND deleted_at IS NULL LIMIT 1", budget.ID).Scan(&existingTreatmentID).Error
 
 		if err != nil || existingTreatmentID == 0 {
-			log.Printf("DEBUG: No existing treatment found for budget %d, creating new treatment...", budget.ID)
-
 			// Treatment doesn't exist, create it
 			totalInstallments := input.TotalInstallments
 			if totalInstallments <= 0 {
 				totalInstallments = 1
 			}
 
-			newTreatment, createErr := CreateTreatmentFromBudgetRaw(db, &budget, totalInstallments)
+			newTreatment, createErr := CreateTreatmentFromBudgetRaw(tx, &budget, totalInstallments)
 			if createErr != nil {
-				log.Printf("ERROR: Failed to create treatment for budget %d: %v", budget.ID, createErr)
-			} else {
-				log.Printf("DEBUG: Treatment %d created successfully for budget %d", newTreatment.ID, budget.ID)
-				treatment = newTreatment
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create treatment from budget"})
+				return
 			}
-		} else {
-			log.Printf("DEBUG: Treatment %d already exists for budget %d", existingTreatmentID, budget.ID)
+			treatment = newTreatment
 		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
 	}
 
 	response := gin.H{"budget": budget}
@@ -166,7 +187,10 @@ func UpdateBudget(c *gin.Context) {
 
 func DeleteBudget(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	if err := db.Delete(&models.Budget{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete budget"})
@@ -184,7 +208,10 @@ func CreatePayment(c *gin.Context) {
 		return
 	}
 
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 	if err := db.Create(&payment).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment"})
 		return
@@ -197,7 +224,10 @@ func CreatePayment(c *gin.Context) {
 }
 
 func GetPayments(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
@@ -236,7 +266,10 @@ func GetPayments(c *gin.Context) {
 
 func GetPayment(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var payment models.Payment
 	if err := db.Preload("Patient").Preload("Budget").First(&payment, id).Error; err != nil {
@@ -249,7 +282,10 @@ func GetPayment(c *gin.Context) {
 
 func UpdatePayment(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	// Check if payment exists
 	var count int64
@@ -295,7 +331,10 @@ func UpdatePayment(c *gin.Context) {
 
 func DeletePayment(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	if err := db.Delete(&models.Payment{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete payment"})
@@ -306,7 +345,10 @@ func DeletePayment(c *gin.Context) {
 }
 
 func GetCashFlow(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
@@ -379,7 +421,10 @@ func GetCashFlow(c *gin.Context) {
 
 // GetOverduePaymentsCount returns the count of overdue or due today expense payments
 func GetOverduePaymentsCount(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var count int64
 	// Count expense payments that are pending/overdue and due today or past due date
@@ -402,7 +447,10 @@ func GetOverduePaymentsCount(c *gin.Context) {
 // CancelBudget cancels an approved budget
 func CancelBudget(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var budget models.Budget
 	if err := db.First(&budget, id).Error; err != nil {
@@ -435,7 +483,10 @@ func CancelBudget(c *gin.Context) {
 // RefundPayment refunds a paid payment
 func RefundPayment(c *gin.Context) {
 	id := c.Param("id")
-	db := c.MustGet("db").(*gorm.DB)
+	db, ok := middleware.GetDBFromContextSafe(c)
+	if !ok {
+		return
+	}
 
 	var input struct {
 		Reason string `json:"reason"`
