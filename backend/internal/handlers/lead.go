@@ -175,9 +175,11 @@ func DeleteLead(c *gin.Context) {
 // CheckLeadByPhone checks if a lead or patient exists by phone number
 // This is used by WhatsApp integration to check if contact is known
 // Uses Redis cache to reduce database queries (cache TTL: 5 minutes)
+// If auto_create=true query param is set, automatically creates a lead for unknown numbers
 func CheckLeadByPhone(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	phone := c.Param("phone")
+	autoCreate := c.Query("auto_create") == "true"
 
 	// Clean phone number
 	phone = cleanPhoneNumber(phone)
@@ -186,11 +188,13 @@ func CheckLeadByPhone(c *gin.Context) {
 	tenantID, _ := c.Get("tenant_id")
 	cacheKey := fmt.Sprintf("phone_check:%v:%s", tenantID, phone)
 
-	// Try to get from cache first
-	var cachedResult map[string]interface{}
-	if err := cache.Get(cacheKey, &cachedResult); err == nil {
-		c.JSON(http.StatusOK, cachedResult)
-		return
+	// Try to get from cache first (skip cache if auto_create to ensure fresh check)
+	if !autoCreate {
+		var cachedResult map[string]interface{}
+		if err := cache.Get(cacheKey, &cachedResult); err == nil {
+			c.JSON(http.StatusOK, cachedResult)
+			return
+		}
 	}
 
 	// Optimized: Single UNION query to check both patients and leads
@@ -247,6 +251,37 @@ func CheckLeadByPhone(c *gin.Context) {
 		return
 	}
 
+	// Not found - auto-create lead if requested
+	if autoCreate {
+		lead := models.Lead{
+			Name:          "Contato WhatsApp",
+			Phone:         phone,
+			Source:        "whatsapp",
+			Status:        "new",
+			ContactReason: "Primeiro contato via WhatsApp",
+			Notes:         fmt.Sprintf("[Auto-criado em %s]", time.Now().Format("02/01/2006 15:04")),
+			CreatedBy:     0, // System
+		}
+
+		if err := db.Session(&gorm.Session{}).Create(&lead).Error; err == nil {
+			// Clear cache since we created a new lead
+			cache.Delete(cacheKey)
+
+			result := gin.H{
+				"exists":       true,
+				"type":         "lead",
+				"id":           lead.ID,
+				"name":         lead.Name,
+				"lead_id":      lead.ID,
+				"status":       lead.Status,
+				"auto_created": true,
+			}
+			cache.Set(cacheKey, result, 5*time.Minute)
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+
 	// Not found - cache for shorter time (2 minutes) as new contacts may register soon
 	result := gin.H{
 		"exists": false,
@@ -254,6 +289,88 @@ func CheckLeadByPhone(c *gin.Context) {
 	}
 	cache.Set(cacheKey, result, 2*time.Minute)
 	c.JSON(http.StatusOK, result)
+}
+
+// WhatsAppUpdateLead updates a lead with additional information (name, birth_date, contact_reason)
+// This is called by the AI after collecting information from the user
+// PUT /api/whatsapp/leads/:id
+func WhatsAppUpdateLead(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	id := c.Param("id")
+
+	var lead models.Lead
+	if err := db.First(&lead, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Lead não encontrado"})
+		return
+	}
+
+	var input struct {
+		Name          string `json:"name"`
+		BirthDate     string `json:"birth_date"`
+		ContactReason string `json:"contact_reason"`
+		Notes         string `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := make(map[string]interface{})
+
+	if input.Name != "" {
+		updates["name"] = input.Name
+	}
+	if input.ContactReason != "" {
+		updates["contact_reason"] = input.ContactReason
+	}
+	if input.Notes != "" {
+		// Append to existing notes
+		newNotes := lead.Notes
+		if newNotes != "" {
+			newNotes += "\n"
+		}
+		newNotes += input.Notes
+		updates["notes"] = newNotes
+	}
+
+	// Parse birth date if provided
+	if input.BirthDate != "" {
+		formats := []string{
+			"2006-01-02",  // YYYY-MM-DD
+			"02/01/2006",  // DD/MM/YYYY
+			"2/1/2006",    // D/M/YYYY
+			"02-01-2006",  // DD-MM-YYYY
+		}
+		for _, format := range formats {
+			if parsed, err := time.Parse(format, input.BirthDate); err == nil {
+				updates["birth_date"] = parsed
+				break
+			}
+		}
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nenhum campo para atualizar"})
+		return
+	}
+
+	if err := db.Session(&gorm.Session{NewDB: true}).Model(&models.Lead{}).Where("id = ?", lead.ID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar lead"})
+		return
+	}
+
+	// Reload lead
+	db.Session(&gorm.Session{NewDB: true}).First(&lead, id)
+
+	// Invalidate cache
+	tenantID, _ := c.Get("tenant_id")
+	cacheKey := fmt.Sprintf("phone_check:%v:%s", tenantID, lead.Phone)
+	cache.Delete(cacheKey)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Lead atualizado com sucesso",
+		"lead":    lead,
+	})
 }
 
 // ConvertLeadToPatient converts a lead to a patient
@@ -275,6 +392,7 @@ func ConvertLeadToPatient(c *gin.Context) {
 
 	// Optional: receive additional patient data
 	var additionalData struct {
+		Name      string `json:"name"`
 		CPF       string `json:"cpf"`
 		BirthDate string `json:"birth_date"`
 		Address   string `json:"address"`
@@ -282,12 +400,21 @@ func ConvertLeadToPatient(c *gin.Context) {
 		State     string `json:"state"`
 		ZipCode   string `json:"zip_code"`
 		Notes     string `json:"notes"`
+		Phone     string `json:"phone"`
 	}
 	c.ShouldBindJSON(&additionalData)
 
+	// Use name from additionalData if provided, otherwise use lead.Name
+	patientName := lead.Name
+	if additionalData.Name != "" {
+		patientName = additionalData.Name
+		// Also update the lead's name for consistency
+		db.Session(&gorm.Session{NewDB: true}).Model(&models.Lead{}).Where("id = ?", lead.ID).Update("name", additionalData.Name)
+	}
+
 	// Create patient from lead
 	patient := models.Patient{
-		Name:      lead.Name,
+		Name:      patientName,
 		Phone:     lead.Phone,
 		CellPhone: lead.Phone,
 		Email:     lead.Email,
@@ -300,10 +427,21 @@ func ConvertLeadToPatient(c *gin.Context) {
 		Active:    true,
 	}
 
-	// Parse birth date if provided
+	// Parse birth date if provided - try multiple formats
 	if additionalData.BirthDate != "" {
-		if t, err := time.Parse("2006-01-02", additionalData.BirthDate); err == nil {
-			patient.BirthDate = &t
+		dateFormats := []string{
+			"2006-01-02",
+			"2006-01-02T15:04:05Z07:00",
+			"2006-01-02T15:04:05Z",
+			"2006-01-02T15:04:05",
+			"02/01/2006",
+			"02-01-2006",
+		}
+		for _, format := range dateFormats {
+			if t, err := time.Parse(format, additionalData.BirthDate); err == nil {
+				patient.BirthDate = &t
+				break
+			}
 		}
 	}
 

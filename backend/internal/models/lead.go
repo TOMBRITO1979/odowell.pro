@@ -14,9 +14,10 @@ type Lead struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
 	// Contact Information
-	Name  string `gorm:"not null" json:"name"`
-	Phone string `gorm:"not null;index" json:"phone"` // Primary identifier for WhatsApp lookup
-	Email string `json:"email"`
+	Name      string     `gorm:"not null" json:"name"`
+	Phone     string     `gorm:"not null;index" json:"phone"` // Primary identifier for WhatsApp lookup
+	Email     string     `json:"email"`
+	BirthDate *time.Time `json:"birth_date,omitempty"` // Data de nascimento do lead
 
 	// Lead Source and Tracking
 	Source        string `gorm:"default:'whatsapp'" json:"source"` // whatsapp, website, referral, instagram, facebook, other

@@ -6,6 +6,7 @@ import (
 	"drcrwell/backend/internal/models"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -27,10 +28,83 @@ func decryptPatientsFields(patients []models.Patient) {
 
 // CreatePatient - Criar novo paciente
 func CreatePatient(c *gin.Context) {
-	var patient models.Patient
-	if err := c.ShouldBindJSON(&patient); err != nil {
+	// Use a separate input struct to handle flexible date formats
+	var input struct {
+		Name             string `json:"name"`
+		CPF              string `json:"cpf"`
+		RG               string `json:"rg"`
+		BirthDate        string `json:"birth_date"` // Accept as string for flexible parsing
+		Gender           string `json:"gender"`
+		Email            string `json:"email"`
+		Phone            string `json:"phone"`
+		CellPhone        string `json:"cell_phone"`
+		Address          string `json:"address"`
+		Number           string `json:"number"`
+		Complement       string `json:"complement"`
+		District         string `json:"district"`
+		City             string `json:"city"`
+		State            string `json:"state"`
+		ZipCode          string `json:"zip_code"`
+		Allergies        string `json:"allergies"`
+		Medications      string `json:"medications"`
+		SystemicDiseases string `json:"systemic_diseases"`
+		BloodType        string `json:"blood_type"`
+		HasInsurance     bool   `json:"has_insurance"`
+		InsuranceName    string `json:"insurance_name"`
+		InsuranceNumber  string `json:"insurance_number"`
+		Tags             string `json:"tags"`
+		Active           bool   `json:"active"`
+		Notes            string `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Build patient from input
+	patient := models.Patient{
+		Name:             input.Name,
+		CPF:              input.CPF,
+		RG:               input.RG,
+		Gender:           input.Gender,
+		Email:            input.Email,
+		Phone:            input.Phone,
+		CellPhone:        input.CellPhone,
+		Address:          input.Address,
+		Number:           input.Number,
+		Complement:       input.Complement,
+		District:         input.District,
+		City:             input.City,
+		State:            input.State,
+		ZipCode:          input.ZipCode,
+		Allergies:        input.Allergies,
+		Medications:      input.Medications,
+		SystemicDiseases: input.SystemicDiseases,
+		BloodType:        input.BloodType,
+		HasInsurance:     input.HasInsurance,
+		InsuranceName:    input.InsuranceName,
+		InsuranceNumber:  input.InsuranceNumber,
+		Tags:             input.Tags,
+		Active:           input.Active,
+		Notes:            input.Notes,
+	}
+
+	// Parse birth date with flexible formats
+	if input.BirthDate != "" {
+		dateFormats := []string{
+			"2006-01-02",
+			"2006-01-02T15:04:05Z07:00",
+			"2006-01-02T15:04:05Z",
+			"2006-01-02T15:04:05",
+			"02/01/2006",
+			"02-01-2006",
+		}
+		for _, format := range dateFormats {
+			if t, err := time.Parse(format, input.BirthDate); err == nil {
+				patient.BirthDate = &t
+				break
+			}
+		}
 	}
 
 	// Validar campo obrigatório: telefone

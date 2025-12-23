@@ -35,6 +35,11 @@ import { leadsAPI, patientsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import { actionColors, statusColors, brandColors, spacing, shadows } from '../../theme/designSystem';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { Search } = Input;
 const { Option } = Select;
@@ -220,7 +225,7 @@ const Leads = () => {
       title: 'Data',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (date) => new Date(date).toLocaleDateString('pt-BR')
+      render: (date) => dayjs(date).tz('America/Sao_Paulo').format('DD/MM/YYYY')
     },
     {
       title: 'Ações',
@@ -462,11 +467,11 @@ const Leads = () => {
               {selectedLead.notes || '-'}
             </Descriptions.Item>
             <Descriptions.Item label="Data de Cadastro">
-              {new Date(selectedLead.created_at).toLocaleString('pt-BR')}
+              {dayjs(selectedLead.created_at).tz('America/Sao_Paulo').format('DD/MM/YYYY, HH:mm:ss')}
             </Descriptions.Item>
             {selectedLead.converted_at && (
               <Descriptions.Item label="Data de Conversão">
-                {new Date(selectedLead.converted_at).toLocaleString('pt-BR')}
+                {dayjs(selectedLead.converted_at).tz('America/Sao_Paulo').format('DD/MM/YYYY, HH:mm:ss')}
               </Descriptions.Item>
             )}
           </Descriptions>

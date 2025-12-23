@@ -1281,6 +1281,7 @@ type WhatsAppCreateLeadRequest struct {
 	Name          string `json:"name" binding:"required"`
 	Phone         string `json:"phone" binding:"required"`
 	Email         string `json:"email"`
+	BirthDate     string `json:"birth_date"` // Formato: YYYY-MM-DD ou DD/MM/YYYY
 	Source        string `json:"source"`
 	ContactReason string `json:"contact_reason"`
 	Notes         string `json:"notes"`
@@ -1327,11 +1328,31 @@ func WhatsAppCreateLead(c *gin.Context) {
 		source = req.Source
 	}
 
+	// Parse birth date if provided
+	var birthDate *time.Time
+	if req.BirthDate != "" {
+		// Try multiple date formats
+		formats := []string{
+			"2006-01-02",    // YYYY-MM-DD
+			"02/01/2006",    // DD/MM/YYYY
+			"2/1/2006",      // D/M/YYYY
+			"02-01-2006",    // DD-MM-YYYY
+			"2006/01/02",    // YYYY/MM/DD
+		}
+		for _, format := range formats {
+			if parsed, err := time.Parse(format, req.BirthDate); err == nil {
+				birthDate = &parsed
+				break
+			}
+		}
+	}
+
 	// Create lead with CreatedBy = 0 (system/API)
 	lead := models.Lead{
 		Name:          req.Name,
 		Phone:         phone,
 		Email:         req.Email,
+		BirthDate:     birthDate,
 		Source:        source,
 		ContactReason: req.ContactReason,
 		Notes:         req.Notes,

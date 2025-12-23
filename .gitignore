@@ -58,3 +58,11 @@ ssl/
 
 # Docker
 .docker/
+
+# Credentials and sensitive files
+docs/n8n_credentials.txt
+*credentials*.txt
+*secrets*.txt
+
+# Workflow exports with sensitive data
+docs/workflows/
