@@ -23,13 +23,18 @@ func CreateTreatmentProtocol(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from context
-	userID, exists := c.Get("user_id")
+	// Get user ID from context with safe type assertion
+	userIDVal, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	protocol.CreatedBy = userID.(uint)
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+	protocol.CreatedBy = userID
 
 	// Handle empty procedures - use NULL instead of empty string for JSONB
 	var procedures interface{}

@@ -559,10 +559,15 @@ func CreatePatientConsent(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from context
-	userID, exists := c.Get("user_id")
+	// Get user ID from context with safe type assertion
+	userIDVal, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+		return
+	}
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
 		return
 	}
 
@@ -593,7 +598,7 @@ func CreatePatientConsent(c *gin.Context) {
 		Notes:            input.Notes,
 		IPAddress:        c.ClientIP(),
 		UserAgent:        c.Request.UserAgent(),
-		SignedByUserID:   userID.(uint),
+		SignedByUserID:   userID,
 		Status:           models.ConsentStatusActive,
 	}
 

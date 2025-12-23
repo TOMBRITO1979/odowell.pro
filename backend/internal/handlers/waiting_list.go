@@ -24,13 +24,18 @@ func CreateWaitingListEntry(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from context
-	userID, exists := c.Get("user_id")
+	// Get user ID from context with safe type assertion
+	userIDVal, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	entry.CreatedBy = userID.(uint)
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+	entry.CreatedBy = userID
 
 	// Set default status if not provided
 	if entry.Status == "" {
@@ -430,15 +435,20 @@ func ContactWaitingListEntry(c *gin.Context) {
 
 	id := c.Param("id")
 
-	// Get user ID from context
-	userID, exists := c.Get("user_id")
+	// Get user ID from context with safe type assertion
+	userIDVal, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
 
 	now := time.Now()
-	contactedBy := userID.(uint)
+	contactedBy := userID
 
 	updateSQL := `
 		UPDATE waiting_lists

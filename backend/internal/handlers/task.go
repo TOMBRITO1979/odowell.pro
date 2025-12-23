@@ -36,10 +36,15 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from context
-	userID, exists := c.Get("user_id")
+	// Get user ID from context with safe type assertion
+	userIDVal, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+		return
+	}
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
 		return
 	}
 
@@ -49,7 +54,7 @@ func CreateTask(c *gin.Context) {
 		Description: input.Description,
 		Priority:    input.Priority,
 		Status:      input.Status,
-		CreatedBy:   userID.(uint),
+		CreatedBy:   userID,
 	}
 
 	// Parse due date if provided
