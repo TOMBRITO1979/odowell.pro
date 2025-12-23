@@ -23,7 +23,6 @@ const SubscriptionRequired = () => {
       const response = await api.get('/subscription/plans');
       setPlans(response.data.plans);
     } catch (error) {
-      console.error('Error loading plans:', error);
     } finally {
       setLoading(false);
     }

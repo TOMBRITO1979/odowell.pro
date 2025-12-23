@@ -68,7 +68,6 @@ const Prescriptions = () => {
       const response = await patientsAPI.getAll({ page: 1, page_size: 1000 });
       setPatients(response.data.patients || []);
     } catch (error) {
-      console.error('Error fetching patients:', error);
     }
   };
 
@@ -89,7 +88,6 @@ const Prescriptions = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar receituário');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

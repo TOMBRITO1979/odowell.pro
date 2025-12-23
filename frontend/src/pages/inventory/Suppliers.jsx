@@ -48,7 +48,6 @@ const Suppliers = () => {
       setSuppliers(response.data.suppliers || []);
     } catch (error) {
       message.error('Erro ao carregar fornecedores');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -118,7 +117,6 @@ const Suppliers = () => {
       message.success('CSV exportado com sucesso');
     } catch (error) {
       message.error('Erro ao exportar CSV');
-      console.error('Export error:', error);
     }
   };
 
@@ -137,7 +135,6 @@ const Suppliers = () => {
       message.success('PDF gerado com sucesso');
     } catch (error) {
       message.error('Erro ao gerar PDF');
-      console.error('PDF error:', error);
     }
   };
 
@@ -172,7 +169,6 @@ const Suppliers = () => {
       fetchSuppliers();
     } catch (error) {
       message.error('Erro ao importar CSV');
-      console.error('Import error:', error);
     } finally {
       setUploading(false);
     }

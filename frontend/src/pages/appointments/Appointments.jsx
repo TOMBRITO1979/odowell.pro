@@ -58,7 +58,6 @@ const Appointments = () => {
           setDentists(professionals);
         }
       } catch (error) {
-        console.error('Error fetching dentists:', error);
       }
     };
 

@@ -155,7 +155,6 @@ const Reports = () => {
       setDashboard(response.data);
     } catch (error) {
       message.error('Erro ao carregar dados do dashboard');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -173,7 +172,6 @@ const Reports = () => {
       setRevenueData(response.data);
     } catch (error) {
       message.error('Erro ao carregar relatório de receitas');
-      console.error('Error:', error);
     } finally {
       setLoadingRevenue(false);
     }
@@ -191,7 +189,6 @@ const Reports = () => {
       setAttendanceData(response.data);
     } catch (error) {
       message.error('Erro ao carregar relatório de atendimentos');
-      console.error('Error:', error);
     } finally {
       setLoadingAttendance(false);
     }
@@ -209,7 +206,6 @@ const Reports = () => {
       setProceduresData(response.data);
     } catch (error) {
       message.error('Erro ao carregar relatório de procedimentos');
-      console.error('Error:', error);
     } finally {
       setLoadingProcedures(false);
     }
@@ -227,7 +223,6 @@ const Reports = () => {
       setBudgetConversionData(response.data);
     } catch (error) {
       message.error('Erro ao carregar relatório de conversão');
-      console.error('Error:', error);
     } finally {
       setLoadingBudgetConversion(false);
     }
@@ -240,7 +235,6 @@ const Reports = () => {
       setOverduePaymentsData(response.data);
     } catch (error) {
       message.error('Erro ao carregar relatório de inadimplência');
-      console.error('Error:', error);
     } finally {
       setLoadingOverduePayments(false);
     }
@@ -258,7 +252,6 @@ const Reports = () => {
       setDentistStatsData(response.data);
     } catch (error) {
       message.error('Erro ao carregar estatísticas dos profissionais');
-      console.error('Error:', error);
     } finally {
       setLoadingDentistStats(false);
     }
@@ -327,7 +320,6 @@ const Reports = () => {
       message.success('PDF baixado com sucesso');
     } catch (error) {
       message.error('Erro ao baixar PDF');
-      console.error('Error:', error);
     }
   };
 
@@ -377,7 +369,6 @@ const Reports = () => {
       message.success('Planilha baixada com sucesso');
     } catch (error) {
       message.error('Erro ao baixar planilha');
-      console.error('Error:', error);
     }
   };
 

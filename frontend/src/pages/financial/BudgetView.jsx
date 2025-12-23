@@ -58,7 +58,6 @@ const BudgetView = () => {
           const parsedItems = JSON.parse(budgetData.items);
           setItems(parsedItems);
         } catch (e) {
-          console.error('Error parsing items:', e);
         }
       }
 
@@ -81,7 +80,6 @@ const BudgetView = () => {
         setTreatment(response.data.treatments[0]);
       }
     } catch (error) {
-      console.error('Error fetching treatment:', error);
     } finally {
       setLoadingTreatment(false);
     }
@@ -107,7 +105,6 @@ const BudgetView = () => {
       message.success('PDF baixado com sucesso');
     } catch (error) {
       message.error('Erro ao baixar PDF');
-      console.error('Error:', error);
     }
   };
 

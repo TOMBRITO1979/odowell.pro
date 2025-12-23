@@ -76,7 +76,6 @@ const DashboardLayout = () => {
           setPendingTasksCount(response.data.count || 0);
         }
       } catch (error) {
-        console.error('Erro ao carregar tarefas pendentes:', error);
       }
     };
 
@@ -105,7 +104,6 @@ const DashboardLayout = () => {
           setOverduePaymentsCount(response.data.count || 0);
         }
       } catch (error) {
-        console.error('Erro ao carregar contas vencidas:', error);
       }
     };
 

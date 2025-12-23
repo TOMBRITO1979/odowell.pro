@@ -137,7 +137,6 @@ const Settings = () => {
       setStripeSecretKey('');
       setStripeWebhookSecret('');
     } catch (error) {
-      console.error('stripeSettingsAPI.update error:', error);
       message.error(error.response?.data?.error || 'Erro ao salvar credenciais do Stripe');
     } finally {
       setStripeLoading(false);
@@ -356,7 +355,6 @@ const Settings = () => {
       message.success('Configurações salvas com sucesso');
     } catch (error) {
       message.error('Erro ao salvar configurações');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

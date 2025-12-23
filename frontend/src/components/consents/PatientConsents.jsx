@@ -36,7 +36,6 @@ const PatientConsents = ({ patient }) => {
       setConsents(response.data.consents || []);
     } catch (error) {
       message.error('Erro ao carregar consentimentos');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -47,7 +46,6 @@ const PatientConsents = ({ patient }) => {
       const response = await consentTemplatesAPI.getAll({ active: true });
       setTemplates(response.data.templates || []);
     } catch (error) {
-      console.error('Erro ao carregar templates:', error);
     }
   };
 
@@ -69,7 +67,6 @@ const PatientConsents = ({ patient }) => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       message.error('Erro ao baixar PDF');
-      console.error(error);
     }
   };
 

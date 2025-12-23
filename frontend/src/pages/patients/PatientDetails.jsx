@@ -44,7 +44,6 @@ const PatientDetails = () => {
       setPatient(response.data.patient);
     } catch (error) {
       message.error('Erro ao carregar dados do paciente');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

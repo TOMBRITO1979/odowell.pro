@@ -52,7 +52,6 @@ const LeadForm = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar lead');
-      console.error('Error fetching lead:', error);
     } finally {
       setLoadingData(false);
     }
@@ -69,7 +68,6 @@ const LeadForm = () => {
       const response = await leadsAPI.checkByPhone(phone);
       setPhoneCheck(response.data);
     } catch (error) {
-      console.error('Error checking phone:', error);
       setPhoneCheck(null);
     } finally {
       setCheckingPhone(false);
@@ -89,7 +87,6 @@ const LeadForm = () => {
       navigate('/leads');
     } catch (error) {
       message.error(isEdit ? 'Erro ao atualizar lead' : 'Erro ao cadastrar lead');
-      console.error('Error submitting:', error);
     } finally {
       setLoading(false);
     }

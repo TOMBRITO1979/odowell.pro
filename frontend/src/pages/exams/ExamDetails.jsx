@@ -39,7 +39,6 @@ const ExamDetails = () => {
       setExam(response.data.exam);
     } catch (error) {
       message.error('Erro ao carregar exame');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

@@ -106,7 +106,6 @@ const DataRequests = () => {
       const response = await dataRequestAPI.getStats();
       setStats(response.data);
     } catch (error) {
-      console.error('Erro ao carregar estatisticas:', error);
     }
   };
 
@@ -125,7 +124,6 @@ const DataRequests = () => {
       const response = await patientsAPI.getAll({ search: value, page_size: 10 });
       setPatients(response.data.patients || []);
     } catch (error) {
-      console.error('Erro ao buscar pacientes:', error);
     } finally {
       setSearchingPatients(false);
     }

@@ -144,7 +144,6 @@ const Attendance = () => {
       );
       setDentists(professionals);
     } catch (error) {
-      console.error('Error fetching dentists:', error);
     }
   };
 
@@ -166,7 +165,6 @@ const Attendance = () => {
       const response = await appointmentsAPI.getAll(params);
       setAppointments(response.data.appointments || []);
     } catch (error) {
-      console.error('Error fetching appointments:', error);
     } finally {
       setLoading(false);
     }

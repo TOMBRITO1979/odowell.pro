@@ -111,7 +111,6 @@ const Dashboard = () => {
       if (mounted.current) {
         message.error('Erro ao carregar dados do dashboard');
       }
-      console.error('Error:', error);
     } finally {
       if (mounted.current) {
         setLoading(false);
@@ -198,7 +197,6 @@ const Dashboard = () => {
       message.success('PDF gerado com sucesso!');
     } catch (error) {
       message.error('Erro ao gerar PDF');
-      console.error('Error:', error);
     }
   };
 

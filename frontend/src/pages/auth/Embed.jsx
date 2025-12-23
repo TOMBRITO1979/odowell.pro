@@ -38,7 +38,6 @@ const Embed = () => {
           navigate(`/${targetPage}`, { replace: true });
         }
       } catch (err) {
-        console.error('Embed auth error:', err);
         if (mounted) {
           const errorMessage = err.response?.data?.error || 'Erro de autenticação';
           setError(errorMessage);

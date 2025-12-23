@@ -94,7 +94,6 @@ const Leads = () => {
       }));
     } catch (error) {
       message.error('Erro ao carregar leads');
-      console.error('Error fetching leads:', error);
     } finally {
       setLoading(false);
     }
@@ -105,7 +104,6 @@ const Leads = () => {
       const response = await leadsAPI.getStats();
       setStats(response.data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
     }
   };
 
@@ -117,7 +115,6 @@ const Leads = () => {
       fetchStats();
     } catch (error) {
       message.error('Erro ao remover lead');
-      console.error('Error deleting:', error);
     }
   };
 
@@ -143,7 +140,6 @@ const Leads = () => {
       });
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao converter lead');
-      console.error('Error converting lead:', error);
     } finally {
       setConverting(false);
     }

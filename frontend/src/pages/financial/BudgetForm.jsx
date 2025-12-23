@@ -76,7 +76,6 @@ const BudgetForm = () => {
       );
       setDentists(professionals);
     } catch (error) {
-      console.error('Error fetching dentists:', error);
     }
   };
 
@@ -97,7 +96,6 @@ const BudgetForm = () => {
           const parsedItems = JSON.parse(budget.items);
           setItems(parsedItems);
         } catch (e) {
-          console.error('Error parsing items:', e);
         }
       }
     } catch (error) {

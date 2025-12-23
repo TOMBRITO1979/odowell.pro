@@ -64,7 +64,6 @@ const PrescriptionForm = () => {
       const users = response.data.users || [];
       setProfessionals(users.filter(u => u.active));
     } catch (error) {
-      console.error('Erro ao carregar profissionais:', error);
     }
   };
 

@@ -16,7 +16,6 @@ export const AuthProvider = ({ children }) => {
       const decoded = jwtDecode(token);
       return decoded.permissions || {};
     } catch (error) {
-      console.error('Failed to decode JWT:', error);
       return {};
     }
   };
@@ -105,7 +104,6 @@ export const AuthProvider = ({ children }) => {
       await authAPI.logout();
     } catch (error) {
       // Ignore errors - we're logging out anyway
-      console.error('Logout API error:', error);
     }
     // Clear local storage
     localStorage.removeItem('token');

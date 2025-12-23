@@ -136,7 +136,6 @@ const StockMovements = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar movimentacoes');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -147,7 +146,7 @@ const StockMovements = () => {
       const response = await productsAPI.getAll({ page: 1, page_size: 1000 });
       setProducts(response.data.products || []);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      // Silently fail
     }
   };
 
@@ -171,7 +170,6 @@ const StockMovements = () => {
       const response = await stockMovementsAPI.getStats(params);
       setStats(response.data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
       message.error('Erro ao carregar estatisticas');
     } finally {
       setStatsLoading(false);
@@ -349,7 +347,6 @@ const StockMovements = () => {
       message.success('CSV exportado com sucesso');
     } catch (error) {
       message.error('Erro ao exportar CSV');
-      console.error('Export error:', error);
     }
   };
 
@@ -368,7 +365,6 @@ const StockMovements = () => {
       message.success('PDF gerado com sucesso');
     } catch (error) {
       message.error('Erro ao gerar PDF');
-      console.error('PDF error:', error);
     }
   };
 
@@ -387,7 +383,6 @@ const StockMovements = () => {
       message.success('Recibo gerado com sucesso');
     } catch (error) {
       message.error('Erro ao gerar recibo');
-      console.error('Receipt error:', error);
     }
   };
 

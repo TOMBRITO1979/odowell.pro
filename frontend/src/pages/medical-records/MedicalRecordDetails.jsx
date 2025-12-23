@@ -77,7 +77,6 @@ const MedicalRecordDetails = () => {
       setRecord(response.data.record);
     } catch (error) {
       message.error('Erro ao carregar prontuário');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -106,7 +105,6 @@ const MedicalRecordDetails = () => {
       message.success('PDF baixado com sucesso');
     } catch (error) {
       message.error('Erro ao baixar PDF');
-      console.error('Error:', error);
     }
   };
 

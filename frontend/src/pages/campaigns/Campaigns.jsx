@@ -74,7 +74,6 @@ const Campaigns = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar campanhas');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

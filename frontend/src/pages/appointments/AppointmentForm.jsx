@@ -89,7 +89,7 @@ const AppointmentForm = () => {
         form.setFieldValue('patient_id', patientId);
       }
     } catch (error) {
-      console.error('Error fetching patients:', error);
+      // Silently fail
     }
   };
 
@@ -102,7 +102,7 @@ const AppointmentForm = () => {
       );
       setDentists(professionals);
     } catch (error) {
-      console.error('Error fetching dentists:', error);
+      // Silently fail
     }
   };
 
@@ -122,7 +122,6 @@ const AppointmentForm = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar agendamento');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -171,7 +170,6 @@ const AppointmentForm = () => {
           try {
             await waitingListAPI.schedule(waitingListId, response.data.appointment.id);
           } catch (err) {
-            console.error('Failed to update waiting list:', err);
             // Don't fail the whole operation if this fails
           }
         }
@@ -182,7 +180,6 @@ const AppointmentForm = () => {
       message.error(
         error.response?.data?.error || 'Erro ao salvar agendamento'
       );
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

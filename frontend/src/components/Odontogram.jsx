@@ -20,7 +20,6 @@ const Odontogram = ({ value, onChange, readOnly = false }) => {
         const parsed = typeof value === 'string' ? JSON.parse(value) : value;
         setOdontogram(parsed || {});
       } catch (e) {
-        console.error('Error parsing odontogram:', e);
         setOdontogram({});
       }
     }

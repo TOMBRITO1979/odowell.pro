@@ -38,7 +38,6 @@ const AppointmentDetails = () => {
       setAppointment(response.data.appointment);
     } catch (error) {
       message.error('Erro ao carregar agendamento');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

@@ -121,7 +121,6 @@ const Expenses = () => {
       setStatistics({ total, paid, pending });
     } catch (error) {
       message.error('Erro ao carregar contas');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

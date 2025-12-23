@@ -88,7 +88,6 @@ const Plans = () => {
       const response = await stripeSettingsAPI.get();
       setStripeConnected(response.data.stripe_connected || false);
     } catch (error) {
-      console.error('Error checking Stripe connection:', error);
     }
   };
 
@@ -97,7 +96,6 @@ const Plans = () => {
       const response = await patientsAPI.getAll({ page: 1, page_size: 1000 });
       setPatients(response.data.patients || []);
     } catch (error) {
-      console.error('Error fetching patients:', error);
     }
   };
 
@@ -121,7 +119,6 @@ const Plans = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar assinaturas');
-      console.error('Error fetching subscriptions:', error);
     } finally {
       setLoading(false);
     }

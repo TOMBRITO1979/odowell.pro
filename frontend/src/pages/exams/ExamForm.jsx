@@ -55,7 +55,6 @@ const ExamForm = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar exame');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -81,7 +80,6 @@ const ExamForm = () => {
       message.error(
         error.response?.data?.error || 'Erro ao atualizar exame'
       );
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

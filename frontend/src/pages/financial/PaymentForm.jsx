@@ -88,7 +88,6 @@ const PaymentForm = () => {
       const response = await budgetsAPI.getAll({ page: 1, page_size: 1000, status: 'approved' });
       setBudgets(response.data.budgets || []);
     } catch (error) {
-      console.error('Error fetching budgets:', error);
     }
   };
 

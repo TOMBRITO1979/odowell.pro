@@ -61,7 +61,6 @@ const ProductForm = () => {
       const response = await suppliersAPI.getAll();
       setSuppliers(response.data.suppliers || []);
     } catch (error) {
-      console.error('Error fetching suppliers:', error);
     }
   };
 

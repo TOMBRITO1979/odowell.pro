@@ -44,7 +44,6 @@ const WaitingListForm = () => {
       });
       setPatients(response.data.patients || []);
     } catch (error) {
-      console.error('Error fetching patients:', error);
     }
   };
 
@@ -53,7 +52,6 @@ const WaitingListForm = () => {
       const response = await api.get('/users');
       setDentists(response.data.users || []);
     } catch (error) {
-      console.error('Error fetching dentists:', error);
     }
   };
 
@@ -73,7 +71,6 @@ const WaitingListForm = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar entrada da lista');
-      console.error('Error fetching entry:', error);
     } finally {
       setLoadingData(false);
     }
@@ -92,7 +89,6 @@ const WaitingListForm = () => {
       navigate('/waiting-list');
     } catch (error) {
       message.error(isEdit ? 'Erro ao atualizar' : 'Erro ao adicionar');
-      console.error('Error submitting:', error);
     } finally {
       setLoading(false);
     }

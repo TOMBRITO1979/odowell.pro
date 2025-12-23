@@ -67,7 +67,6 @@ const PlanForm = () => {
       setPatients(patientsRes.data.patients || []);
       setProducts(productsRes.data || []);
     } catch (error) {
-      console.error('Error loading data:', error);
       message.error('Erro ao carregar dados');
     } finally {
       setLoadingData(false);

@@ -34,7 +34,6 @@ const Profile = () => {
       updateUser(response.data.user);
     } catch (error) {
       message.error('Erro ao atualizar perfil');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -51,7 +50,6 @@ const Profile = () => {
       passwordForm.resetFields();
     } catch (error) {
       message.error('Erro ao alterar senha. Verifique a senha atual.');
-      console.error('Error:', error);
     }
   };
 
@@ -84,7 +82,6 @@ const Profile = () => {
       updateUser(updatedUser);
     } catch (error) {
       message.error('Erro ao fazer upload da foto de perfil');
-      console.error('Error:', error);
     } finally {
       setUploadingPicture(false);
     }

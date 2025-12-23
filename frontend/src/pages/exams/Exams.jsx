@@ -82,7 +82,6 @@ const Exams = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar exames');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -121,7 +120,6 @@ const Exams = () => {
       fetchExams();
     } catch (error) {
       message.error('Erro ao enviar exame');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

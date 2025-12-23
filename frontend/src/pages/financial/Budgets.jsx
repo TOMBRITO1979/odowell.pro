@@ -71,7 +71,7 @@ const Budgets = () => {
       const response = await patientsAPI.getAll({ page: 1, page_size: 1000 });
       setPatients(response.data.patients || []);
     } catch (error) {
-      console.error('Error fetching patients:', error);
+      // Silently fail
     }
   };
 
@@ -101,7 +101,6 @@ const Budgets = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar orçamentos');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -140,7 +139,6 @@ const Budgets = () => {
       message.success('CSV exportado com sucesso');
     } catch (error) {
       message.error('Erro ao exportar CSV');
-      console.error('Export error:', error);
     }
   };
 
@@ -167,7 +165,6 @@ const Budgets = () => {
       message.success('PDF gerado com sucesso');
     } catch (error) {
       message.error('Erro ao gerar PDF');
-      console.error('PDF error:', error);
     }
   };
 
@@ -202,7 +199,6 @@ const Budgets = () => {
       fetchBudgets();
     } catch (error) {
       message.error('Erro ao importar CSV');
-      console.error('Import error:', error);
     } finally {
       setUploading(false);
     }

@@ -86,7 +86,6 @@ const TreatmentDetails = () => {
       setPayments(response.data.treatment.treatment_payments || []);
     } catch (error) {
       message.error('Erro ao carregar tratamento');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }

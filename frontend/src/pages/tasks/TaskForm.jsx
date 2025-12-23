@@ -29,7 +29,6 @@ const TaskForm = () => {
       const response = await usersAPI.getAll();
       setUsers(response.data.users || []);
     } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
     }
   };
 
@@ -38,7 +37,6 @@ const TaskForm = () => {
       const response = await patientsAPI.getAll({ page_size: 100 });
       setPatients(response.data.patients || []);
     } catch (error) {
-      console.error('Erro ao carregar pacientes:', error);
     }
   };
 

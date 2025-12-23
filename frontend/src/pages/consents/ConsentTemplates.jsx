@@ -43,7 +43,6 @@ const ConsentTemplates = () => {
       setTemplates(response.data.templates || []);
     } catch (error) {
       message.error('Erro ao carregar templates');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -89,7 +88,6 @@ const ConsentTemplates = () => {
       message.success('PDF gerado com sucesso');
     } catch (error) {
       message.error('Erro ao gerar PDF');
-      console.error(error);
     }
   };
 

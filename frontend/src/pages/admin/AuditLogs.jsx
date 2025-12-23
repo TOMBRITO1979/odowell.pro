@@ -92,7 +92,6 @@ const AuditLogs = () => {
       const response = await auditAPI.getStats();
       setStats(response.data);
     } catch (error) {
-      console.error('Erro ao carregar estatisticas:', error);
     }
   };
 

@@ -123,7 +123,6 @@ const Patients = () => {
       message.success('CSV exportado com sucesso');
     } catch (error) {
       message.error('Erro ao exportar CSV');
-      console.error('Export error:', error);
     }
   };
 
@@ -155,7 +154,6 @@ const Patients = () => {
       message.success('PDF gerado com sucesso');
     } catch (error) {
       message.error('Erro ao gerar PDF');
-      console.error('PDF error:', error);
     }
   };
 
@@ -190,7 +188,6 @@ const Patients = () => {
       loadPatients();
     } catch (error) {
       message.error('Erro ao importar CSV');
-      console.error('Import error:', error);
     } finally {
       setUploading(false);
     }

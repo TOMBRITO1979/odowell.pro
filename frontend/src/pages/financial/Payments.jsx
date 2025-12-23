@@ -99,7 +99,7 @@ const Payments = () => {
       const response = await patientsAPI.getAll({ page: 1, page_size: 1000 });
       setPatients(response.data.patients || []);
     } catch (error) {
-      console.error('Error fetching patients:', error);
+      // Silently fail
     }
   };
 
@@ -108,7 +108,7 @@ const Payments = () => {
       const response = await paymentsAPI.getCashFlow();
       setStatistics(response.data);
     } catch (error) {
-      console.error('Error fetching statistics:', error);
+      // Silently fail
     }
   };
 
@@ -129,7 +129,6 @@ const Payments = () => {
       });
     } catch (error) {
       message.error('Erro ao carregar pagamentos');
-      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -168,7 +167,6 @@ const Payments = () => {
       message.success('PDF baixado com sucesso');
     } catch (error) {
       message.error('Erro ao baixar PDF');
-      console.error('Error:', error);
     }
   };
 
@@ -204,7 +202,6 @@ const Payments = () => {
       message.success('CSV exportado com sucesso');
     } catch (error) {
       message.error('Erro ao exportar CSV');
-      console.error('Export error:', error);
     }
   };
 
@@ -239,7 +236,6 @@ const Payments = () => {
       fetchPayments();
     } catch (error) {
       message.error('Erro ao importar CSV');
-      console.error('Import error:', error);
     } finally {
       setUploading(false);
     }

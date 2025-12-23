@@ -75,7 +75,6 @@ const WaitingList = () => {
       }));
     } catch (error) {
       message.error('Erro ao carregar lista de espera');
-      console.error('Error fetching waiting list:', error);
     } finally {
       setLoading(false);
     }
@@ -86,7 +85,6 @@ const WaitingList = () => {
       const response = await api.get('/waiting-list/stats');
       setStats(response.data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
     }
   };
 
@@ -98,7 +96,6 @@ const WaitingList = () => {
       fetchStats();
     } catch (error) {
       message.error('Erro ao marcar como contatado');
-      console.error('Error contacting:', error);
     }
   };
 
@@ -110,7 +107,6 @@ const WaitingList = () => {
       fetchStats();
     } catch (error) {
       message.error('Erro ao remover da lista');
-      console.error('Error deleting:', error);
     }
   };
 
