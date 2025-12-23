@@ -13,6 +13,8 @@ const Embed = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const authenticate = async () => {
       try {
         // Clear any existing session
@@ -31,13 +33,17 @@ const Embed = () => {
         localStorage.setItem('tenant', JSON.stringify(tenant));
 
         // Redirect to requested page (or dashboard if not specified)
-        const targetPage = page || '';
-        navigate(`/${targetPage}`, { replace: true });
+        if (mounted) {
+          const targetPage = page || '';
+          navigate(`/${targetPage}`, { replace: true });
+        }
       } catch (err) {
         console.error('Embed auth error:', err);
-        const errorMessage = err.response?.data?.error || 'Erro de autenticação';
-        setError(errorMessage);
-        setLoading(false);
+        if (mounted) {
+          const errorMessage = err.response?.data?.error || 'Erro de autenticação';
+          setError(errorMessage);
+          setLoading(false);
+        }
       }
     };
 
@@ -47,6 +53,10 @@ const Embed = () => {
       setError('Token não fornecido');
       setLoading(false);
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [token, page, navigate]);
 
   if (loading) {

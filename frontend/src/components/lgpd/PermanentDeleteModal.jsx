@@ -32,6 +32,27 @@ const PermanentDeleteModal = ({ visible, onCancel, onSuccess, patientId, patient
   const [reason, setReason] = useState('');
 
   useEffect(() => {
+    let mounted = true;
+
+    const fetchPreview = async () => {
+      setLoading(true);
+      try {
+        const response = await lgpdAPI.getDeletionPreview(patientId);
+        if (mounted) {
+          setPreview(response.data);
+        }
+      } catch (error) {
+        if (mounted) {
+          message.error('Erro ao carregar informacoes do paciente');
+          onCancel();
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     if (visible && patientId) {
       fetchPreview();
     } else {
@@ -41,20 +62,11 @@ const PermanentDeleteModal = ({ visible, onCancel, onSuccess, patientId, patient
       setReason('');
       setPreview(null);
     }
-  }, [visible, patientId]);
 
-  const fetchPreview = async () => {
-    setLoading(true);
-    try {
-      const response = await lgpdAPI.getDeletionPreview(patientId);
-      setPreview(response.data);
-    } catch (error) {
-      message.error('Erro ao carregar informacoes do paciente');
-      onCancel();
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      mounted = false;
+    };
+  }, [visible, patientId, onCancel]);
 
   const handleDelete = async () => {
     if (!preview) return;

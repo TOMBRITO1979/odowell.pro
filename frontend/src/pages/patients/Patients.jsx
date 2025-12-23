@@ -19,7 +19,36 @@ const Patients = () => {
   const { canCreate, canEdit, canDelete } = usePermission();
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadPatients = async () => {
+      setLoading(true);
+      try {
+        const response = await patientsAPI.getAll({
+          page: pagination.current,
+          page_size: pagination.pageSize,
+          search,
+        });
+        if (mounted) {
+          setPatients(response.data.patients || []);
+          setPagination(prev => ({ ...prev, total: response.data.total }));
+        }
+      } catch (error) {
+        if (mounted) {
+          message.error('Erro ao carregar pacientes');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     loadPatients();
+
+    return () => {
+      mounted = false;
+    };
   }, [pagination.current, pagination.pageSize, search]);
 
   const loadPatients = async () => {

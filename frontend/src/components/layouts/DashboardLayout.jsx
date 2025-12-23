@@ -67,40 +67,62 @@ const DashboardLayout = () => {
   }, [mobileMenuVisible]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadPendingTasksCount = async () => {
+      try {
+        const response = await tasksAPI.getPendingCount();
+        if (mounted) {
+          setPendingTasksCount(response.data.count || 0);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar tarefas pendentes:', error);
+      }
+    };
+
     if (canView('tasks')) {
       loadPendingTasksCount();
       // Reload count every 2 minutes
       const interval = setInterval(loadPendingTasksCount, 120000);
-      return () => clearInterval(interval);
+      return () => {
+        mounted = false;
+        clearInterval(interval);
+      };
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [canView]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadOverduePaymentsCount = async () => {
+      try {
+        const response = await paymentsAPI.getOverdueCount();
+        if (mounted) {
+          setOverduePaymentsCount(response.data.count || 0);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar contas vencidas:', error);
+      }
+    };
+
     if (canView('payments')) {
       loadOverduePaymentsCount();
       // Reload count every 2 minutes
       const interval = setInterval(loadOverduePaymentsCount, 120000);
-      return () => clearInterval(interval);
+      return () => {
+        mounted = false;
+        clearInterval(interval);
+      };
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [canView]);
-
-  const loadPendingTasksCount = async () => {
-    try {
-      const response = await tasksAPI.getPendingCount();
-      setPendingTasksCount(response.data.count || 0);
-    } catch (error) {
-      console.error('Erro ao carregar tarefas pendentes:', error);
-    }
-  };
-
-  const loadOverduePaymentsCount = async () => {
-    try {
-      const response = await paymentsAPI.getOverdueCount();
-      setOverduePaymentsCount(response.data.count || 0);
-    } catch (error) {
-      console.error('Erro ao carregar contas vencidas:', error);
-    }
-  };
 
   // Calculate trial days remaining
   const getTrialInfo = () => {

@@ -46,63 +46,87 @@ const Appointments = () => {
   const { canCreate, canEdit, canDelete } = usePermission();
 
   useEffect(() => {
+    let mounted = true;
+
+    const fetchDentists = async () => {
+      try {
+        const response = await usersAPI.getAll();
+        if (mounted) {
+          const professionals = (response.data.users || []).filter(
+            user => user.role === 'dentist' || user.role === 'admin'
+          );
+          setDentists(professionals);
+        }
+      } catch (error) {
+        console.error('Error fetching dentists:', error);
+      }
+    };
+
     fetchDentists();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    fetchAppointments();
-  }, [pagination.current, pagination.pageSize, filters, location.key, viewMode, currentWeekStart]);
+    let mounted = true;
 
-  const fetchDentists = async () => {
-    try {
-      const response = await usersAPI.getAll();
-      const professionals = (response.data.users || []).filter(
-        user => user.role === 'dentist' || user.role === 'admin'
-      );
-      setDentists(professionals);
-    } catch (error) {
-      console.error('Error fetching dentists:', error);
-    }
-  };
+    const fetchAppointments = () => {
+      setLoading(true);
+      const params = {
+        page: viewMode === 'calendar' ? 1 : pagination.current,
+        page_size: viewMode === 'calendar' ? 500 : pagination.pageSize
+      };
 
-  const fetchAppointments = () => {
-    setLoading(true);
-    const params = {
-      page: viewMode === 'calendar' ? 1 : pagination.current,
-      page_size: viewMode === 'calendar' ? 500 : pagination.pageSize
+      if (filters.dentist_id) params.dentist_id = filters.dentist_id;
+      if (filters.procedure) params.procedure = filters.procedure;
+      if (filters.status) params.status = filters.status;
+
+      if (viewMode === 'calendar') {
+        // Para o calendário, buscar a semana inteira
+        params.start_date = currentWeekStart.startOf('day').toISOString();
+        params.end_date = currentWeekStart.add(6, 'day').endOf('day').toISOString();
+      } else {
+        // Para lista, usar filtros normais
+        if (filters.dateRange && filters.dateRange[0]) {
+          params.start_date = filters.dateRange[0].startOf('day').toISOString();
+        } else {
+          params.start_date = dayjs().startOf('day').toISOString();
+        }
+        if (filters.dateRange && filters.dateRange[1]) {
+          params.end_date = filters.dateRange[1].endOf('day').toISOString();
+        }
+      }
+
+      appointmentsAPI.getAll(params)
+        .then(res => {
+          if (mounted) {
+            setData(res.data.appointments || []);
+            setPagination(prev => ({
+              ...prev,
+              total: res.data.total || 0,
+            }));
+          }
+        })
+        .catch(() => {
+          if (mounted) {
+            message.error('Erro ao carregar agendamentos');
+          }
+        })
+        .finally(() => {
+          if (mounted) {
+            setLoading(false);
+          }
+        });
     };
 
-    if (filters.dentist_id) params.dentist_id = filters.dentist_id;
-    if (filters.procedure) params.procedure = filters.procedure;
-    if (filters.status) params.status = filters.status;
+    fetchAppointments();
 
-    if (viewMode === 'calendar') {
-      // Para o calendário, buscar a semana inteira
-      params.start_date = currentWeekStart.startOf('day').toISOString();
-      params.end_date = currentWeekStart.add(6, 'day').endOf('day').toISOString();
-    } else {
-      // Para lista, usar filtros normais
-      if (filters.dateRange && filters.dateRange[0]) {
-        params.start_date = filters.dateRange[0].startOf('day').toISOString();
-      } else {
-        params.start_date = dayjs().startOf('day').toISOString();
-      }
-      if (filters.dateRange && filters.dateRange[1]) {
-        params.end_date = filters.dateRange[1].endOf('day').toISOString();
-      }
-    }
-
-    appointmentsAPI.getAll(params)
-      .then(res => {
-        setData(res.data.appointments || []);
-        setPagination({
-          ...pagination,
-          total: res.data.total || 0,
-        });
-      })
-      .catch(() => message.error('Erro ao carregar agendamentos'))
-      .finally(() => setLoading(false));
-  };
+    return () => {
+      mounted = false;
+    };
+  }, [pagination.current, pagination.pageSize, filters, location.key, viewMode, currentWeekStart]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));

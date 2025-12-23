@@ -22,34 +22,52 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    const storedTenant = localStorage.getItem('tenant');
+    let mounted = true;
 
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
-      if (storedTenant) {
-        setTenant(JSON.parse(storedTenant));
-      }
-      // Extract permissions from JWT
-      const perms = extractPermissions(token);
-      setPermissions(perms);
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      const storedTenant = localStorage.getItem('tenant');
 
-      // Verify token is still valid
-      authAPI.getMe()
-        .then(response => {
-          setUser(response.data.user);
-          setTenant(response.data.tenant);
-        })
-        .catch(() => {
-          logout();
-        })
-        .finally(() => {
+      if (token && storedUser) {
+        if (mounted) {
+          setUser(JSON.parse(storedUser));
+          if (storedTenant) {
+            setTenant(JSON.parse(storedTenant));
+          }
+          // Extract permissions from JWT
+          const perms = extractPermissions(token);
+          setPermissions(perms);
+        }
+
+        // Verify token is still valid
+        try {
+          const response = await authAPI.getMe();
+          if (mounted) {
+            setUser(response.data.user);
+            setTenant(response.data.tenant);
+          }
+        } catch {
+          if (mounted) {
+            logout();
+          }
+        } finally {
+          if (mounted) {
+            setLoading(false);
+          }
+        }
+      } else {
+        if (mounted) {
           setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
+        }
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const login = async (credentials) => {

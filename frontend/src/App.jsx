@@ -4,6 +4,7 @@ import { ConfigProvider, Spin } from 'antd';
 import { useAuth } from './contexts/AuthContext';
 import ptBR from 'antd/locale/pt_BR';
 import InstallPWA from './components/InstallPWA';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Auth pages
 import Login from './pages/auth/Login';
@@ -146,6 +147,7 @@ function App() {
         },
       }}
     >
+      <ErrorBoundary>
       <Routes>
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
@@ -288,6 +290,7 @@ function App() {
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
+      </ErrorBoundary>
       </ConfigProvider>
     </>
   );

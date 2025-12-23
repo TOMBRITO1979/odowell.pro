@@ -95,7 +95,7 @@ const Dashboard = () => {
   const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs().endOf('month')]);
   const [dashboardData, setDashboardData] = useState(null);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (mounted = { current: true }) => {
     setLoading(true);
     try {
       const params = {};
@@ -104,17 +104,27 @@ const Dashboard = () => {
         params.end_date = dateRange[1].format('YYYY-MM-DD');
       }
       const response = await reportsAPI.getAdvancedDashboard(params);
-      setDashboardData(response.data);
+      if (mounted.current) {
+        setDashboardData(response.data);
+      }
     } catch (error) {
-      message.error('Erro ao carregar dados do dashboard');
+      if (mounted.current) {
+        message.error('Erro ao carregar dados do dashboard');
+      }
       console.error('Error:', error);
     } finally {
-      setLoading(false);
+      if (mounted.current) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    const mounted = { current: true };
+    fetchDashboardData(mounted);
+    return () => {
+      mounted.current = false;
+    };
   }, [dateRange]);
 
   const handleDateRangeChange = (dates) => {

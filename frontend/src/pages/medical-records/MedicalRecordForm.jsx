@@ -41,32 +41,48 @@ const MedicalRecordForm = () => {
   ];
 
   useEffect(() => {
+    let mounted = true;
+
+    const fetchPatients = async () => {
+      try {
+        const response = await patientsAPI.getAll({ page: 1, page_size: 1000 });
+        if (mounted) {
+          setPatients(response.data.patients || []);
+        }
+      } catch (error) {
+        if (mounted) {
+          message.error('Erro ao carregar pacientes');
+        }
+      }
+    };
+
+    const fetchRecord = async () => {
+      setLoading(true);
+      try {
+        const response = await medicalRecordsAPI.getOne(id);
+        if (mounted) {
+          form.setFieldsValue(response.data.record);
+        }
+      } catch (error) {
+        if (mounted) {
+          message.error('Erro ao carregar prontuário');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     fetchPatients();
     if (id) {
       fetchRecord();
     }
-  }, [id]);
 
-  const fetchPatients = async () => {
-    try {
-      const response = await patientsAPI.getAll({ page: 1, page_size: 1000 });
-      setPatients(response.data.patients || []);
-    } catch (error) {
-      message.error('Erro ao carregar pacientes');
-    }
-  };
-
-  const fetchRecord = async () => {
-    setLoading(true);
-    try {
-      const response = await medicalRecordsAPI.getOne(id);
-      form.setFieldsValue(response.data.record);
-    } catch (error) {
-      message.error('Erro ao carregar prontuário');
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      mounted = false;
+    };
+  }, [id, form]);
 
   const onFinish = async (values) => {
     setLoading(true);
