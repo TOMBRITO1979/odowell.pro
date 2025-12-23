@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,7 +27,7 @@ func TestCreatePatient_Success(t *testing.T) {
 	CreatePatient(c)
 
 	if w.Code != http.StatusCreated {
-		t.Errorf("Expected status %d, got %d", http.StatusCreated, w.Code)
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusCreated, w.Code, w.Body.String())
 	}
 
 	result := parseJSONResponse(w)
@@ -91,7 +92,7 @@ func TestGetPatients_Success(t *testing.T) {
 	GetPatients(c)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusOK, w.Code, w.Body.String())
 	}
 
 	result := parseJSONResponse(w)
@@ -128,7 +129,7 @@ func TestGetPatients_WithSearch(t *testing.T) {
 	result := parseJSONResponse(w)
 	patients, ok := result["patients"].([]interface{})
 	if !ok {
-		t.Skip("Patients not returned, likely due to SQLite compatibility")
+		t.Fatal("Expected patients array in response")
 	}
 
 	if len(patients) != 1 {
@@ -141,14 +142,13 @@ func TestGetPatient_Success(t *testing.T) {
 
 	patient := createTestPatient(db, "Carlos Lima", "11966666666")
 
-	c, w := setupTestContext(db)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-	c.Params = gin.Params{{Key: "id", Value: "1"}}
-
-	// Make sure we have the correct ID
 	if patient.ID == 0 {
 		t.Fatal("Patient was not created properly")
 	}
+
+	c, w := setupTestContext(db)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", patient.ID)}}
 
 	GetPatient(c)
 
@@ -189,7 +189,7 @@ func TestGetPatient_NotFound(t *testing.T) {
 func TestUpdatePatient_Success(t *testing.T) {
 	db := setupTestDB()
 
-	createTestPatient(db, "Ana Costa", "11955555555")
+	patient := createTestPatient(db, "Ana Costa", "11955555555")
 
 	body := map[string]interface{}{
 		"name":       "Ana Costa Silva",
@@ -203,26 +203,22 @@ func TestUpdatePatient_Success(t *testing.T) {
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(jsonBody))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = gin.Params{{Key: "id", Value: "1"}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", patient.ID)}}
 
 	UpdatePatient(c)
 
-	// Note: May fail with 500 due to PostgreSQL-specific NOW() function in raw SQL
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status 200 or 500, got %d. Body: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusOK, w.Code, w.Body.String())
 	}
 
-	// Only validate response if success
-	if w.Code == http.StatusOK {
-		result := parseJSONResponse(w)
-		patient, ok := result["patient"].(map[string]interface{})
-		if !ok {
-			t.Fatal("Expected patient in response")
-		}
+	result := parseJSONResponse(w)
+	updatedPatient, ok := result["patient"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected patient in response")
+	}
 
-		if patient["name"] != "Ana Costa Silva" {
-			t.Errorf("Expected name 'Ana Costa Silva', got '%v'", patient["name"])
-		}
+	if updatedPatient["name"] != "Ana Costa Silva" {
+		t.Errorf("Expected name 'Ana Costa Silva', got '%v'", updatedPatient["name"])
 	}
 }
 
@@ -250,7 +246,7 @@ func TestUpdatePatient_NotFound(t *testing.T) {
 func TestUpdatePatient_MissingPhone(t *testing.T) {
 	db := setupTestDB()
 
-	createTestPatient(db, "Pedro Souza", "11944444444")
+	patient := createTestPatient(db, "Pedro Souza", "11944444444")
 
 	body := map[string]interface{}{
 		"name": "Pedro Souza Updated",
@@ -260,7 +256,7 @@ func TestUpdatePatient_MissingPhone(t *testing.T) {
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(jsonBody))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = gin.Params{{Key: "id", Value: "1"}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", patient.ID)}}
 
 	UpdatePatient(c)
 
@@ -277,24 +273,21 @@ func TestUpdatePatient_MissingPhone(t *testing.T) {
 func TestDeletePatient_Success(t *testing.T) {
 	db := setupTestDB()
 
-	createTestPatient(db, "Lucas Alves", "11933333333")
+	patient := createTestPatient(db, "Lucas Alves", "11933333333")
 
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
-	c.Params = gin.Params{{Key: "id", Value: "1"}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", patient.ID)}}
 
 	DeletePatient(c)
 
-	// Note: May fail with 500 due to PostgreSQL-specific NOW() function in raw SQL
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status 200 or 500, got %d. Body: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusOK, w.Code, w.Body.String())
 	}
 
-	if w.Code == http.StatusOK {
-		result := parseJSONResponse(w)
-		if result["message"] != "Paciente deletado com sucesso" {
-			t.Errorf("Expected success message, got '%v'", result["message"])
-		}
+	result := parseJSONResponse(w)
+	if result["message"] != "Paciente deletado com sucesso" {
+		t.Errorf("Expected success message, got '%v'", result["message"])
 	}
 }
 
@@ -318,13 +311,13 @@ func TestDeletePatient_WithDependencies(t *testing.T) {
 	patient := createTestPatient(db, "Julia Ferreira", "11922222222")
 	user := createTestUser(db, "Dr. Test", "dr@test.com")
 
-	// Create an appointment for the patient
-	db.Exec(`INSERT INTO appointments (patient_id, dentist_id, start_time, end_time, status)
-		VALUES (?, ?, datetime('now'), datetime('now', '+1 hour'), 'scheduled')`, patient.ID, user.ID)
+	// Create an appointment for the patient using PostgreSQL syntax
+	db.Exec(`INSERT INTO appointments (patient_id, dentist_id, start_time, end_time, status, created_at, updated_at)
+		VALUES ($1, $2, NOW(), NOW() + INTERVAL '1 hour', 'scheduled', NOW(), NOW())`, patient.ID, user.ID)
 
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
-	c.Params = gin.Params{{Key: "id", Value: "1"}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", patient.ID)}}
 
 	DeletePatient(c)
 

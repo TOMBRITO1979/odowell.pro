@@ -12,6 +12,79 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestCreateAppointment_Success(t *testing.T) {
+	db := setupTestDB()
+
+	patient := createTestPatient(db, "Test Patient", "11999999999")
+	user := createTestUser(db, "Dr. Test", "dr@test.com")
+
+	startTime := time.Now().Add(24 * time.Hour)
+	endTime := startTime.Add(1 * time.Hour)
+
+	body := map[string]interface{}{
+		"patient_id": patient.ID,
+		"dentist_id": user.ID,
+		"start_time": startTime.Format("2006-01-02T15:04:05"),
+		"end_time":   endTime.Format("2006-01-02T15:04:05"),
+		"type":       "consultation",
+		"procedure":  "Consulta inicial",
+		"status":     "scheduled",
+	}
+
+	c, w := setupTestContextWithBody(db, body)
+
+	CreateAppointment(c)
+
+	if w.Code != http.StatusCreated {
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	result := parseJSONResponse(w)
+	appointment, ok := result["appointment"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected appointment in response")
+	}
+
+	if appointment["procedure"] != "Consulta inicial" {
+		t.Errorf("Expected procedure 'Consulta inicial', got '%v'", appointment["procedure"])
+	}
+}
+
+func TestCreateAppointment_Conflict(t *testing.T) {
+	db := setupTestDB()
+
+	patient := createTestPatient(db, "Test Patient", "11999999999")
+	patient2 := createTestPatient(db, "Test Patient 2", "11888888888")
+	user := createTestUser(db, "Dr. Test", "dr@test.com")
+
+	startTime := time.Now().Add(24 * time.Hour)
+
+	// Create first appointment
+	createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
+
+	// Try to create conflicting appointment (overlapping time)
+	body := map[string]interface{}{
+		"patient_id": patient2.ID,
+		"dentist_id": user.ID,
+		"start_time": startTime.Add(30 * time.Minute).Format("2006-01-02T15:04:05"),
+		"end_time":   startTime.Add(90 * time.Minute).Format("2006-01-02T15:04:05"),
+		"status":     "scheduled",
+	}
+
+	c, w := setupTestContextWithBody(db, body)
+
+	CreateAppointment(c)
+
+	if w.Code != http.StatusConflict {
+		t.Errorf("Expected status %d (conflict), got %d. Body: %s", http.StatusConflict, w.Code, w.Body.String())
+	}
+
+	result := parseJSONResponse(w)
+	if result["error"] != "Conflito de horário" {
+		t.Errorf("Expected conflict error, got '%v'", result["error"])
+	}
+}
+
 func TestCreateAppointment_InvalidJSON(t *testing.T) {
 	db := setupTestDB()
 
@@ -34,7 +107,7 @@ func TestGetAppointments_Success(t *testing.T) {
 	patient := createTestPatient(db, "Test Patient", "11999999999")
 	user := createTestUser(db, "Dr. Test", "dr@test.com")
 
-	// Create test appointments using direct SQL
+	// Create test appointments
 	for i := 0; i < 3; i++ {
 		startTime := time.Now().Add(time.Duration(i+1) * 24 * time.Hour)
 		createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
@@ -64,28 +137,19 @@ func TestGetAppointments_FilterByDentist(t *testing.T) {
 	db := setupTestDB()
 
 	patient := createTestPatient(db, "Test Patient", "11999999999")
-	createTestUser(db, "Dr. First", "dr1@test.com")
-	createTestUser(db, "Dr. Second", "dr2@test.com")
-
-	// Get actual user IDs from database
-	var user1ID, user2ID uint
-	db.Raw("SELECT id FROM users WHERE email = ?", "dr1@test.com").Scan(&user1ID)
-	db.Raw("SELECT id FROM users WHERE email = ?", "dr2@test.com").Scan(&user2ID)
-
-	if user1ID == 0 || user2ID == 0 {
-		t.Skip("Users not created properly")
-	}
+	user1 := createTestUser(db, "Dr. First", "dr1@test.com")
+	user2 := createTestUser(db, "Dr. Second", "dr2@test.com")
 
 	startTime := time.Now().Add(24 * time.Hour)
 
 	// Create appointment for user1
-	createTestAppointment(db, patient.ID, user1ID, startTime, "scheduled")
+	createTestAppointment(db, patient.ID, user1.ID, startTime, "scheduled")
 
 	// Create appointment for user2
-	createTestAppointment(db, patient.ID, user2ID, startTime.Add(2*time.Hour), "scheduled")
+	createTestAppointment(db, patient.ID, user2.ID, startTime.Add(2*time.Hour), "scheduled")
 
 	c, w := setupTestContext(db)
-	c.Request = httptest.NewRequest(http.MethodGet, "/?dentist_id="+fmt.Sprintf("%d", user1ID), nil)
+	c.Request = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/?dentist_id=%d", user1.ID), nil)
 
 	GetAppointments(c)
 
@@ -96,11 +160,11 @@ func TestGetAppointments_FilterByDentist(t *testing.T) {
 	result := parseJSONResponse(w)
 	appointments, ok := result["appointments"].([]interface{})
 	if !ok {
-		t.Skip("Appointments not returned, likely due to SQLite compatibility")
+		t.Fatal("Expected appointments array in response")
 	}
 
 	if len(appointments) != 1 {
-		t.Errorf("Expected 1 appointment for dentist %d, got %d", user1ID, len(appointments))
+		t.Errorf("Expected 1 appointment for dentist %d, got %d", user1.ID, len(appointments))
 	}
 }
 
@@ -130,7 +194,7 @@ func TestGetAppointments_FilterByStatus(t *testing.T) {
 	result := parseJSONResponse(w)
 	appointments, ok := result["appointments"].([]interface{})
 	if !ok {
-		t.Skip("Appointments not returned, likely due to SQLite compatibility")
+		t.Fatal("Expected appointments array in response")
 	}
 
 	if len(appointments) != 1 {
@@ -145,11 +209,11 @@ func TestGetAppointment_Success(t *testing.T) {
 	user := createTestUser(db, "Dr. Test", "dr@test.com")
 
 	startTime := time.Now().Add(24 * time.Hour)
-	createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
+	appointment := createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
 
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-	c.Params = gin.Params{{Key: "id", Value: "1"}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", appointment.ID)}}
 
 	GetAppointment(c)
 
@@ -189,15 +253,10 @@ func TestUpdateAppointment_Success(t *testing.T) {
 	patient := createTestPatient(db, "Test Patient", "11999999999")
 	user := createTestUser(db, "Dr. Test", "dr@test.com")
 
-	// Create appointment with specific time
 	startTime := time.Now().Add(24 * time.Hour)
-	createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
+	appointment := createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
 
-	// Get the created appointment ID
-	var appointmentID int
-	db.Raw("SELECT id FROM appointments ORDER BY id DESC LIMIT 1").Scan(&appointmentID)
-
-	// Update to a completely different time slot (7 days later)
+	// Update to a different time slot
 	newStartTime := startTime.Add(7 * 24 * time.Hour)
 	body := map[string]interface{}{
 		"patient_id": patient.ID,
@@ -212,13 +271,22 @@ func TestUpdateAppointment_Success(t *testing.T) {
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(jsonBody))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", appointmentID)}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", appointment.ID)}}
 
 	UpdateAppointment(c)
 
-	// Accept OK, conflict (due to SQLite time handling), or server error
-	if w.Code != http.StatusOK && w.Code != http.StatusConflict && w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status 200, 409, or 500, got %d. Body: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d. Body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	result := parseJSONResponse(w)
+	updatedAppointment, ok := result["appointment"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected appointment in response")
+	}
+
+	if updatedAppointment["status"] != "confirmed" {
+		t.Errorf("Expected status 'confirmed', got '%v'", updatedAppointment["status"])
 	}
 }
 
@@ -252,11 +320,11 @@ func TestDeleteAppointment_Success(t *testing.T) {
 	user := createTestUser(db, "Dr. Test", "dr@test.com")
 
 	startTime := time.Now().Add(24 * time.Hour)
-	createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
+	appointment := createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
 
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
-	c.Params = gin.Params{{Key: "id", Value: "1"}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", appointment.ID)}}
 
 	DeleteAppointment(c)
 
@@ -277,11 +345,7 @@ func TestUpdateAppointmentStatus_Success(t *testing.T) {
 	user := createTestUser(db, "Dr. Test", "dr@test.com")
 
 	startTime := time.Now().Add(24 * time.Hour)
-	createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
-
-	// Get the created appointment ID
-	var appointmentID int
-	db.Raw("SELECT id FROM appointments ORDER BY id DESC LIMIT 1").Scan(&appointmentID)
+	appointment := createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
 
 	body := map[string]interface{}{
 		"status": "completed",
@@ -291,7 +355,7 @@ func TestUpdateAppointmentStatus_Success(t *testing.T) {
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodPatch, "/", bytes.NewBuffer(jsonBody))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", appointmentID)}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", appointment.ID)}}
 
 	UpdateAppointmentStatus(c)
 
@@ -300,13 +364,13 @@ func TestUpdateAppointmentStatus_Success(t *testing.T) {
 	}
 
 	result := parseJSONResponse(w)
-	appointment, ok := result["appointment"].(map[string]interface{})
+	updatedAppointment, ok := result["appointment"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected appointment in response")
 	}
 
-	if appointment["status"] != "completed" {
-		t.Errorf("Expected status 'completed', got '%v'", appointment["status"])
+	if updatedAppointment["status"] != "completed" {
+		t.Errorf("Expected status 'completed', got '%v'", updatedAppointment["status"])
 	}
 }
 
@@ -337,7 +401,7 @@ func TestUpdateAppointmentStatus_MissingStatus(t *testing.T) {
 	user := createTestUser(db, "Dr. Test", "dr@test.com")
 
 	startTime := time.Now().Add(24 * time.Hour)
-	createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
+	appointment := createTestAppointment(db, patient.ID, user.ID, startTime, "scheduled")
 
 	body := map[string]interface{}{}
 
@@ -345,7 +409,7 @@ func TestUpdateAppointmentStatus_MissingStatus(t *testing.T) {
 	c, w := setupTestContext(db)
 	c.Request = httptest.NewRequest(http.MethodPatch, "/", bytes.NewBuffer(jsonBody))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = gin.Params{{Key: "id", Value: "1"}}
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", appointment.ID)}}
 
 	UpdateAppointmentStatus(c)
 
