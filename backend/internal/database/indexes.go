@@ -138,7 +138,7 @@ func ApplyTenantIndexes(schemaName string) error {
 		// Data Requests (LGPD)
 		"CREATE INDEX IF NOT EXISTS idx_data_requests_patient ON data_requests(patient_id)",
 		"CREATE INDEX IF NOT EXISTS idx_data_requests_status ON data_requests(status)",
-		"CREATE INDEX IF NOT EXISTS idx_data_requests_type ON data_requests(request_type)",
+		"CREATE INDEX IF NOT EXISTS idx_data_requests_type ON data_requests(type)",
 		"CREATE INDEX IF NOT EXISTS idx_data_requests_created_at ON data_requests(created_at DESC)",
 
 		// Treatment Protocols
