@@ -5,12 +5,34 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// validateSchemaName validates that the schema name matches the expected pattern tenant_X
+// This prevents SQL injection through schema name manipulation
+func validateSchemaName(schemaName interface{}) (string, error) {
+	if schemaName == nil {
+		return "", fmt.Errorf("schema name is nil")
+	}
+
+	schema, ok := schemaName.(string)
+	if !ok {
+		return "", fmt.Errorf("schema name is not a string")
+	}
+
+	// Validate schema matches pattern: tenant_ followed by one or more digits
+	validPattern := regexp.MustCompile(`^tenant_\d+$`)
+	if !validPattern.MatchString(schema) {
+		return "", fmt.Errorf("invalid schema name format: %s", schema)
+	}
+
+	return schema, nil
+}
 
 // getTimezone returns the application timezone location
 // Falls back to America/Sao_Paulo if TZ env var is not set
@@ -264,10 +286,11 @@ func getPatientIDFromPhoneOrID(c *gin.Context, db *gorm.DB) (string, string) {
 			return "", "Telefone inválido"
 		}
 
-		// Get schema name for explicit table reference
-		schemaName, _ := c.Get("schema")
-		if schemaName == nil {
-			return "", "Erro interno: schema não definido"
+		// Get and validate schema name for explicit table reference
+		schemaNameRaw, _ := c.Get("schema")
+		schemaName, err := validateSchemaName(schemaNameRaw)
+		if err != nil {
+			return "", "Erro interno: schema inválido"
 		}
 
 		// Use raw SQL to find patient by phone with explicit schema
@@ -275,7 +298,7 @@ func getPatientIDFromPhoneOrID(c *gin.Context, db *gorm.DB) (string, string) {
 		var patient models.Patient
 		phonePattern := "%" + normalizedPhone + "%"
 		sql := normalizePhoneQuery(schemaName)
-		err := db.Raw(sql, phonePattern, phonePattern).Scan(&patient).Error
+		err = db.Raw(sql, phonePattern, phonePattern).Scan(&patient).Error
 
 		if err != nil || patient.ID == 0 {
 			return "", "Paciente não encontrado com este telefone"
@@ -289,7 +312,8 @@ func getPatientIDFromPhoneOrID(c *gin.Context, db *gorm.DB) (string, string) {
 }
 
 // normalizePhoneQuery returns SQL condition with regexp_replace to normalize phone comparison
-func normalizePhoneQuery(schemaName interface{}) string {
+// schemaName must be pre-validated using validateSchemaName before calling this function
+func normalizePhoneQuery(schemaName string) string {
 	return fmt.Sprintf(`SELECT * FROM %s.patients
 		WHERE (regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') LIKE ?
 		    OR regexp_replace(COALESCE(cell_phone, ''), '[^0-9]', '', 'g') LIKE ?)
@@ -305,6 +329,17 @@ func WhatsAppGetAppointments(c *gin.Context) {
 	patientID := c.Query("patient_id")
 	phone := c.Query("phone")
 
+	// Get and validate schema name upfront
+	schemaNameRaw, _ := c.Get("schema")
+	schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+	if schemaErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Erro interno: schema inválido",
+		})
+		return
+	}
+
 	// If phone is provided, find patient by phone first
 	if patientID == "" && phone != "" {
 		normalizedPhone := normalizePhone(phone)
@@ -312,16 +347,6 @@ func WhatsAppGetAppointments(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":   true,
 				"message": "Telefone inválido",
-			})
-			return
-		}
-
-		// Get schema name for explicit table reference
-		schemaName, _ := c.Get("schema")
-		if schemaName == nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   true,
-				"message": "Erro interno: schema não definido",
 			})
 			return
 		}
@@ -355,16 +380,6 @@ func WhatsAppGetAppointments(c *gin.Context) {
 	// Get upcoming appointments (today onwards, excluding cancelled)
 	var appointments []models.Appointment
 	today := time.Now().Truncate(24 * time.Hour)
-
-	// Get schema name for explicit table reference
-	schemaName, _ := c.Get("schema")
-	if schemaName == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   true,
-			"message": "Erro interno: schema não definido",
-		})
-		return
-	}
 
 	// Use raw SQL with explicit schema
 	sql := fmt.Sprintf(`SELECT * FROM %s.appointments
@@ -452,12 +467,13 @@ func WhatsAppGetAppointmentHistory(c *gin.Context) {
 		return
 	}
 
-	// Get schema name for explicit table reference
-	schemaName, _ := c.Get("schema")
-	if schemaName == nil {
+	// Get and validate schema name for explicit table reference
+	schemaNameRaw, _ := c.Get("schema")
+	schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+	if schemaErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
-			"message": "Erro interno: schema não definido",
+			"message": "Erro interno: schema inválido",
 		})
 		return
 	}
@@ -548,12 +564,13 @@ func WhatsAppCancelAppointment(c *gin.Context) {
 		return
 	}
 
-	// Get schema name for explicit table reference
-	schemaName, _ := c.Get("schema")
-	if schemaName == nil {
+	// Get and validate schema name for explicit table reference
+	schemaNameRaw, _ := c.Get("schema")
+	schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+	if schemaErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
-			"message": "Erro interno: schema não definido",
+			"message": "Erro interno: schema inválido",
 		})
 		return
 	}
@@ -793,12 +810,13 @@ func WhatsAppRescheduleAppointment(c *gin.Context) {
 		return
 	}
 
-	// Get schema name for explicit table reference
-	schemaName, _ := c.Get("schema")
-	if schemaName == nil {
+	// Get and validate schema name for explicit table reference
+	schemaNameRaw, _ := c.Get("schema")
+	schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+	if schemaErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
-			"message": "Erro interno: schema não definido",
+			"message": "Erro interno: schema inválido",
 		})
 		return
 	}
@@ -951,12 +969,13 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 		return
 	}
 
-	// Get schema name for explicit table reference
-	schemaName, _ := c.Get("schema")
-	if schemaName == nil {
+	// Get and validate schema name for explicit table reference
+	schemaNameRaw, _ := c.Get("schema")
+	schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+	if schemaErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
-			"message": "Erro interno: schema não definido",
+			"message": "Erro interno: schema inválido",
 		})
 		return
 	}
@@ -1064,12 +1083,13 @@ func WhatsAppGetWaitingListStatus(c *gin.Context) {
 		return
 	}
 
-	// Get schema name for explicit table reference
-	schemaName, _ := c.Get("schema")
-	if schemaName == nil {
+	// Get and validate schema name for explicit table reference
+	schemaNameRaw, _ := c.Get("schema")
+	schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+	if schemaErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
-			"message": "Erro interno: schema não definido",
+			"message": "Erro interno: schema inválido",
 		})
 		return
 	}
@@ -1155,12 +1175,13 @@ func WhatsAppRemoveFromWaitingList(c *gin.Context) {
 		return
 	}
 
-	// Get schema name for explicit table reference
-	schemaName, _ := c.Get("schema")
-	if schemaName == nil {
+	// Get and validate schema name upfront
+	schemaNameRaw, _ := c.Get("schema")
+	schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+	if schemaErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
-			"message": "Erro interno: schema não definido",
+			"message": "Erro interno: schema inválido",
 		})
 		return
 	}
@@ -1464,7 +1485,15 @@ func WhatsAppCreateAppointment(c *gin.Context) {
 	} else {
 		// Search by phone using raw SQL with schema prefix
 		// Uses regexp_replace to normalize phone numbers in database
-		schemaName, _ := c.Get("schema")
+		schemaNameRaw, _ := c.Get("schema")
+		schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+		if schemaErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   true,
+				"message": "Erro interno: schema inválido",
+			})
+			return
+		}
 		normalizedPhone := normalizePhone(req.Phone)
 		phonePattern := "%" + normalizedPhone + "%"
 		sql := normalizePhoneQuery(schemaName)
@@ -1633,12 +1662,13 @@ func WhatsAppGetDentistAppointments(c *gin.Context) {
 		endDate = startDate.Add(24 * time.Hour)
 	}
 
-	// Get schema name for explicit table reference
-	schemaName, _ := c.Get("schema")
-	if schemaName == nil {
+	// Get and validate schema name upfront
+	schemaNameRaw, _ := c.Get("schema")
+	schemaName, schemaErr := validateSchemaName(schemaNameRaw)
+	if schemaErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
-			"message": "Erro interno: schema não definido",
+			"message": "Erro interno: schema inválido",
 		})
 		return
 	}
