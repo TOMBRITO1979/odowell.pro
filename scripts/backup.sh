@@ -152,13 +152,32 @@ Ação necessária: Verifique o disco e execute o backup manualmente."
     exit 1
 fi
 
+# SEGURANÇA: Criptografar backup local com GPG (se configurado)
+if [ -n "$BACKUP_GPG_PASSWORD" ]; then
+    log "Criptografando backup com GPG..."
+    ENCRYPTED_FILE="${BACKUP_FILE}.gpg"
+
+    echo "$BACKUP_GPG_PASSWORD" | gpg --batch --yes --passphrase-fd 0 \
+        --symmetric --cipher-algo AES256 \
+        -o "$ENCRYPTED_FILE" "$BACKUP_FILE" 2>/dev/null
+
+    if [ $? -eq 0 ]; then
+        # Remover arquivo não criptografado
+        rm -f "$BACKUP_FILE"
+        BACKUP_FILE="$ENCRYPTED_FILE"
+        log "Backup criptografado: $ENCRYPTED_FILE"
+    else
+        warn "Falha na criptografia GPG (mantendo backup sem criptografia)"
+    fi
+fi
+
 # Upload para S3 (se configurado)
 if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && [ -n "$AWS_BUCKET_NAME" ]; then
     log "Enviando backup para S3..."
     aws s3 cp "$BACKUP_FILE" "s3://$AWS_BUCKET_NAME/backups/$(basename $BACKUP_FILE)" \
         --sse AES256 \
         2>/dev/null
-    
+
     if [ $? -eq 0 ]; then
         log "Backup enviado para S3 com sucesso!"
     else
@@ -170,8 +189,8 @@ fi
 
 # Limpar backups antigos
 log "Removendo backups com mais de $RETENTION_DAYS dias..."
-find "$BACKUP_DIR" -name "odowell_backup_*.sql.gz" -mtime +$RETENTION_DAYS -delete 2>/dev/null
-BACKUP_COUNT=$(find "$BACKUP_DIR" -name "odowell_backup_*.sql.gz" | wc -l)
+find "$BACKUP_DIR" -name "odowell_backup_*.sql.gz*" -mtime +$RETENTION_DAYS -delete 2>/dev/null
+BACKUP_COUNT=$(find "$BACKUP_DIR" -name "odowell_backup_*.sql.gz*" | wc -l)
 log "Backups locais mantidos: $BACKUP_COUNT"
 
 # Resumo

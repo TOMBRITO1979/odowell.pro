@@ -27,6 +27,9 @@ services:
       -c ssl_cert_file=/run/secrets/pg_ssl_cert
       -c ssl_key_file=/run/secrets/pg_ssl_key
       -c timezone=${TZ:-America/Sao_Paulo}
+      -c archive_mode=on
+      -c archive_command='cp %p /var/lib/postgresql/wal_archive/%f'
+      -c wal_level=replica
     environment:
       POSTGRES_DB: ${DB_NAME:-drcrwell_db}
       POSTGRES_USER: ${DB_USER:-odowell_app}
@@ -35,6 +38,7 @@ services:
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - wal_archive:/var/lib/postgresql/wal_archive
     networks:
       - network_public
     secrets:
@@ -252,6 +256,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  wal_archive:
     driver: local
 
 secrets:
