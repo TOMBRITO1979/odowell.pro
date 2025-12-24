@@ -312,3 +312,79 @@ func ApplyAllIndexesAndConstraints() error {
 	log.Println("Indexes and constraints migration completed")
 	return nil
 }
+
+// ApplyOdowellAppPermissions grants permissions to odowell_app user on public schema
+func ApplyOdowellAppPermissions() error {
+	log.Println("Applying odowell_app permissions to public schema...")
+
+	permissions := []string{
+		"GRANT USAGE ON SCHEMA public TO odowell_app",
+		"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO odowell_app",
+		"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO odowell_app",
+		"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO odowell_app",
+		"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO odowell_app",
+	}
+
+	for _, perm := range permissions {
+		if err := DB.Exec(perm).Error; err != nil {
+			log.Printf("Warning: Could not apply permission: %v", err)
+		}
+	}
+
+	log.Println("Public schema permissions applied to odowell_app")
+	return nil
+}
+
+// ApplyTenantPermissions grants permissions to odowell_app user on a specific tenant schema
+func ApplyTenantPermissions(schemaName string) error {
+	log.Printf("Applying odowell_app permissions to schema: %s", schemaName)
+
+	permissions := []string{
+		fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO odowell_app", schemaName),
+		fmt.Sprintf("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO odowell_app", schemaName),
+		fmt.Sprintf("GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA %s TO odowell_app", schemaName),
+		fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL PRIVILEGES ON TABLES TO odowell_app", schemaName),
+		fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL PRIVILEGES ON SEQUENCES TO odowell_app", schemaName),
+	}
+
+	for _, perm := range permissions {
+		if err := DB.Exec(perm).Error; err != nil {
+			log.Printf("Warning: Could not apply permission in %s: %v", schemaName, err)
+		}
+	}
+
+	return nil
+}
+
+// ApplyAllPermissions applies odowell_app permissions to all schemas
+func ApplyAllPermissions() error {
+	log.Println("Starting permissions migration for odowell_app...")
+
+	// Apply to public schema first
+	if err := ApplyOdowellAppPermissions(); err != nil {
+		log.Printf("Warning: Error applying public permissions: %v", err)
+	}
+
+	// Get list of all tenant schemas
+	var schemas []string
+	err := DB.Raw(`
+		SELECT schema_name
+		FROM information_schema.schemata
+		WHERE schema_name LIKE 'tenant_%'
+		ORDER BY schema_name
+	`).Scan(&schemas).Error
+
+	if err != nil {
+		return fmt.Errorf("failed to list tenant schemas: %v", err)
+	}
+
+	// Apply permissions to each tenant
+	for _, schema := range schemas {
+		if err := ApplyTenantPermissions(schema); err != nil {
+			log.Printf("Warning: Error applying permissions to %s: %v", schema, err)
+		}
+	}
+
+	log.Println("Permissions migration completed")
+	return nil
+}

@@ -68,6 +68,12 @@ func main() {
 		log.Printf("WARNING: Index/constraint errors occurred: %v", err)
 	}
 
+	// Apply odowell_app permissions to all schemas
+	// This ensures the backend can access tables regardless of owner
+	if err := database.ApplyAllPermissions(); err != nil {
+		log.Printf("WARNING: Permission errors occurred: %v", err)
+	}
+
 	// Start background schedulers (trial expiration, data retention cleanup)
 	scheduler.StartScheduler()
 
