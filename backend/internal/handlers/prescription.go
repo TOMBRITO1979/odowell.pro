@@ -5,6 +5,7 @@ import (
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -28,9 +29,9 @@ func CreatePrescription(c *gin.Context) {
 		return
 	}
 
-	// Get user (dentist) info
+	// Get user (dentist) info - use database.DB for public schema access
 	var dentist models.User
-	if err := db.Table("public.users").First(&dentist, userID).Error; err != nil {
+	if err := database.DB.Table("public.users").First(&dentist, userID).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load dentist info"})
 		return
 	}
@@ -65,7 +66,7 @@ func CreatePrescription(c *gin.Context) {
 	} else {
 		// Fallback to tenant info
 		var tenant models.Tenant
-		if err := db.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+		if err := database.DB.Table("public.tenants").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load clinic info"})
 			return
 		}
@@ -83,7 +84,7 @@ func CreatePrescription(c *gin.Context) {
 	// If signer is specified, load signer info
 	if input.SignerID != nil && *input.SignerID > 0 {
 		var signer models.User
-		if err := db.Table("public.users").First(&signer, *input.SignerID).Error; err == nil {
+		if err := database.DB.Table("public.users").First(&signer, *input.SignerID).Error; err == nil {
 			input.SignerName = signer.Name
 			input.SignerCRO = signer.CRO
 		}
@@ -101,7 +102,8 @@ func CreatePrescription(c *gin.Context) {
 
 	// Create prescription using explicit table to avoid GORM relationship confusion
 	if err := db.Table("prescriptions").Create(&input).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create prescription"})
+		log.Printf("ERROR creating prescription: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create prescription", "details": err.Error()})
 		return
 	}
 

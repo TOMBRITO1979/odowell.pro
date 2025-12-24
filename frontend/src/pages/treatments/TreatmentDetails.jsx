@@ -166,8 +166,15 @@ const TreatmentDetails = () => {
 
   const openPaymentModal = () => {
     const nextInstallment = payments.length + 1;
+    // Calculate remaining value
+    const remaining = treatment.total_value - treatment.paid_value;
+    // Use remaining value if less than installment value, otherwise use installment value
+    const suggestedAmount = remaining > 0
+      ? Math.min(remaining, treatment.installment_value || remaining)
+      : treatment.installment_value;
+
     form.setFieldsValue({
-      amount: treatment.installment_value,
+      amount: suggestedAmount > 0 ? suggestedAmount : treatment.installment_value,
       installment_number: nextInstallment,
       paid_date: dayjs(),
     });

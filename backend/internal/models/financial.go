@@ -155,8 +155,8 @@ type TreatmentPayment struct {
 	// Installment info
 	InstallmentNumber int `json:"installment_number"`
 
-	// Receipt
-	ReceiptNumber string `gorm:"uniqueIndex" json:"receipt_number"`
+	// Receipt - unique per active (non-deleted) record, handled by partial index in DB
+	ReceiptNumber string `gorm:"index" json:"receipt_number"`
 
 	// Status
 	Status   string     `gorm:"default:'paid'" json:"status"` // paid, cancelled, refunded
