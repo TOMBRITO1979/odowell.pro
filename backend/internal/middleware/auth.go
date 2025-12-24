@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -72,6 +74,24 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
 			c.Abort()
 			return
+		}
+
+		// SECURITY: Check if token is blacklisted (revoked)
+		tokenHash := cache.HashToken(tokenString)
+		if blacklisted, _ := cache.IsTokenBlacklisted(tokenHash); blacklisted {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
+			c.Abort()
+			return
+		}
+
+		// SECURITY: Check if all user tokens were revoked (password change, etc.)
+		if claims.IssuedAt != nil {
+			revokedAt, _ := cache.GetUserTokenRevocationTime(claims.UserID)
+			if revokedAt > 0 && claims.IssuedAt.Unix() < revokedAt {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Session expired, please login again"})
+				c.Abort()
+				return
+			}
 		}
 
 		// Set user info in context
@@ -158,6 +178,7 @@ func SuperAdminMiddleware() gin.HandlerFunc {
 // APIKeyMiddleware validates API key for external integrations (WhatsApp, AI bots)
 // The API key should be passed in the X-API-Key header
 // Security: API keys are stored as hashes, so we hash the incoming key and compare
+// Features: Tracks last usage and checks expiration
 func APIKeyMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-API-Key")
@@ -188,6 +209,21 @@ func APIKeyMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		// SECURITY: Check if API key has expired
+		if tenant.IsAPIKeyExpired() {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   true,
+				"message": "API key has expired. Please generate a new one.",
+			})
+			c.Abort()
+			return
+		}
+
+		// Track last usage (async to not slow down requests)
+		go func(tenantID uint) {
+			database.GetDB().Model(&models.Tenant{}).Where("id = ?", tenantID).Update("api_key_last_used", time.Now())
+		}(tenant.ID)
 
 		// Set tenant info in context
 		c.Set("tenant_id", tenant.ID)

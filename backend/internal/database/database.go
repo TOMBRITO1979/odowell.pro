@@ -17,6 +17,65 @@ import (
 var DB *gorm.DB
 var healthDB *sql.DB // sql.DB for health checks
 
+// PoolStats holds connection pool statistics for monitoring
+type PoolStats struct {
+	MaxOpenConnections int `json:"max_open"`
+	OpenConnections    int `json:"open_connections"`
+	InUse              int `json:"in_use"`
+	Idle               int `json:"idle"`
+	WaitCount          int64 `json:"wait_count"`
+	WaitDuration       int64 `json:"wait_duration_ms"`
+}
+
+// GetPoolStats returns current connection pool statistics
+func GetPoolStats() (*PoolStats, error) {
+	if healthDB == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+	stats := healthDB.Stats()
+	return &PoolStats{
+		MaxOpenConnections: stats.MaxOpenConnections,
+		OpenConnections:    stats.OpenConnections,
+		InUse:              stats.InUse,
+		Idle:               stats.Idle,
+		WaitCount:          stats.WaitCount,
+		WaitDuration:       stats.WaitDuration.Milliseconds(),
+	}, nil
+}
+
+// validatePoolSettings checks if pool configuration is safe
+func validatePoolSettings(sqlDB *sql.DB, maxOpen, maxIdle, numReplicas int) error {
+	// Query PostgreSQL max_connections
+	var maxConnections int
+	row := sqlDB.QueryRow("SHOW max_connections")
+	if err := row.Scan(&maxConnections); err != nil {
+		return fmt.Errorf("could not query max_connections: %v", err)
+	}
+
+	// Calculate safe limit (leave 20% for superuser/maintenance connections)
+	safeLimit := int(float64(maxConnections) * 0.8)
+	totalFromReplicas := maxOpen * numReplicas
+
+	// Validation checks
+	if totalFromReplicas > safeLimit {
+		return fmt.Errorf("UNSAFE: %d replicas x %d connections = %d exceeds safe limit of %d (80%% of max_connections=%d). Reduce DB_MAX_OPEN_CONNS or DB_NUM_REPLICAS",
+			numReplicas, maxOpen, totalFromReplicas, safeLimit, maxConnections)
+	}
+
+	if maxIdle > maxOpen {
+		return fmt.Errorf("INEFFICIENT: maxIdleConns (%d) > maxOpenConns (%d). Set DB_MAX_IDLE_CONNS <= DB_MAX_OPEN_CONNS", maxIdle, maxOpen)
+	}
+
+	if maxOpen > 100 {
+		return fmt.Errorf("HIGH: maxOpenConns=%d is very high. Consider reducing for better resource management", maxOpen)
+	}
+
+	log.Printf("Pool validation OK: PostgreSQL max_connections=%d, safe_limit=%d, total_from_replicas=%d",
+		maxConnections, safeLimit, totalFromReplicas)
+
+	return nil
+}
+
 // getEnvInt returns an environment variable as int, or default if not set/invalid
 func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
@@ -100,17 +159,25 @@ func Connect() error {
 
 	// Connection pool settings - configurable via environment variables
 	// For horizontal scaling: each replica should use maxOpenConns = totalPgConns / numReplicas
-	maxOpenConns := getEnvInt("DB_MAX_OPEN_CONNS", 50)
+	// Recommended: 2 replicas with 100 PG connections = 25 per replica (with buffer for other connections)
+	maxOpenConns := getEnvInt("DB_MAX_OPEN_CONNS", 25)
 	maxIdleConns := getEnvInt("DB_MAX_IDLE_CONNS", 10)
 	connMaxLifetimeSecs := getEnvInt("DB_CONN_MAX_LIFETIME", 3600)
+	numReplicas := getEnvInt("DB_NUM_REPLICAS", 2)
 
+	// GUARDRAILS: Validate connection pool settings
+	if err := validatePoolSettings(sqlDB, maxOpenConns, maxIdleConns, numReplicas); err != nil {
+		log.Printf("POOL WARNING: %v", err)
+	}
+
+	// Apply pool settings
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetimeSecs) * time.Second)
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute) // Close idle connections after 5 minutes
 
-	log.Printf("Database connected successfully - Pool: maxOpen=%d, maxIdle=%d, lifetime=%ds, timezone=%s",
-		maxOpenConns, maxIdleConns, connMaxLifetimeSecs, tz)
+	log.Printf("Database connected successfully - Pool: maxOpen=%d, maxIdle=%d, lifetime=%ds, replicas=%d, timezone=%s",
+		maxOpenConns, maxIdleConns, connMaxLifetimeSecs, numReplicas, tz)
 
 	// Use the same sql.DB from GORM for health checks
 	log.Println("Setting up health check connection...")

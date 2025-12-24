@@ -109,8 +109,16 @@ func main() {
 	// Prometheus metrics middleware - collects request metrics
 	r.Use(metrics.PrometheusMiddleware())
 
+	// Application monitoring middleware - tracks errors, latency, alerts
+	r.Use(middleware.MonitoringMiddleware())
+
 	// Prometheus metrics endpoint
 	r.GET("/metrics", metrics.MetricsHandler())
+
+	// Application metrics endpoint (JSON format with alerts)
+	r.GET("/metrics/app", func(c *gin.Context) {
+		c.JSON(200, middleware.GetMetrics())
+	})
 
 	// Health check with detailed status and metrics
 	r.GET("/health", func(c *gin.Context) {

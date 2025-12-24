@@ -40,11 +40,22 @@ type Tenant struct {
 	PatientLimit       int        `gorm:"default:1000" json:"patient_limit"` // Max patients allowed
 
 	// WhatsApp/External API Integration
-	APIKey       string `gorm:"unique" json:"api_key,omitempty"` // API key for external integrations (WhatsApp, AI bots)
-	APIKeyActive bool   `gorm:"default:false" json:"api_key_active"` // Whether API key is enabled
+	APIKey          string     `gorm:"unique" json:"api_key,omitempty"`    // API key for external integrations (WhatsApp, AI bots)
+	APIKeyActive    bool       `gorm:"default:false" json:"api_key_active"` // Whether API key is enabled
+	APIKeyLastUsed  *time.Time `json:"api_key_last_used,omitempty"`        // Last time API key was used
+	APIKeyExpiresAt *time.Time `json:"api_key_expires_at,omitempty"`       // API key expiration date (nil = never expires)
+	APIKeyCreatedAt *time.Time `json:"api_key_created_at,omitempty"`       // When the current API key was generated
 
 	// Embed token for external forms
 	EmbedToken string `json:"embed_token,omitempty"`
+}
+
+// IsAPIKeyExpired checks if the API key has expired
+func (t *Tenant) IsAPIKeyExpired() bool {
+	if t.APIKeyExpiresAt == nil {
+		return false // No expiration set
+	}
+	return time.Now().After(*t.APIKeyExpiresAt)
 }
 
 // IsSubscriptionActive checks if tenant has an active subscription

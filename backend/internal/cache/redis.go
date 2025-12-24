@@ -279,3 +279,80 @@ func DeleteAllUserRefreshTokens(userID uint) error {
 	// consider using a secondary index or user-specific token sets
 	return DeletePattern(fmt.Sprintf("refresh_token:*"))
 }
+
+// ============================================
+// TOKEN REVOCATION (Blacklist)
+// ============================================
+
+const (
+	// TokenBlacklistPrefix is the Redis key prefix for blacklisted tokens
+	TokenBlacklistPrefix = "token_blacklist"
+	// UserTokensPrefix is the Redis key prefix for tracking user tokens
+	UserTokensPrefix = "user_tokens"
+)
+
+// BlacklistToken adds a JWT token to the blacklist
+// The token will be blacklisted until its expiration time
+func BlacklistToken(tokenHash string, expiresAt time.Time) error {
+	if Client == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
+	key := CacheKey(TokenBlacklistPrefix, tokenHash)
+	ttl := time.Until(expiresAt)
+	if ttl <= 0 {
+		// Token already expired, no need to blacklist
+		return nil
+	}
+	return Client.Set(ctx, key, "revoked", ttl).Err()
+}
+
+// IsTokenBlacklisted checks if a token is in the blacklist
+func IsTokenBlacklisted(tokenHash string) (bool, error) {
+	if Client == nil {
+		return false, nil // If Redis is down, don't block auth (graceful degradation)
+	}
+	key := CacheKey(TokenBlacklistPrefix, tokenHash)
+	exists, err := Client.Exists(ctx, key).Result()
+	if err != nil {
+		log.Printf("Error checking token blacklist: %v", err)
+		return false, nil // Graceful degradation
+	}
+	return exists > 0, nil
+}
+
+// RevokeAllUserTokens revokes all tokens for a specific user
+// This is called when password changes, user is deactivated, etc.
+func RevokeAllUserTokens(userID uint) error {
+	if Client == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
+	// Store the revocation timestamp - any token issued before this is invalid
+	key := CacheKey(UserTokensPrefix, "revoked_at", userID)
+	return Client.Set(ctx, key, time.Now().Unix(), 7*24*time.Hour).Err()
+}
+
+// GetUserTokenRevocationTime gets the timestamp when user tokens were revoked
+// Returns 0 if never revoked
+func GetUserTokenRevocationTime(userID uint) (int64, error) {
+	if Client == nil {
+		return 0, nil
+	}
+	key := CacheKey(UserTokensPrefix, "revoked_at", userID)
+	result, err := Client.Get(ctx, key).Int64()
+	if err == redis.Nil {
+		return 0, nil // Never revoked
+	}
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
+}
+
+// HashToken creates a hash of the token for storage (don't store raw tokens)
+func HashToken(token string) string {
+	// Use first 64 chars of token as identifier (enough for uniqueness, saves space)
+	if len(token) > 64 {
+		return token[:64]
+	}
+	return token
+}
