@@ -117,7 +117,7 @@ services:
       STRIPE_PRICE_BRONZE: ${STRIPE_PRICE_BRONZE}
       STRIPE_PRICE_SILVER: ${STRIPE_PRICE_SILVER}
       STRIPE_PRICE_GOLD: ${STRIPE_PRICE_GOLD}
-      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-50}
+      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-80}
       DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-10}
       DB_CONN_MAX_LIFETIME: ${DB_CONN_MAX_LIFETIME:-3600}
       # Redis
@@ -157,7 +157,7 @@ services:
       retries: 3
       start_period: 40s
     deploy:
-      replicas: ${BACKEND_REPLICAS:-2}
+      replicas: ${BACKEND_REPLICAS:-4}
       update_config:
         parallelism: 1
         delay: 10s
