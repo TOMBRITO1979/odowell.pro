@@ -2,7 +2,7 @@
 
 **Data:** 2025-12-24
 **Responsavel:** Claude Code
-**Status:** EM IMPLEMENTACAO
+**Status:** CONCLUIDO
 
 ---
 
@@ -264,5 +264,27 @@ Para cada item implementado, executar:
 
 ---
 
+## IMPLEMENTACOES ADICIONAIS (Segunda Fase)
+
+| Item | Status | Arquivo |
+|------|--------|---------|
+| Pool de conexoes com guardrails | CONCLUIDO | `database/database.go` |
+| Revogacao de tokens JWT | CONCLUIDO | `cache/redis.go`, `middleware/auth.go` |
+| API Key - ultimo uso e expiracao | CONCLUIDO | `models/tenant.go`, `middleware/auth.go` |
+| Monitoramento e alertas | CONCLUIDO | `middleware/monitoring.go` |
+
+### Novos Endpoints
+- `GET /metrics/app` - Metricas de aplicacao em JSON
+
+### Novos Recursos de Seguranca
+- Token blacklist via Redis com TTL automatico
+- User token revocation (invalida todos tokens de um usuario)
+- API key expiration check
+- API key last_used tracking (async)
+- Pool validation contra max_connections do PostgreSQL
+- Alertas automaticos para error rate > 5% e pool usage > 80%
+
+---
+
 **Ultima atualizacao:** 2025-12-24
-**Commit:** d0fd996
+**Commits:** d0fd996, e57a994
