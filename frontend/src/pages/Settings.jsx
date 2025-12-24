@@ -40,6 +40,7 @@ const Settings = () => {
   // SMTP state
   const [smtpTesting, setSmtpTesting] = useState(false);
   const [hasSMTPPassword, setHasSMTPPassword] = useState(false);
+  const [hasNewSMTPPassword, setHasNewSMTPPassword] = useState(false);
 
   // Delete tenant state
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -904,7 +905,10 @@ const Settings = () => {
             name="smtp_password"
             help={hasSMTPPassword ? "Deixe em branco para manter a senha atual" : ""}
           >
-            <Input.Password placeholder={hasSMTPPassword ? "••••••••••••••••" : "Senha do servidor SMTP"} />
+            <Input.Password
+              placeholder={hasSMTPPassword ? "••••••••••••••••" : "Senha do servidor SMTP"}
+              onChange={(e) => setHasNewSMTPPassword(e.target.value.length > 0)}
+            />
           </Form.Item>
         </Col>
 
@@ -929,9 +933,17 @@ const Settings = () => {
       </Row>
 
       <Space wrap style={{ marginTop: 16 }}>
-        <Button onClick={handleTestSMTP} loading={smtpTesting} disabled={!hasSMTPPassword}>
+        <Button
+          onClick={handleTestSMTP}
+          loading={smtpTesting}
+          disabled={!hasSMTPPassword && !hasNewSMTPPassword}
+          title={!hasSMTPPassword && !hasNewSMTPPassword ? "Preencha a senha SMTP primeiro" : ""}
+        >
           Testar Conexão
         </Button>
+        {!hasSMTPPassword && hasNewSMTPPassword && (
+          <Text type="warning">Salve as configurações antes de testar</Text>
+        )}
       </Space>
 
       <Divider />

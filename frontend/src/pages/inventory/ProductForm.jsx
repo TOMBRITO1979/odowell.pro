@@ -90,7 +90,7 @@ const ProductForm = () => {
         ...values,
         active: active,
         expiration_date: values.expiration_date
-          ? values.expiration_date.format('YYYY-MM-DD')
+          ? values.expiration_date.toISOString()
           : null,
       };
 

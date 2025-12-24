@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
@@ -123,14 +124,20 @@ func UpdateCampaign(c *gin.Context) {
 		return
 	}
 
+	// Ensure filters is valid JSON (empty object if not provided)
+	filters := input.Filters
+	if filters == "" {
+		filters = "{}"
+	}
+
 	// Update using Exec to avoid the duplicate table error
 	result := db.Exec(`
 		UPDATE campaigns
 		SET name = ?, type = ?, subject = ?, message = ?, segment_type = ?,
-		    tags = ?, filters = ?, updated_at = NOW()
+		    tags = ?, filters = ?::jsonb, updated_at = NOW()
 		WHERE id = ? AND deleted_at IS NULL
 	`, input.Name, input.Type, input.Subject, input.Message, input.SegmentType,
-		input.Tags, input.Filters, id)
+		input.Tags, filters, id)
 
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update campaign"})
@@ -183,9 +190,9 @@ func SendCampaign(c *gin.Context) {
 		return
 	}
 
-	// Get tenant SMTP settings
+	// Get tenant SMTP settings (use database.DB for public schema)
 	var settings models.TenantSettings
-	if err := db.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Configurações SMTP não encontradas. Configure o SMTP em Configurações."})
 		return
 	}

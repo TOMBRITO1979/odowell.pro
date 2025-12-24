@@ -88,14 +88,15 @@ func GetClinicInfo(db *gorm.DB, tenantID uint) ClinicInfo {
 }
 
 func GetTenantSettings(c *gin.Context) {
-	db, ok := middleware.GetDBFromContextSafe(c)
+	// We use database.DB for public schema, but still need middleware check for auth
+	_, ok := middleware.GetDBFromContextSafe(c)
 	if !ok {
 		return
 	}
 	tenantID := c.GetUint("tenant_id")
 
 	var settings models.TenantSettings
-	result := db.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings)
+	result := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings)
 
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
@@ -133,7 +134,8 @@ func UpdateTenantSettings(c *gin.Context) {
 		return
 	}
 
-	db, ok := middleware.GetDBFromContextSafe(c)
+	// We use database.DB for public schema, but still need middleware check for auth
+	_, ok := middleware.GetDBFromContextSafe(c)
 	if !ok {
 		return
 	}
@@ -150,15 +152,15 @@ func UpdateTenantSettings(c *gin.Context) {
 		smtpPassword = encrypted
 	}
 
-	// Check if settings exist
+	// Check if settings exist - use database.DB for public schema
 	var count int64
-	db.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).Count(&count)
+	database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).Count(&count)
 
 	if count == 0 {
 		// Create new settings with encrypted password
 		input.TenantID = tenantID
 		input.SMTPPassword = smtpPassword
-		if err := db.Table("public.tenant_settings").Create(&input).Error; err != nil {
+		if err := database.DB.Table("public.tenant_settings").Create(&input).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create settings", "details": err.Error()})
 			return
 		}
@@ -168,11 +170,11 @@ func UpdateTenantSettings(c *gin.Context) {
 		return
 	}
 
-	// Build update query - only update password if provided
+	// Build update query - only update password if provided (use database.DB for public schema)
 	var result *gorm.DB
 	if smtpPassword != "" {
 		// Update including password
-		result = db.Exec(`
+		result = database.DB.Exec(`
 			UPDATE public.tenant_settings
 			SET
 				clinic_name = ?, clinic_cnpj = ?, clinic_address = ?, clinic_city = ?,
@@ -198,7 +200,7 @@ func UpdateTenantSettings(c *gin.Context) {
 		)
 	} else {
 		// Update without changing password
-		result = db.Exec(`
+		result = database.DB.Exec(`
 			UPDATE public.tenant_settings
 			SET
 				clinic_name = ?, clinic_cnpj = ?, clinic_address = ?, clinic_city = ?,
@@ -231,12 +233,12 @@ func UpdateTenantSettings(c *gin.Context) {
 
 	// Also update the tenant name to match the clinic name
 	if input.ClinicName != "" {
-		db.Exec("UPDATE public.tenants SET name = ?, updated_at = NOW() WHERE id = ?", input.ClinicName, tenantID)
+		database.DB.Exec("UPDATE public.tenants SET name = ?, updated_at = NOW() WHERE id = ?", input.ClinicName, tenantID)
 	}
 
 	// Check if password exists in DB (for has_smtp_password flag)
 	var existingSettings models.TenantSettings
-	db.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&existingSettings)
+	database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&existingSettings)
 	hasSMTPPassword := existingSettings.SMTPPassword != ""
 
 	// Don't return password in response

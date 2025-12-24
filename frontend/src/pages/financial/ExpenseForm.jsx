@@ -107,7 +107,7 @@ const ExpenseForm = () => {
       const data = {
         ...values,
         type: 'expense', // Sempre despesa
-        patient_id: 1, // ID fictício - despesas não precisam de paciente real
+        patient_id: null, // Despesas não precisam de paciente
         is_recurring: recDays > 0,
         recurrence_days: recDays,
       };
