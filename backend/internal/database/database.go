@@ -86,24 +86,43 @@ func getEnvInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
+// ValidSSLModes defines which SSL modes are considered secure for production
+var ValidSSLModes = map[string]bool{
+	"require":     true,
+	"verify-ca":   true,
+	"verify-full": true,
+}
+
 // Connect establishes connection to PostgreSQL database
 func Connect() error {
+	env := os.Getenv("ENV")
+	isProduction := env != "development"
+
 	// Determinar SSL mode baseado no ambiente
 	sslMode := os.Getenv("DB_SSL_MODE")
 	if sslMode == "" {
 		// Default to require in production, disable in development
-		if os.Getenv("ENV") == "development" {
+		if !isProduction {
 			sslMode = "disable"
 		} else {
 			sslMode = "require" // TLS obrigatorio em producao para proteger dados sensiveis
 		}
 	}
 
-	// Security validation: warn if SSL is disabled
-	if sslMode == "disable" {
-		log.Println("SECURITY WARNING: Database SSL is disabled - NOT RECOMMENDED for production!")
-	} else if sslMode == "prefer" {
-		log.Println("SECURITY WARNING: Database SSL mode 'prefer' may allow unencrypted connections")
+	// SECURITY: Fail boot if SSL mode is insecure in production
+	if isProduction {
+		if sslMode == "disable" || sslMode == "prefer" || sslMode == "allow" {
+			return fmt.Errorf("SECURITY FATAL: DB_SSL_MODE='%s' is not allowed in production. Use 'require', 'verify-ca', or 'verify-full'", sslMode)
+		}
+		if !ValidSSLModes[sslMode] {
+			return fmt.Errorf("SECURITY FATAL: DB_SSL_MODE='%s' is not a valid secure mode. Use 'require', 'verify-ca', or 'verify-full'", sslMode)
+		}
+		log.Printf("SSL mode '%s' validated for production", sslMode)
+	} else {
+		// Development environment - warn but allow
+		if sslMode == "disable" {
+			log.Println("SECURITY WARNING: Database SSL is disabled - only acceptable in development!")
+		}
 	}
 
 	// Get timezone from environment variable, default to America/Sao_Paulo
@@ -112,6 +131,7 @@ func Connect() error {
 		tz = "America/Sao_Paulo"
 	}
 
+	// Build DSN with optional SSL certificate paths for verify-full mode
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
 		os.Getenv("DB_HOST"),
@@ -122,6 +142,20 @@ func Connect() error {
 		sslMode,
 		tz,
 	)
+
+	// Add SSL certificate paths for verify-ca or verify-full modes
+	if sslMode == "verify-ca" || sslMode == "verify-full" {
+		if sslRootCert := os.Getenv("DB_SSL_ROOT_CERT"); sslRootCert != "" {
+			dsn += fmt.Sprintf(" sslrootcert=%s", sslRootCert)
+		}
+		if sslCert := os.Getenv("DB_SSL_CERT"); sslCert != "" {
+			dsn += fmt.Sprintf(" sslcert=%s", sslCert)
+		}
+		if sslKey := os.Getenv("DB_SSL_KEY"); sslKey != "" {
+			dsn += fmt.Sprintf(" sslkey=%s", sslKey)
+		}
+		log.Printf("SSL certificates configured for mode '%s'", sslMode)
+	}
 
 	// Configure logger based on environment with slow query logging
 	logLevel := logger.Warn

@@ -210,11 +210,24 @@ func APIKeyMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// SECURITY: Check if API key has expired
+		// SECURITY: Check if API key has expired (explicit expiration)
 		if tenant.IsAPIKeyExpired() {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   true,
 				"message": "API key has expired. Please generate a new one.",
+			})
+			c.Abort()
+			return
+		}
+
+		// SECURITY: Check if API key needs forced rotation (older than 90 days)
+		if tenant.NeedsAPIKeyRotation() {
+			daysOverdue := -tenant.DaysUntilAPIKeyRotation()
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":        true,
+				"message":      fmt.Sprintf("API key is %d days overdue for rotation. Please generate a new API key for security.", daysOverdue),
+				"code":         "API_KEY_ROTATION_REQUIRED",
+				"days_overdue": daysOverdue,
 			})
 			c.Abort()
 			return

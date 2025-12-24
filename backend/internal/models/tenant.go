@@ -50,12 +50,35 @@ type Tenant struct {
 	EmbedToken string `json:"embed_token,omitempty"`
 }
 
-// IsAPIKeyExpired checks if the API key has expired
+// APIKeyMaxAgeDays is the maximum age of an API key before forced rotation
+const APIKeyMaxAgeDays = 90
+
+// IsAPIKeyExpired checks if the API key has expired (explicit expiration date)
 func (t *Tenant) IsAPIKeyExpired() bool {
 	if t.APIKeyExpiresAt == nil {
 		return false // No expiration set
 	}
 	return time.Now().After(*t.APIKeyExpiresAt)
+}
+
+// NeedsAPIKeyRotation checks if the API key is older than 90 days and needs rotation
+func (t *Tenant) NeedsAPIKeyRotation() bool {
+	if t.APIKeyCreatedAt == nil {
+		return false // No creation date, can't determine age
+	}
+	maxAge := time.Duration(APIKeyMaxAgeDays) * 24 * time.Hour
+	return time.Since(*t.APIKeyCreatedAt) > maxAge
+}
+
+// DaysUntilAPIKeyRotation returns days until forced rotation (negative if overdue)
+func (t *Tenant) DaysUntilAPIKeyRotation() int {
+	if t.APIKeyCreatedAt == nil {
+		return APIKeyMaxAgeDays // Assume new key
+	}
+	maxAge := time.Duration(APIKeyMaxAgeDays) * 24 * time.Hour
+	rotationDate := t.APIKeyCreatedAt.Add(maxAge)
+	daysLeft := int(time.Until(rotationDate).Hours() / 24)
+	return daysLeft
 }
 
 // IsSubscriptionActive checks if tenant has an active subscription
