@@ -287,13 +287,9 @@ func UpdatePayment(c *gin.Context) {
 		return
 	}
 
-	// Check if payment exists
-	var count int64
-	if err := db.Model(&models.Payment{}).Where("id = ?", id).Count(&count).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	if count == 0 {
+	// Get current payment to check status change
+	var currentPayment models.Payment
+	if err := db.First(&currentPayment, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
 		return
 	}
@@ -310,12 +306,14 @@ func UpdatePayment(c *gin.Context) {
 		SET budget_id = ?, patient_id = ?, type = ?, category = ?, description = ?,
 		    amount = ?, payment_method = ?, is_installment = ?, installment_number = ?,
 		    total_installments = ?, status = ?, due_date = ?, paid_date = ?,
-		    is_insurance = ?, insurance_name = ?, notes = ?, updated_at = NOW()
+		    is_insurance = ?, insurance_name = ?, is_recurring = ?, recurrence_days = ?,
+		    notes = ?, updated_at = NOW()
 		WHERE id = ? AND deleted_at IS NULL
 	`, input.BudgetID, input.PatientID, input.Type, input.Category, input.Description,
 		input.Amount, input.PaymentMethod, input.IsInstallment, input.InstallmentNumber,
 		input.TotalInstallments, input.Status, input.DueDate, input.PaidDate,
-		input.IsInsurance, input.InsuranceName, input.Notes, id)
+		input.IsInsurance, input.InsuranceName, input.IsRecurring, input.RecurrenceDays,
+		input.Notes, id)
 
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment"})
@@ -326,7 +324,47 @@ func UpdatePayment(c *gin.Context) {
 	var payment models.Payment
 	db.Preload("Patient").Preload("Budget").First(&payment, id)
 
-	c.JSON(http.StatusOK, gin.H{"payment": payment})
+	// Check if status changed to "paid" and payment is recurring
+	var newRecurringPayment *models.Payment
+	if currentPayment.Status != "paid" && input.Status == "paid" && input.IsRecurring && input.RecurrenceDays > 0 {
+		// Calculate next due date based on paid date or current date
+		baseDate := time.Now()
+		if input.PaidDate != nil {
+			baseDate = *input.PaidDate
+		}
+		nextDueDate := baseDate.AddDate(0, 0, input.RecurrenceDays)
+
+		// Create new recurring payment
+		newPayment := models.Payment{
+			BudgetID:        input.BudgetID,
+			PatientID:       input.PatientID,
+			Type:            input.Type,
+			Category:        input.Category,
+			Description:     input.Description,
+			Amount:          input.Amount,
+			PaymentMethod:   input.PaymentMethod,
+			Status:          "pending",
+			DueDate:         &nextDueDate,
+			IsRecurring:     true,
+			RecurrenceDays:  input.RecurrenceDays,
+			Notes:           input.Notes,
+		}
+
+		if err := db.Create(&newPayment).Error; err != nil {
+			log.Printf("ERROR creating recurring payment: %v", err)
+		} else {
+			newRecurringPayment = &newPayment
+			log.Printf("Created recurring payment ID=%d, due_date=%s", newPayment.ID, nextDueDate.Format("2006-01-02"))
+		}
+	}
+
+	response := gin.H{"payment": payment}
+	if newRecurringPayment != nil {
+		response["recurring_payment"] = newRecurringPayment
+		response["message"] = "Pagamento registrado e nova conta recorrente criada"
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func DeletePayment(c *gin.Context) {

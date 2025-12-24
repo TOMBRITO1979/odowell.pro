@@ -12,7 +12,6 @@ import {
   Space,
   DatePicker,
   InputNumber,
-  Switch,
 } from 'antd';
 import {
   SaveOutlined,
@@ -30,7 +29,16 @@ const ExpenseForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
-  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceDays, setRecurrenceDays] = useState(0);
+
+  const recurrenceOptions = [
+    { value: 0, label: 'Não recorrente' },
+    { value: 7, label: 'A cada 7 dias (Semanal)' },
+    { value: 15, label: 'A cada 15 dias (Quinzenal)' },
+    { value: 30, label: 'A cada 30 dias (Mensal)' },
+    { value: 180, label: 'A cada 180 dias (Semestral)' },
+    { value: 360, label: 'A cada 360 dias (Anual)' },
+  ];
 
   const categoryOptions = [
     { value: 'salario', label: 'Salário / Funcionários' },
@@ -76,10 +84,11 @@ const ExpenseForm = () => {
       const response = await paymentsAPI.getOne(id);
       const expense = response.data.payment;
 
-      setIsRecurring(expense.is_installment || false);
+      setRecurrenceDays(expense.recurrence_days || 0);
 
       form.setFieldsValue({
         ...expense,
+        recurrence_days: expense.recurrence_days || 0,
         due_date: expense.due_date ? dayjs(expense.due_date) : null,
         paid_date: expense.paid_date ? dayjs(expense.paid_date) : null,
       });
@@ -94,11 +103,13 @@ const ExpenseForm = () => {
   const onFinish = async (values) => {
     setLoading(true);
     try {
+      const recDays = values.recurrence_days || 0;
       const data = {
         ...values,
         type: 'expense', // Sempre despesa
         patient_id: 1, // ID fictício - despesas não precisam de paciente real
-        is_installment: isRecurring,
+        is_recurring: recDays > 0,
+        recurrence_days: recDays,
       };
 
       // Converter datas para formato ISO
@@ -274,13 +285,21 @@ const ExpenseForm = () => {
 
           <Row gutter={16}>
             <Col xs={24} md={8}>
-              <Form.Item label="Conta Recorrente">
-                <Switch
-                  checked={isRecurring}
-                  onChange={setIsRecurring}
-                  checkedChildren="Sim"
-                  unCheckedChildren="Não"
-                />
+              <Form.Item
+                name="recurrence_days"
+                label="Recorrência"
+                initialValue={0}
+              >
+                <Select
+                  placeholder="Selecione a recorrência"
+                  onChange={(value) => setRecurrenceDays(value)}
+                >
+                  {recurrenceOptions.map((option) => (
+                    <Select.Option key={option.value} value={option.value}>
+                      {option.label}
+                    </Select.Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
           </Row>

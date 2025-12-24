@@ -72,10 +72,14 @@ type Payment struct {
 	RefundReason string     `gorm:"type:text" json:"refund_reason"`
 
 	// Insurance
-	IsInsurance bool   `gorm:"default:false" json:"is_insurance"`
+	IsInsurance   bool   `gorm:"default:false" json:"is_insurance"`
 	InsuranceName string `json:"insurance_name"`
 
-	Notes       string `gorm:"type:text" json:"notes"`
+	// Recurrence (for expenses)
+	IsRecurring    bool `gorm:"default:false" json:"is_recurring"`
+	RecurrenceDays int  `gorm:"default:0" json:"recurrence_days"` // 7, 15, 30, 180, 360
+
+	Notes string `gorm:"type:text" json:"notes"`
 }
 
 // Commission represents professional commissions
