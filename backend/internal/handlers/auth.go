@@ -71,6 +71,7 @@ type Claims struct {
 	Email        string                     `json:"email"`
 	Role         string                     `json:"role"`
 	IsSuperAdmin bool                       `json:"is_super_admin"`
+	TenantActive bool                       `json:"tenant_active,omitempty"` // Cached tenant active status
 	Permissions  map[string]map[string]bool `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
 }
@@ -585,6 +586,7 @@ func generateAccessToken(userID, tenantID uint, email, role string, isSuperAdmin
 		Email:        email,
 		Role:         role,
 		IsSuperAdmin: isSuperAdmin,
+		TenantActive: true, // PERFORMANCE: Cache tenant active status in JWT to skip DB lookup
 		Permissions:  permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(cache.AccessTokenExpiry)),
@@ -625,6 +627,7 @@ func generateToken(userID, tenantID uint, email, role string, isSuperAdmin bool)
 		Email:        email,
 		Role:         role,
 		IsSuperAdmin: isSuperAdmin,
+		TenantActive: true, // PERFORMANCE: Cache tenant active status in JWT
 		Permissions:  permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),

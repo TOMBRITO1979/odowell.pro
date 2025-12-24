@@ -18,11 +18,12 @@ import (
 
 // Claims represents JWT claims
 type Claims struct {
-	UserID      uint                       `json:"user_id"`
-	TenantID    uint                       `json:"tenant_id"`
-	Email       string                     `json:"email"`
-	Role        string                     `json:"role"`
-	Permissions map[string]map[string]bool `json:"permissions,omitempty"` // Optional for backward compatibility
+	UserID       uint                       `json:"user_id"`
+	TenantID     uint                       `json:"tenant_id"`
+	Email        string                     `json:"email"`
+	Role         string                     `json:"role"`
+	TenantActive bool                       `json:"tenant_active,omitempty"` // Cached tenant active status
+	Permissions  map[string]map[string]bool `json:"permissions,omitempty"`   // Optional for backward compatibility
 	jwt.RegisteredClaims
 }
 
@@ -99,6 +100,9 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("tenant_id", claims.TenantID)
 		c.Set("user_email", claims.Email)
 		c.Set("user_role", claims.Role)
+
+		// Set tenant active status from JWT (cached for performance)
+		c.Set("tenant_active", claims.TenantActive)
 
 		// Set permissions in context (may be nil for old tokens - backward compatibility)
 		if claims.Permissions != nil {

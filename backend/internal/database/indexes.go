@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"sync"
 )
 
 // ApplyTenantIndexes creates performance indexes for a specific tenant schema
@@ -274,6 +275,7 @@ func ApplyPublicSchemaForeignKeys() error {
 }
 
 // ApplyAllIndexesAndConstraints applies indexes and FK constraints to all schemas
+// PERFORMANCE: Uses parallel workers for tenant schemas to reduce startup time
 func ApplyAllIndexesAndConstraints() error {
 	log.Println("Starting indexes and constraints migration...")
 
@@ -299,17 +301,38 @@ func ApplyAllIndexesAndConstraints() error {
 		return fmt.Errorf("failed to list tenant schemas: %v", err)
 	}
 
-	// Apply indexes to each tenant
-	for _, schema := range schemas {
-		if err := ApplyTenantIndexes(schema); err != nil {
-			log.Printf("Warning: Error applying indexes to %s: %v", schema, err)
-		}
+	// PERFORMANCE: Apply indexes to tenant schemas in parallel
+	// Use 10 workers to balance speed vs database load
+	const maxWorkers = 10
+	schemasChan := make(chan string, len(schemas))
+	var wg sync.WaitGroup
+
+	// Start worker goroutines
+	for i := 0; i < maxWorkers && i < len(schemas); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for schema := range schemasChan {
+				if err := ApplyTenantIndexes(schema); err != nil {
+					log.Printf("Warning: Error applying indexes to %s: %v", schema, err)
+				}
+			}
+		}()
 	}
+
+	// Send schemas to workers
+	for _, schema := range schemas {
+		schemasChan <- schema
+	}
+	close(schemasChan)
+
+	// Wait for all workers to complete
+	wg.Wait()
 
 	// Reset search path
 	DB.Exec("SET search_path TO public")
 
-	log.Println("Indexes and constraints migration completed")
+	log.Printf("Indexes and constraints migration completed for %d schemas", len(schemas))
 	return nil
 }
 
@@ -357,6 +380,7 @@ func ApplyTenantPermissions(schemaName string) error {
 }
 
 // ApplyAllPermissions applies odowell_app permissions to all schemas
+// PERFORMANCE: Uses parallel workers for tenant schemas
 func ApplyAllPermissions() error {
 	log.Println("Starting permissions migration for odowell_app...")
 
@@ -378,13 +402,33 @@ func ApplyAllPermissions() error {
 		return fmt.Errorf("failed to list tenant schemas: %v", err)
 	}
 
-	// Apply permissions to each tenant
-	for _, schema := range schemas {
-		if err := ApplyTenantPermissions(schema); err != nil {
-			log.Printf("Warning: Error applying permissions to %s: %v", schema, err)
-		}
+	// PERFORMANCE: Apply permissions to tenant schemas in parallel
+	const maxWorkers = 10
+	schemasChan := make(chan string, len(schemas))
+	var wg sync.WaitGroup
+
+	// Start worker goroutines
+	for i := 0; i < maxWorkers && i < len(schemas); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for schema := range schemasChan {
+				if err := ApplyTenantPermissions(schema); err != nil {
+					log.Printf("Warning: Error applying permissions to %s: %v", schema, err)
+				}
+			}
+		}()
 	}
 
-	log.Println("Permissions migration completed")
+	// Send schemas to workers
+	for _, schema := range schemas {
+		schemasChan <- schema
+	}
+	close(schemasChan)
+
+	// Wait for all workers to complete
+	wg.Wait()
+
+	log.Printf("Permissions migration completed for %d schemas", len(schemas))
 	return nil
 }

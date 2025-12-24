@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -270,8 +271,8 @@ func WhatsAppVerifyIdentity(c *gin.Context) {
 		return
 	}
 
-	// Generate a simple session token (in production, use JWT or similar)
-	token := fmt.Sprintf("%d-%d", patient.ID, time.Now().Unix())
+	// Generate secure session token with UUID (not predictable)
+	token := uuid.New().String()
 
 	c.JSON(http.StatusOK, WhatsAppVerifyResponse{
 		Valid:     true,

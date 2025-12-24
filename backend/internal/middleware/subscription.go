@@ -91,7 +91,13 @@ func PatientLimitMiddleware() gin.HandlerFunc {
 		db := database.GetDB()
 		schemaName := c.GetString("schema")
 		if schemaName == "" {
-			schemaName = "tenant_1" // fallback
+			// SECURITY: Fail closed - do not fallback to tenant_1
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "schema_not_found",
+				"message": "Erro interno: schema não encontrado no contexto",
+			})
+			c.Abort()
+			return
 		}
 
 		var count int64

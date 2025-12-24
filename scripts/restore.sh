@@ -73,11 +73,11 @@ log "Container PostgreSQL: $POSTGRES_CONTAINER"
 # Criar backup de segurança antes de restaurar
 SAFETY_BACKUP="$BACKUP_DIR/pre_restore_$(date +%Y%m%d_%H%M%S).sql.gz"
 log "Criando backup de segurança: $SAFETY_BACKUP"
-docker exec "$POSTGRES_CONTAINER" pg_dump -U drcrwell_user -d drcrwell_db 2>/dev/null | gzip > "$SAFETY_BACKUP"
+docker exec "$POSTGRES_CONTAINER" pg_dump -U odowell_app -d drcrwell_db 2>/dev/null | gzip > "$SAFETY_BACKUP"
 
 # Restaurar
 log "Restaurando backup..."
-gunzip -c "$BACKUP_FILE" | docker exec -i "$POSTGRES_CONTAINER" psql -U drcrwell_user -d drcrwell_db 2>/dev/null
+gunzip -c "$BACKUP_FILE" | docker exec -i "$POSTGRES_CONTAINER" psql -U odowell_app -d drcrwell_db 2>/dev/null
 
 if [ $? -eq 0 ]; then
     log "Restauração concluída com sucesso!"

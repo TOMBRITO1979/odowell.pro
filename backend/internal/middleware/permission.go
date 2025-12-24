@@ -9,6 +9,7 @@ import (
 )
 
 // PermissionMiddleware checks if user has permission for a specific action on a module
+// PERFORMANCE: Uses cached permissions from JWT when available to avoid DB lookup
 func PermissionMiddleware(moduleCode, action string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get user ID from context (set by AuthMiddleware)
@@ -49,7 +50,28 @@ func PermissionMiddleware(moduleCode, action string) gin.HandlerFunc {
 			return
 		}
 
-		// Check if user has permission
+		// PERFORMANCE: First check cached permissions from JWT (new tokens have this)
+		if cachedPermissions, exists := c.Get("user_permissions"); exists {
+			if permissions, ok := cachedPermissions.(map[string]map[string]bool); ok {
+				// Check permission in cached map
+				if modulePerms, hasModule := permissions[moduleCode]; hasModule {
+					if hasAction, ok := modulePerms[action]; ok && hasAction {
+						c.Next()
+						return
+					}
+				}
+				// Permission not found in cache - deny access
+				c.JSON(http.StatusForbidden, gin.H{
+					"error":  "Insufficient permissions",
+					"module": moduleCode,
+					"action": action,
+				})
+				c.Abort()
+				return
+			}
+		}
+
+		// FALLBACK: Check permission in database (for old tokens without cached permissions)
 		hasPermission, err := CheckUserPermission(userID, moduleCode, action)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions", "details": err.Error()})

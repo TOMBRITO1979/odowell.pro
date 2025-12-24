@@ -12,6 +12,7 @@ import (
 
 // TenantMiddleware sets the database schema based on tenant
 // SECURITY: Validates that tenant exists and is active before granting access
+// PERFORMANCE: Uses cached tenant_active from JWT when available to avoid DB lookup
 func TenantMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tenantID, exists := c.Get("tenant_id")
@@ -21,7 +22,25 @@ func TenantMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// SECURITY: Validate tenant exists and is active before setting schema
+		// PERFORMANCE: Check if tenant_active is cached in JWT (new tokens have this)
+		tenantActiveInterface, hasCachedStatus := c.Get("tenant_active")
+		if hasCachedStatus {
+			tenantActive, ok := tenantActiveInterface.(bool)
+			if ok && tenantActive {
+				// Tenant active status cached in JWT - skip DB lookup
+				schemaName := fmt.Sprintf("tenant_%d", tenantID)
+				db := database.GetDB()
+				sessionDB := db.Session(&gorm.Session{})
+				tenantDB := database.SetSchema(sessionDB, schemaName)
+				c.Set("db", tenantDB)
+				c.Set("schema", schemaName)
+				c.Next()
+				return
+			}
+			// If cached as false or not a bool, fall through to DB check
+		}
+
+		// FALLBACK: Validate tenant in database (for old tokens without cached status)
 		db := database.GetDB()
 		var tenant models.Tenant
 		if err := db.First(&tenant, tenantID).Error; err != nil {
