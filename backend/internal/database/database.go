@@ -36,8 +36,15 @@ func Connect() error {
 		if os.Getenv("ENV") == "development" {
 			sslMode = "disable"
 		} else {
-			sslMode = "prefer"
+			sslMode = "require" // TLS obrigatorio em producao para proteger dados sensiveis
 		}
+	}
+
+	// Security validation: warn if SSL is disabled
+	if sslMode == "disable" {
+		log.Println("SECURITY WARNING: Database SSL is disabled - NOT RECOMMENDED for production!")
+	} else if sslMode == "prefer" {
+		log.Println("SECURITY WARNING: Database SSL mode 'prefer' may allow unencrypted connections")
 	}
 
 	// Get timezone from environment variable, default to America/Sao_Paulo

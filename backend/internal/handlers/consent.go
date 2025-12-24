@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/middleware"
 	"drcrwell/backend/internal/models"
 	"encoding/base64"
@@ -446,16 +447,11 @@ func GenerateTemplatePDF(c *gin.Context) {
 		return
 	}
 
-	// Get tenant info for clinic data
+	// Get tenant info for clinic data (from public schema)
 	tenantID, _ := c.Get("tenant_id")
 	var tenant models.Tenant
-	dbPublicRaw := middleware.GetDBFromContext(c)
-	dbPublic, ok := dbPublicRaw.(*gorm.DB)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro interno: conexão com banco de dados"})
-		return
-	}
-	dbPublic.Exec("SET search_path TO public")
+	// Use database.GetDB() directly for public schema access (tenant data is in public schema)
+	dbPublic := database.GetDB()
 	dbPublic.First(&tenant, tenantID)
 
 	// Create PDF with Unicode translator

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/models"
 	"fmt"
 	"net/http"
 
@@ -10,6 +11,7 @@ import (
 )
 
 // TenantMiddleware sets the database schema based on tenant
+// SECURITY: Validates that tenant exists and is active before granting access
 func TenantMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tenantID, exists := c.Get("tenant_id")
@@ -19,11 +21,26 @@ func TenantMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// SECURITY: Validate tenant exists and is active before setting schema
+		db := database.GetDB()
+		var tenant models.Tenant
+		if err := db.First(&tenant, tenantID).Error; err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tenant not found"})
+			c.Abort()
+			return
+		}
+
+		// Check if tenant is active
+		if !tenant.Active {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tenant account is inactive"})
+			c.Abort()
+			return
+		}
+
 		// Set tenant-specific schema using a new session to ensure search_path persists
 		schemaName := fmt.Sprintf("tenant_%d", tenantID)
 
 		// Create a new DB session with tenant schema
-		db := database.GetDB()
 		sessionDB := db.Session(&gorm.Session{})
 		tenantDB := database.SetSchema(sessionDB, schemaName)
 
@@ -36,10 +53,15 @@ func TenantMiddleware() gin.HandlerFunc {
 }
 
 // GetDBFromContext retrieves the tenant-specific database from context
+// DEPRECATED: Use GetDBFromContextSafe from middleware/context.go instead
+// This function now fails closed (returns nil) instead of falling back to global DB
+// to prevent accidental cross-tenant data access
 func GetDBFromContext(c *gin.Context) interface{} {
 	db, exists := c.Get("db")
 	if !exists {
-		return database.GetDB()
+		// SECURITY: Fail closed - do not fallback to global DB
+		// This prevents accidental access to wrong tenant data
+		return nil
 	}
 	return db
 }
