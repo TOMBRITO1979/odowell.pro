@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func CreateCampaign(c *gin.Context) {
@@ -167,17 +168,23 @@ func DeleteCampaign(c *gin.Context) {
 
 func SendCampaign(c *gin.Context) {
 	id := c.Param("id")
+	log.Printf("SendCampaign: Iniciando envio da campanha %s", id)
+
 	db, ok := middleware.GetDBFromContextSafe(c)
 	if !ok {
+		log.Printf("SendCampaign: Falha ao obter DB do contexto")
 		return
 	}
 	tenantID := c.GetUint("tenant_id")
+	log.Printf("SendCampaign: tenant_id=%d", tenantID)
 
 	var campaign models.Campaign
 	if err := db.First(&campaign, id).Error; err != nil {
+		log.Printf("SendCampaign: Campanha não encontrada: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Campanha não encontrada"})
 		return
 	}
+	log.Printf("SendCampaign: Campanha encontrada, status=%s, type=%s", campaign.Status, campaign.Type)
 
 	if campaign.Status != "draft" && campaign.Status != "scheduled" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Campanha já foi enviada"})
@@ -191,19 +198,24 @@ func SendCampaign(c *gin.Context) {
 	}
 
 	// Get tenant SMTP settings (use database.DB for public schema)
+	log.Printf("SendCampaign: Buscando configurações SMTP para tenant %d", tenantID)
 	var settings models.TenantSettings
 	if err := database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).First(&settings).Error; err != nil {
+		log.Printf("SendCampaign: Configurações SMTP não encontradas: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Configurações SMTP não encontradas. Configure o SMTP em Configurações."})
 		return
 	}
+	log.Printf("SendCampaign: SMTP Host=%s, Port=%d, Username=%s", settings.SMTPHost, settings.SMTPPort, settings.SMTPUsername)
 
 	// Validate SMTP configuration
 	if settings.SMTPHost == "" || settings.SMTPUsername == "" || settings.SMTPPassword == "" || settings.SMTPFromEmail == "" {
+		log.Printf("SendCampaign: Configurações SMTP incompletas")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Configurações SMTP incompletas. Configure o SMTP em Configurações."})
 		return
 	}
 
 	// Decrypt password
+	log.Printf("SendCampaign: Descriptografando senha SMTP")
 	password, err := helpers.DecryptIfNeeded(settings.SMTPPassword)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao descriptografar senha SMTP"})
@@ -227,44 +239,47 @@ func SendCampaign(c *gin.Context) {
 		UseTLS:    settings.SMTPUseTLS,
 	}
 
-	// Get recipients based on segmentation
+	// Get recipients based on segmentation using raw SQL to avoid prepared statement issues
 	var patients []models.Patient
-	query := db.Model(&models.Patient{}).Where("active = ?", true)
-
-	// Filter patients with valid email
-	query = query.Where("email IS NOT NULL AND email != ''")
+	baseQuery := "SELECT * FROM patients WHERE deleted_at IS NULL AND (active = true OR active IS NULL) AND email IS NOT NULL AND email != ''"
 
 	if campaign.SegmentType == "tags" && campaign.Tags != "" {
 		tags := strings.Split(campaign.Tags, ",")
 		for _, tag := range tags {
-			query = query.Where("tags ILIKE ?", "%"+strings.TrimSpace(tag)+"%")
+			baseQuery += " AND tags ILIKE '%" + strings.TrimSpace(tag) + "%'"
 		}
 	}
 
-	if err := query.Find(&patients).Error; err != nil {
+	log.Printf("SendCampaign: Executando query: %s", baseQuery)
+	// Use fresh session to avoid prepared statement cache issues
+	if err := db.Session(&gorm.Session{PrepareStmt: false}).Raw(baseQuery).Scan(&patients).Error; err != nil {
+		log.Printf("SendCampaign: Erro ao buscar pacientes: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar destinatários"})
 		return
 	}
+	log.Printf("SendCampaign: Encontrados %d pacientes com email", len(patients))
 
 	if len(patients) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Nenhum paciente com email encontrado para esta campanha"})
 		return
 	}
 
-	// Start sending campaign
-	tx := db.Begin()
-
-	// Update campaign status to sending
-	campaign.Status = "sending"
-	campaign.TotalRecipients = len(patients)
+	// Update campaign status to sending using raw SQL with fresh session
 	now := time.Now()
-	campaign.ScheduledAt = &now
-	if err := tx.Save(&campaign).Error; err != nil {
-		tx.Rollback()
+	log.Printf("SendCampaign: Atualizando status da campanha para 'sending'")
+	if err := db.Session(&gorm.Session{PrepareStmt: false}).Exec(`
+		UPDATE campaigns
+		SET status = 'sending', total_recipients = ?, scheduled_at = ?, updated_at = ?
+		WHERE id = ? AND deleted_at IS NULL
+	`, len(patients), now, now, campaign.ID).Error; err != nil {
+		log.Printf("SendCampaign: Erro ao atualizar campanha: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao atualizar campanha"})
 		return
 	}
-	tx.Commit()
+	log.Printf("SendCampaign: Campanha atualizada com sucesso")
+
+	// Reload campaign with updated values using fresh session
+	db.Session(&gorm.Session{PrepareStmt: false}).First(&campaign, campaign.ID)
 
 	// Send emails in a goroutine to avoid blocking the request
 	go func() {
@@ -272,13 +287,18 @@ func SendCampaign(c *gin.Context) {
 		failedCount := 0
 
 		for _, patient := range patients {
-			// Create recipient record
-			recipient := models.CampaignRecipient{
-				CampaignID: campaign.ID,
-				PatientID:  patient.ID,
-				Status:     "pending",
+			// Create recipient record using raw SQL to avoid GORM association issues
+			var recipientID uint
+			now := time.Now()
+			err := db.Session(&gorm.Session{PrepareStmt: false}).Raw(`
+				INSERT INTO campaign_recipients (created_at, updated_at, campaign_id, patient_id, status)
+				VALUES (?, ?, ?, ?, 'pending')
+				RETURNING id
+			`, now, now, campaign.ID, patient.ID).Scan(&recipientID).Error
+			if err != nil {
+				log.Printf("Erro ao criar recipient para paciente %d: %v", patient.ID, err)
+				continue
 			}
-			db.Create(&recipient)
 
 			// Build email body
 			patientName := patient.Name
@@ -289,37 +309,42 @@ func SendCampaign(c *gin.Context) {
 			body := helpers.BuildCampaignEmailBody(clinicName, patientName, campaign.Message)
 
 			// Send email
-			err := helpers.SendTenantEmail(emailConfig, patient.Email, campaign.Subject, body)
+			err = helpers.SendTenantEmail(emailConfig, patient.Email, campaign.Subject, body)
 
-			sentTime := time.Now()
 			if err != nil {
 				// Update recipient as failed
-				recipient.Status = "failed"
-				recipient.ErrorMessage = err.Error()
+				db.Session(&gorm.Session{PrepareStmt: false}).Exec(`
+					UPDATE campaign_recipients
+					SET status = 'failed', error_message = ?, updated_at = ?
+					WHERE id = ?
+				`, err.Error(), time.Now(), recipientID)
 				failedCount++
 				log.Printf("Falha ao enviar email para %s: %v", patient.Email, err)
 			} else {
 				// Update recipient as sent
-				recipient.Status = "sent"
-				recipient.SentAt = &sentTime
+				sentTime := time.Now()
+				db.Session(&gorm.Session{PrepareStmt: false}).Exec(`
+					UPDATE campaign_recipients
+					SET status = 'sent', sent_at = ?, updated_at = ?
+					WHERE id = ?
+				`, sentTime, sentTime, recipientID)
 				sentCount++
 				log.Printf("Email enviado com sucesso para %s", patient.Email)
 			}
-			db.Save(&recipient)
 		}
 
-		// Update campaign statistics
+		// Update campaign statistics using raw SQL with fresh session
 		completedAt := time.Now()
-		db.Model(&campaign).Updates(map[string]interface{}{
-			"status":  "sent",
-			"sent":    sentCount,
-			"failed":  failedCount,
-			"sent_at": completedAt,
-		})
+		db.Session(&gorm.Session{PrepareStmt: false}).Exec(`
+			UPDATE campaigns
+			SET status = 'sent', sent = ?, failed = ?, sent_at = ?, updated_at = ?
+			WHERE id = ? AND deleted_at IS NULL
+		`, sentCount, failedCount, completedAt, completedAt, campaign.ID)
 
 		log.Printf("Campanha %d concluída: %d enviados, %d falhados", campaign.ID, sentCount, failedCount)
 	}()
 
+	log.Printf("SendCampaign: Respondendo sucesso - campanha iniciada")
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "Campanha iniciada. Os emails estão sendo enviados.",
 		"campaign":   campaign,

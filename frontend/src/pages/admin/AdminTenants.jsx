@@ -553,7 +553,12 @@ const AdminTenants = () => {
           dataSource={tenants}
           rowKey="id"
           loading={loading}
-          pagination={{ pageSize: 10 }}
+          pagination={{
+            defaultPageSize: 20,
+            pageSizeOptions: ['20', '50', '100'],
+            showSizeChanger: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} de ${total} clínicas`,
+          }}
         />
       </Card>
 
