@@ -128,6 +128,9 @@ func processTenantCampaigns(db *gorm.DB, tenantID uint, now time.Time) {
 		UseTLS:    settings.SMTPUseTLS,
 	}
 
+	log.Printf("Campaign Scheduler: SMTP config for tenant %d - Host: %s, Port: %d, Username: %s, FromEmail: %s, UseTLS: %v",
+		tenantID, settings.SMTPHost, settings.SMTPPort, settings.SMTPUsername, settings.SMTPFromEmail, settings.SMTPUseTLS)
+
 	// Process each campaign
 	for _, campaign := range campaigns {
 		processCampaign(tenantDB, schemaName, campaign, emailConfig, clinicName)
@@ -215,6 +218,7 @@ func processCampaign(db *gorm.DB, schemaName string, campaign models.Campaign, e
 		body := helpers.BuildCampaignEmailBody(clinicName, patientName, campaign.Message)
 
 		// Send email
+		log.Printf("Campaign Scheduler: Sending email to %s, Subject: %s, From: %s", patient.Email, campaign.Subject, emailConfig.FromEmail)
 		err = helpers.SendTenantEmail(emailConfig, patient.Email, campaign.Subject, body)
 
 		if err != nil {
