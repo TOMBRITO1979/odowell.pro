@@ -71,12 +71,14 @@ const CampaignForm = () => {
       const data = {
         ...values,
         created_by_id: user.id,
-        status: 'draft',
       };
 
-      // Converter data para formato ISO
+      // Converter data para formato ISO e definir status
       if (values.scheduled_at) {
         data.scheduled_at = values.scheduled_at.toISOString();
+        data.status = 'scheduled';
+      } else {
+        data.status = 'draft';
       }
 
       if (id) {
