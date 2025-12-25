@@ -18,8 +18,15 @@ import {
   NotificationOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import { campaignsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Configurar timezone para Brasil
+dayjs.extend(utc);
+dayjs.extend(timezone);
+const BRAZIL_TZ = 'America/Sao_Paulo';
 
 const { TextArea } = Input;
 
@@ -56,7 +63,8 @@ const CampaignForm = () => {
 
       form.setFieldsValue({
         ...campaign,
-        scheduled_at: campaign.scheduled_at ? dayjs(campaign.scheduled_at) : null,
+        // Converter para timezone do Brasil ao carregar
+        scheduled_at: campaign.scheduled_at ? dayjs(campaign.scheduled_at).tz(BRAZIL_TZ) : null,
       });
     } catch (error) {
       message.error('Erro ao carregar campanha');
@@ -73,9 +81,14 @@ const CampaignForm = () => {
         created_by_id: user.id,
       };
 
-      // Converter data para formato ISO e definir status
+      // Converter data para formato ISO no timezone do Brasil e definir status
       if (values.scheduled_at) {
-        data.scheduled_at = values.scheduled_at.toISOString();
+        // Interpretar o horário selecionado como sendo do Brasil
+        const brazilTime = dayjs.tz(
+          values.scheduled_at.format('YYYY-MM-DD HH:mm:ss'),
+          BRAZIL_TZ
+        );
+        data.scheduled_at = brazilTime.toISOString();
         data.status = 'scheduled';
       } else {
         data.status = 'draft';
@@ -178,7 +191,7 @@ const CampaignForm = () => {
             <Col xs={24} md={12}>
               <Form.Item
                 name="scheduled_at"
-                label="Agendar Para"
+                label="Agendar Para (Horário de Brasília)"
               >
                 <DatePicker
                   showTime

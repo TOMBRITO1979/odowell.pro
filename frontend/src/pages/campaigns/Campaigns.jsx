@@ -21,8 +21,15 @@ import {
   NotificationOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import { campaignsAPI } from '../../services/api';
 import { actionColors } from '../../theme/designSystem';
+
+// Configurar timezone para Brasil
+dayjs.extend(utc);
+dayjs.extend(timezone);
+const BRAZIL_TZ = 'America/Sao_Paulo';
 
 const Campaigns = () => {
   const navigate = useNavigate();
@@ -159,11 +166,18 @@ const Campaigns = () => {
       },
     },
     {
+      title: 'Agendada',
+      dataIndex: 'scheduled_at',
+      key: 'scheduled_at',
+      width: 130,
+      render: (date) => date ? dayjs(date).tz(BRAZIL_TZ).format('DD/MM HH:mm') : '-',
+    },
+    {
       title: 'Criado',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 100,
-      render: (date) => dayjs(date).format('DD/MM/YYYY'),
+      render: (date) => dayjs(date).tz(BRAZIL_TZ).format('DD/MM/YYYY'),
     },
     {
       title: 'Ações',
