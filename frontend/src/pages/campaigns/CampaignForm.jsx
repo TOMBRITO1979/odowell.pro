@@ -81,11 +81,10 @@ const CampaignForm = () => {
         created_by_id: user.id,
       };
 
-      // Enviar data no horário de Brasília (sem converter para UTC)
+      // Enviar data no horário de Brasília com timezone explícito
       if (values.scheduled_at) {
-        // Formatar como ISO 8601 mas sem conversão para UTC
-        // O backend e banco usam horário de Brasília
-        data.scheduled_at = values.scheduled_at.format('YYYY-MM-DDTHH:mm:ss');
+        // Formatar como ISO 8601 com timezone de Brasília (-03:00)
+        data.scheduled_at = values.scheduled_at.format('YYYY-MM-DDTHH:mm:ss') + '-03:00';
         data.status = 'scheduled';
       } else {
         data.status = 'draft';
