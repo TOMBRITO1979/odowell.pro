@@ -170,14 +170,14 @@ const Campaigns = () => {
       dataIndex: 'scheduled_at',
       key: 'scheduled_at',
       width: 130,
-      render: (date) => date ? dayjs(date).tz(BRAZIL_TZ).format('DD/MM HH:mm') : '-',
+      render: (date) => date ? dayjs(date).format('DD/MM HH:mm') : '-',
     },
     {
       title: 'Criado',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 100,
-      render: (date) => dayjs(date).tz(BRAZIL_TZ).format('DD/MM/YYYY'),
+      render: (date) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'Ações',

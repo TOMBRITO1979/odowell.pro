@@ -63,8 +63,8 @@ const CampaignForm = () => {
 
       form.setFieldsValue({
         ...campaign,
-        // Converter para timezone do Brasil ao carregar
-        scheduled_at: campaign.scheduled_at ? dayjs(campaign.scheduled_at).tz(BRAZIL_TZ) : null,
+        // A data já vem no horário de Brasília do banco
+        scheduled_at: campaign.scheduled_at ? dayjs(campaign.scheduled_at) : null,
       });
     } catch (error) {
       message.error('Erro ao carregar campanha');
