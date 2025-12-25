@@ -170,14 +170,31 @@ const Campaigns = () => {
       dataIndex: 'scheduled_at',
       key: 'scheduled_at',
       width: 130,
-      render: (date) => date ? dayjs(date).format('DD/MM HH:mm') : '-',
+      // Extrair horário da string ISO sem conversão de timezone
+      render: (date) => {
+        if (!date) return '-';
+        // A data vem como "2025-12-25T15:25:00-03:00"
+        // Extrair diretamente: dia/mês hora:min
+        const match = date.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+        if (match) {
+          return `${match[3]}/${match[2]} ${match[4]}:${match[5]}`;
+        }
+        return '-';
+      },
     },
     {
       title: 'Criado',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 100,
-      render: (date) => dayjs(date).format('DD/MM/YYYY'),
+      render: (date) => {
+        if (!date) return '-';
+        const match = date.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+          return `${match[3]}/${match[2]}/${match[1]}`;
+        }
+        return '-';
+      },
     },
     {
       title: 'Ações',
