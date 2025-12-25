@@ -81,14 +81,11 @@ const CampaignForm = () => {
         created_by_id: user.id,
       };
 
-      // Converter data para formato ISO no timezone do Brasil e definir status
+      // Enviar data no horário de Brasília (sem converter para UTC)
       if (values.scheduled_at) {
-        // Interpretar o horário selecionado como sendo do Brasil
-        const brazilTime = dayjs.tz(
-          values.scheduled_at.format('YYYY-MM-DD HH:mm:ss'),
-          BRAZIL_TZ
-        );
-        data.scheduled_at = brazilTime.toISOString();
+        // Formatar como ISO 8601 mas sem conversão para UTC
+        // O backend e banco usam horário de Brasília
+        data.scheduled_at = values.scheduled_at.format('YYYY-MM-DDTHH:mm:ss');
         data.status = 'scheduled';
       } else {
         data.status = 'draft';

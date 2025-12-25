@@ -23,7 +23,13 @@ func CreateCampaign(c *gin.Context) {
 	}
 
 	campaign.CreatedByID = c.GetUint("user_id")
-	campaign.Status = "draft"
+
+	// Se tem scheduled_at, definir status como scheduled, senão draft
+	if campaign.ScheduledAt != nil && !campaign.ScheduledAt.IsZero() {
+		campaign.Status = "scheduled"
+	} else if campaign.Status == "" {
+		campaign.Status = "draft"
+	}
 
 	// Set default empty JSON for JSONB field if empty (PostgreSQL requires valid JSON)
 	if campaign.Filters == "" {
