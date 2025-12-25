@@ -30,6 +30,8 @@ func StartCampaignScheduler() {
 
 // processScheduledCampaigns finds and processes campaigns that are ready to be sent
 func processScheduledCampaigns() {
+	log.Printf("Campaign Scheduler: Running check at %s", time.Now().Format("15:04:05"))
+
 	db := database.GetDB()
 	if db == nil {
 		log.Println("Campaign Scheduler: Database not initialized")
@@ -55,6 +57,8 @@ func processScheduledCampaigns() {
 		log.Printf("Campaign Scheduler: Error finding tenants: %v", err)
 		return
 	}
+
+	log.Printf("Campaign Scheduler: Found %d active tenants to check", len(tenantIDs))
 
 	for _, tenantID := range tenantIDs {
 		processTenantCampaigns(db, tenantID, now)
