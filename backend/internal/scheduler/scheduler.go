@@ -16,6 +16,9 @@ func StartScheduler() {
 
 	// Start LGPD SLA deadline checker
 	go StartSLAChecker()
+
+	// Start campaign scheduler for scheduled campaigns
+	go StartCampaignScheduler()
 }
 
 // runTrialExpirationChecker runs every hour to check and deactivate expired trials
