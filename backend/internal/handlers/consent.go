@@ -510,13 +510,13 @@ func GenerateTemplatePDF(c *gin.Context) {
 	// Local e Data
 	pdf.SetFont("Arial", "", 10)
 	pdf.SetTextColor(51, 51, 51)
-	pdf.Cell(30, 6, tr("Local e Data:"), "", 0, "L", false)
-	pdf.Cell(0, 6, "_______________, ______ de __________________ de ________", "", 0, "L", false)
+	pdf.CellFormat(30, 6, tr("Local e Data:"), "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 6, "_______________, ______ de __________________ de ________", "", 0, "L", false, 0, "")
 	pdf.Ln(20)
 
 	// Assinatura do Paciente/Responsável
 	pdf.SetFont("Arial", "B", 10)
-	pdf.Cell(0, 6, tr("PACIENTE / RESPONSAVEL LEGAL"), "", 0, "C", false)
+	pdf.CellFormat(0, 6, tr("PACIENTE / RESPONSAVEL LEGAL"), "", 0, "C", false, 0, "")
 	pdf.Ln(15)
 
 	// Linha de assinatura do paciente
@@ -524,24 +524,24 @@ func GenerateTemplatePDF(c *gin.Context) {
 	pdf.Line(40, pdf.GetY(), 170, pdf.GetY())
 	pdf.Ln(2)
 	pdf.SetFont("Arial", "", 9)
-	pdf.Cell(0, 5, tr("Assinatura"), "", 0, "C", false)
+	pdf.CellFormat(0, 5, tr("Assinatura"), "", 0, "C", false, 0, "")
 	pdf.Ln(8)
 
 	// Campo para nome do paciente
 	pdf.SetFont("Arial", "", 10)
-	pdf.Cell(30, 6, tr("Nome:"), "", 0, "L", false)
+	pdf.CellFormat(30, 6, tr("Nome:"), "", 0, "L", false, 0, "")
 	pdf.SetDrawColor(180, 180, 180)
 	pdf.Line(45, pdf.GetY()+5, 170, pdf.GetY()+5)
 	pdf.Ln(10)
 
 	// Campo para CPF
-	pdf.Cell(30, 6, tr("CPF:"), "", 0, "L", false)
+	pdf.CellFormat(30, 6, tr("CPF:"), "", 0, "L", false, 0, "")
 	pdf.Line(45, pdf.GetY()+5, 120, pdf.GetY()+5)
 	pdf.Ln(20)
 
 	// Assinatura do Dentista
 	pdf.SetFont("Arial", "B", 10)
-	pdf.Cell(0, 6, tr("CIRURGIAO-DENTISTA RESPONSAVEL"), "", 0, "C", false)
+	pdf.CellFormat(0, 6, tr("CIRURGIAO-DENTISTA RESPONSAVEL"), "", 0, "C", false, 0, "")
 	pdf.Ln(15)
 
 	// Linha de assinatura do dentista
@@ -549,18 +549,18 @@ func GenerateTemplatePDF(c *gin.Context) {
 	pdf.Line(40, pdf.GetY(), 170, pdf.GetY())
 	pdf.Ln(2)
 	pdf.SetFont("Arial", "", 9)
-	pdf.Cell(0, 5, tr("Assinatura"), "", 0, "C", false)
+	pdf.CellFormat(0, 5, tr("Assinatura"), "", 0, "C", false, 0, "")
 	pdf.Ln(8)
 
 	// Campo para nome do dentista
 	pdf.SetFont("Arial", "", 10)
-	pdf.Cell(30, 6, tr("Nome:"), "", 0, "L", false)
+	pdf.CellFormat(30, 6, tr("Nome:"), "", 0, "L", false, 0, "")
 	pdf.SetDrawColor(180, 180, 180)
 	pdf.Line(45, pdf.GetY()+5, 170, pdf.GetY()+5)
 	pdf.Ln(10)
 
 	// Campo para CRO
-	pdf.Cell(30, 6, tr("CRO:"), "", 0, "L", false)
+	pdf.CellFormat(30, 6, tr("CRO:"), "", 0, "L", false, 0, "")
 	pdf.Line(45, pdf.GetY()+5, 100, pdf.GetY()+5)
 	pdf.Ln(15)
 
@@ -968,18 +968,18 @@ func GenerateConsentPDF(c *gin.Context) {
 	pdf.Ln(2)
 	pdf.SetFont("Arial", "", 9)
 	pdf.SetTextColor(51, 51, 51)
-	pdf.Cell(0, 5, tr("Assinatura"), "", 0, "C", false)
+	pdf.CellFormat(0, 5, tr("Assinatura"), "", 0, "C", false, 0, "")
 	pdf.Ln(8)
 
 	// Campo para nome do dentista
 	pdf.SetFont("Arial", "", 10)
-	pdf.Cell(30, 6, tr("Nome:"), "", 0, "L", false)
+	pdf.CellFormat(30, 6, tr("Nome:"), "", 0, "L", false, 0, "")
 	pdf.SetDrawColor(180, 180, 180)
 	pdf.Line(45, pdf.GetY()+5, 170, pdf.GetY()+5)
 	pdf.Ln(10)
 
 	// Campo para CRO
-	pdf.Cell(30, 6, tr("CRO:"), "", 0, "L", false)
+	pdf.CellFormat(30, 6, tr("CRO:"), "", 0, "L", false, 0, "")
 	pdf.Line(45, pdf.GetY()+5, 100, pdf.GetY()+5)
 	pdf.Ln(10)
 
