@@ -656,7 +656,8 @@ func WhatsAppCancelAppointment(c *gin.Context) {
 		notes += fmt.Sprintf("[Cancelado via WhatsApp em %s]", time.Now().Format("02/01/2006 15:04"))
 	}
 
-	err = db.Model(&appointment).Updates(map[string]interface{}{
+	// Use fresh session to avoid GORM state pollution from previous queries
+	err = db.Session(&gorm.Session{}).Model(&models.Appointment{}).Where("id = ?", appointment.ID).Updates(map[string]interface{}{
 		"status": "cancelled",
 		"notes":  notes,
 	}).Error
@@ -928,9 +929,9 @@ func WhatsAppRescheduleAppointment(c *gin.Context) {
 		dentistID = *req.PreferredDentist
 	}
 
-	// Check if slot is available
+	// Check if slot is available (use fresh session to avoid state pollution)
 	var conflictCount int64
-	db.Model(&models.Appointment{}).
+	db.Session(&gorm.Session{}).Model(&models.Appointment{}).
 		Where("dentist_id = ? AND id != ? AND status NOT IN (?)", dentistID, appointment.ID, []string{"cancelled"}).
 		Where("(start_time < ? AND end_time > ?) OR (start_time < ? AND end_time > ?) OR (start_time >= ? AND end_time <= ?)",
 			newEndTime, newStartTime, newEndTime, newStartTime, newStartTime, newEndTime).
@@ -958,7 +959,8 @@ func WhatsAppRescheduleAppointment(c *gin.Context) {
 		oldDate, oldTime,
 		newStartTime.Format("02/01/2006"), newStartTime.Format("15:04"))
 
-	err = db.Model(&appointment).Updates(map[string]interface{}{
+	// Use fresh session to avoid GORM state pollution from previous queries
+	err = db.Session(&gorm.Session{}).Model(&models.Appointment{}).Where("id = ?", appointment.ID).Updates(map[string]interface{}{
 		"start_time": newStartTime,
 		"end_time":   newEndTime,
 		"dentist_id": dentistID,
@@ -1093,14 +1095,32 @@ func WhatsAppAddToWaitingList(c *gin.Context) {
 	}
 	entry.Notes += fmt.Sprintf("[Adicionado via WhatsApp em %s]", time.Now().Format("02/01/2006 15:04"))
 
-	// Use fresh session for create to avoid GORM contamination
-	if err := db.Session(&gorm.Session{}).Create(&entry).Error; err != nil {
+	// Use raw SQL to insert to avoid GORM state contamination from previous Raw queries
+	insertSQL := fmt.Sprintf(`INSERT INTO %s.waiting_lists
+		(patient_id, dentist_id, procedure, preferred_dates, priority, status, notes, created_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+		RETURNING id`, schemaName)
+
+	var newID uint
+	err := db.Raw(insertSQL,
+		entry.PatientID,
+		entry.DentistID,
+		entry.Procedure,
+		entry.PreferredDates,
+		entry.Priority,
+		entry.Status,
+		entry.Notes,
+		entry.CreatedBy,
+	).Scan(&newID).Error
+
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   true,
 			"message": "Erro ao adicionar à lista de espera",
 		})
 		return
 	}
+	entry.ID = newID
 
 	c.JSON(http.StatusCreated, gin.H{
 		"error":   false,
