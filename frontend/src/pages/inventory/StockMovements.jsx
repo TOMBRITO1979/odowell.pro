@@ -58,6 +58,7 @@ const StockMovements = () => {
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
   const [pagination, setPagination] = useState({
@@ -65,6 +66,12 @@ const StockMovements = () => {
     pageSize: 20,
     total: 0,
   });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [filters, setFilters] = useState({
     product_id: undefined,
     type: undefined,
@@ -472,6 +479,39 @@ const StockMovements = () => {
     }).format(value || 0);
   };
 
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (movements.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhuma movimentação encontrada</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {movements.map((record) => (
+          <Card key={record.id} size="small" style={{ borderLeft: `4px solid ${record.type === 'entry' ? '#52c41a' : record.type === 'exit' ? '#ff4d4f' : '#faad14'}` }} bodyStyle={{ padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{getProductName(record.product_id)}</div>
+              {getTypeTag(record.type)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>Data:</strong><br />{dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+              <div><strong>Qtd:</strong><br /><span style={{ color: record.type === 'entry' ? '#81C784' : '#E57373', fontWeight: 'bold' }}>{record.type === 'entry' ? '+' : record.type === 'exit' ? '-' : ''}{record.quantity}</span></div>
+              <div><strong>Motivo:</strong><br />{getReasonLabel(record.reason)}</div>
+              <div><strong>Valor:</strong><br />{record.reason === 'sale' && record.total_price > 0 ? <Text strong style={{ color: '#52c41a' }}>{formatCurrency(record.total_price)}</Text> : '-'}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => handleView(record)} style={{ color: actionColors.view }}>Ver</Button>
+              {canEdit('stock_movements') && <Button type="text" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} style={{ color: actionColors.edit }}>Editar</Button>}
+              {record.reason === 'sale' && <Button type="text" size="small" icon={<PrinterOutlined />} onClick={() => handleDownloadSaleReceipt(record.id)} style={{ color: actionColors.print }}>Recibo</Button>}
+            </div>
+          </Card>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '16px', padding: '12px', background: '#fafafa', borderRadius: '8px' }}>
+          <Button disabled={pagination.current === 1} onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}>Anterior</Button>
+          <span style={{ fontSize: '13px' }}>Pág. {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}</span>
+          <Button disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)} onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}>Próxima</Button>
+        </div>
+      </div>
+    );
+  };
+
   const columns = [
     {
       title: 'Data',
@@ -729,19 +769,21 @@ const StockMovements = () => {
                       />
                     </BarChart>
                   </ResponsiveContainer>
-                  {/* Product Index Legend */}
-                  <div style={{
-                    marginTop: 16,
-                    padding: '12px 16px',
-                    backgroundColor: '#fafafa',
-                    borderRadius: 6,
-                    fontSize: 13,
-                    color: '#555',
-                    lineHeight: 1.8
-                  }}>
-                    <Text strong style={{ color: '#444', marginRight: 8 }}>Índice:</Text>
-                    {productIndexLegend}
-                  </div>
+                  {/* Product Index Legend - hidden on mobile */}
+                  {!isMobile && (
+                    <div style={{
+                      marginTop: 16,
+                      padding: '12px 16px',
+                      backgroundColor: '#fafafa',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      color: '#555',
+                      lineHeight: 1.8
+                    }}>
+                      <Text strong style={{ color: '#444', marginRight: 8 }}>Índice:</Text>
+                      {productIndexLegend}
+                    </div>
+                  )}
                 </Card>
               </Col>
             </Row>
@@ -765,33 +807,56 @@ const StockMovements = () => {
       {/* Main Movements Table */}
       <Card
         title={
-          <Space>
-            <InboxOutlined />
-            <span>Movimentacoes de Estoque</span>
-          </Space>
+          isMobile ? null : (
+            <Space>
+              <InboxOutlined />
+              <span>Movimentacoes de Estoque</span>
+            </Space>
+          )
         }
         extra={
-          <Space>
-            <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}>
-              Exportar CSV
-            </Button>
-            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}>
-              Gerar PDF
-            </Button>
-            <Button
-              icon={<PlusOutlined />}
-              onClick={showModal}
-              style={{
-                backgroundColor: actionColors.create,
-                borderColor: actionColors.create,
-                color: '#fff'
-              }}
-            >
-              Nova Movimentacao
-            </Button>
-          </Space>
+          isMobile ? null : (
+            <Space>
+              <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}>
+                Exportar CSV
+              </Button>
+              <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}>
+                Gerar PDF
+              </Button>
+              <Button
+                icon={<PlusOutlined />}
+                onClick={showModal}
+                style={{
+                  backgroundColor: actionColors.create,
+                  borderColor: actionColors.create,
+                  color: '#fff'
+                }}
+              >
+                Nova Movimentacao
+              </Button>
+            </Space>
+          )
         }
       >
+        {isMobile && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button icon={<FileExcelOutlined />} onClick={handleExportCSV} size="small" style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}>
+                CSV
+              </Button>
+              <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} size="small" style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}>
+                PDF
+              </Button>
+              <Button icon={<PlusOutlined />} onClick={showModal} size="small" style={{ backgroundColor: actionColors.create, borderColor: actionColors.create, color: '#fff' }}>
+                Novo
+              </Button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+              <InboxOutlined style={{ fontSize: '18px' }} />
+              <span style={{ fontSize: '16px', fontWeight: 600 }}>Movimentações</span>
+            </div>
+          </div>
+        )}
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={8}>
             <Select
@@ -836,15 +901,17 @@ const StockMovements = () => {
           </Col>
         </Row>
 
-        <Table
-          columns={columns}
-          dataSource={movements}
-          rowKey="id"
-          loading={loading}
-          pagination={pagination}
-          onChange={(newPagination) => setPagination(newPagination)}
-          scroll={{ x: 1000 }}
-        />
+        {isMobile ? renderMobileCards() : (
+          <Table
+            columns={columns}
+            dataSource={movements}
+            rowKey="id"
+            loading={loading}
+            pagination={pagination}
+            onChange={(newPagination) => setPagination(newPagination)}
+            scroll={{ x: 1000 }}
+          />
+        )}
       </Card>
 
       <Modal

@@ -14,10 +14,17 @@ const { Text, Paragraph } = Typography;
 const Certificates = () => {
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchCertificates();
@@ -79,6 +86,58 @@ const Certificates = () => {
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao excluir certificado');
     }
+  };
+
+  const getValidityStatus = (record) => {
+    if (record.is_expired) return { color: 'red', text: 'Expirado' };
+    if (record.days_until_expiry <= 30) return { color: 'orange', text: `${record.days_until_expiry} dias` };
+    return { color: 'green', text: `${record.days_until_expiry} dias` };
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (certificates.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum certificado cadastrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {certificates.map((record) => {
+          const validity = getValidityStatus(record);
+          return (
+            <Card
+              key={record.id}
+              size="small"
+              style={{ borderLeft: `4px solid ${record.active ? '#1890ff' : '#d9d9d9'}` }}
+              bodyStyle={{ padding: '12px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '15px' }}>{record.name}</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{record.subject_cn}</Text>
+                </div>
+                {record.active ? (
+                  <Tag color="blue" icon={<CheckCircleOutlined />}>Ativo</Tag>
+                ) : (
+                  <Tag icon={<CloseCircleOutlined />}>Inativo</Tag>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+                <div><strong>CPF:</strong> {record.subject_cpf || '-'}</div>
+                <div><strong>Validade:</strong><br /><Tag color={validity.color}>{validity.text}</Tag></div>
+                <div style={{ gridColumn: '1 / -1' }}><strong>Emissor:</strong> {record.issuer_cn}</div>
+                <div><strong>Ultimo uso:</strong> {record.last_used_at ? dayjs(record.last_used_at).format('DD/MM/YYYY') : 'Nunca'}</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                {!record.active && !record.is_expired && (
+                  <Button type="primary" size="small" icon={<CheckCircleOutlined />} onClick={() => handleActivate(record.id)}>Ativar</Button>
+                )}
+                <Popconfirm title="Excluir certificado?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Nao">
+                  <Button danger size="small" icon={<DeleteOutlined />}>Excluir</Button>
+                </Popconfirm>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    );
   };
 
   const columns = [
@@ -231,14 +290,16 @@ const Certificates = () => {
           style={{ marginBottom: 24 }}
         />
 
-        <Table
-          columns={columns}
-          dataSource={certificates}
-          rowKey="id"
-          loading={loading}
-          locale={{ emptyText: 'Nenhum certificado cadastrado' }}
-          pagination={false}
-        />
+        {isMobile ? renderMobileCards() : (
+          <Table
+            columns={columns}
+            dataSource={certificates}
+            rowKey="id"
+            loading={loading}
+            locale={{ emptyText: 'Nenhum certificado cadastrado' }}
+            pagination={false}
+          />
+        )}
       </Card>
 
       {/* Upload Modal */}

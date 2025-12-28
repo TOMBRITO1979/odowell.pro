@@ -35,7 +35,14 @@ const Suppliers = () => {
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchSuppliers();
@@ -186,6 +193,34 @@ const Suppliers = () => {
     return phone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
   };
 
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (suppliers.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum fornecedor encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {suppliers.map((record) => (
+          <Card key={record.id} size="small" style={{ borderLeft: '4px solid #1890ff' }} bodyStyle={{ padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.name}</div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>CNPJ:</strong><br />{formatCNPJ(record.cnpj)}</div>
+              <div><strong>Telefone:</strong><br />{formatPhone(record.phone)}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Email:</strong> {record.email || '-'}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Cidade:</strong> {record.address || '-'}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <Button type="text" size="small" icon={<EditOutlined />} onClick={() => showModal(record)} style={{ color: actionColors.edit }}>Editar</Button>
+              <Popconfirm title="Tem certeza?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+              </Popconfirm>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
   const columns = [
     {
       title: 'Nome',
@@ -252,70 +287,120 @@ const Suppliers = () => {
     <div>
       <Card
         title={
-          <Space>
-            <TeamOutlined />
-            <span>Fornecedores</span>
-          </Space>
+          isMobile ? null : (
+            <Space>
+              <TeamOutlined />
+              <span>Fornecedores</span>
+            </Space>
+          )
         }
         extra={
-          <Space>
-            <Button
-              icon={<FileExcelOutlined />}
-              onClick={handleExportCSV}
-              style={{
-                backgroundColor: actionColors.exportExcel,
-                borderColor: actionColors.exportExcel,
-                color: '#fff'
-              }}
-            >
-              Exportar CSV
-            </Button>
-            <Button
-              icon={<FilePdfOutlined />}
-              onClick={handleExportPDF}
-              style={{
-                backgroundColor: actionColors.exportPDF,
-                borderColor: actionColors.exportPDF,
-                color: '#fff'
-              }}
-            >
-              Gerar PDF
-            </Button>
-            <Button
-              icon={<UploadOutlined />}
-              onClick={() => setUploadModalVisible(true)}
-              style={{
-                backgroundColor: actionColors.view,
-                borderColor: actionColors.view,
-                color: '#fff'
-              }}
-            >
-              Importar CSV
-            </Button>
-            <Button
-              icon={<PlusOutlined />}
-              onClick={() => showModal()}
-              style={{
-                backgroundColor: actionColors.create,
-                borderColor: actionColors.create,
-                color: '#fff'
-              }}
-            >
-              Novo Fornecedor
-            </Button>
-          </Space>
+          isMobile ? null : (
+            <Space>
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={handleExportCSV}
+                style={{
+                  backgroundColor: actionColors.exportExcel,
+                  borderColor: actionColors.exportExcel,
+                  color: '#fff'
+                }}
+              >
+                Exportar CSV
+              </Button>
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={handleExportPDF}
+                style={{
+                  backgroundColor: actionColors.exportPDF,
+                  borderColor: actionColors.exportPDF,
+                  color: '#fff'
+                }}
+              >
+                Gerar PDF
+              </Button>
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => setUploadModalVisible(true)}
+                style={{
+                  backgroundColor: actionColors.view,
+                  borderColor: actionColors.view,
+                  color: '#fff'
+                }}
+              >
+                Importar CSV
+              </Button>
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => showModal()}
+                style={{
+                  backgroundColor: actionColors.create,
+                  borderColor: actionColors.create,
+                  color: '#fff'
+                }}
+              >
+                Novo Fornecedor
+              </Button>
+            </Space>
+          )
         }
       >
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={suppliers}
-            rowKey="id"
-            loading={loading}
-            pagination={{ pageSize: 20 }}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', width: '100%', maxWidth: '280px' }}>
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={handleExportCSV}
+                size="small"
+                style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
+              >
+                CSV
+              </Button>
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={handleExportPDF}
+                size="small"
+                style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
+              >
+                PDF
+              </Button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', width: '100%', maxWidth: '280px' }}>
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => setUploadModalVisible(true)}
+                size="small"
+                style={{ backgroundColor: actionColors.view, borderColor: actionColors.view, color: '#fff' }}
+              >
+                Importar
+              </Button>
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => showModal()}
+                size="small"
+                style={{ backgroundColor: actionColors.create, borderColor: actionColors.create, color: '#fff' }}
+              >
+                Novo
+              </Button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+              <TeamOutlined style={{ fontSize: '18px' }} />
+              <span style={{ fontSize: '16px', fontWeight: 600 }}>Fornecedores</span>
+            </div>
+          </div>
+        )}
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={suppliers}
+              rowKey="id"
+              loading={loading}
+              pagination={{ pageSize: 20 }}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
 
       <Modal

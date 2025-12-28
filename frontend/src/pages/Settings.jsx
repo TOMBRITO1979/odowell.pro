@@ -13,6 +13,8 @@ const Settings = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fetchingSettings, setFetchingSettings] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [activeSection, setActiveSection] = useState(null);
   const { tenant, updateTenant, logout } = useAuth();
   const { isAdmin } = usePermission();
   const navigate = useNavigate();
@@ -46,6 +48,12 @@ const Settings = () => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchSettings();
@@ -1185,6 +1193,51 @@ const Settings = () => {
     }] : []),
   ];
 
+  // Mobile section cards configuration
+  const mobileSections = [
+    { key: 'clinic', icon: <ShopOutlined style={{ fontSize: 24, color: '#1890ff' }} />, title: 'Dados da Clínica', description: 'Nome, CNPJ, endereço e contato', content: clinicInfoTab },
+    { key: 'schedule', icon: <ClockCircleOutlined style={{ fontSize: 24, color: '#52c41a' }} />, title: 'Agenda', description: 'Horários de funcionamento', content: scheduleTab },
+    { key: 'payment', icon: <DollarOutlined style={{ fontSize: 24, color: '#faad14' }} />, title: 'Pagamentos', description: 'Formas de pagamento aceitas', content: paymentTab },
+    ...(isAdmin ? [{ key: 'api', icon: <ApiOutlined style={{ fontSize: 24, color: '#722ed1' }} />, title: 'Integração API', description: 'WhatsApp e assistentes de IA', content: apiTab }] : []),
+    ...(isAdmin ? [{ key: 'stripe', icon: <CreditCardOutlined style={{ fontSize: 24, color: '#13c2c2' }} />, title: 'Stripe', description: 'Assinaturas recorrentes', content: stripeTab }] : []),
+    ...(isAdmin ? [{ key: 'smtp', icon: <MailOutlined style={{ fontSize: 24, color: '#eb2f96' }} />, title: 'Email / SMTP', description: 'Campanhas de email', content: smtpTab }] : []),
+    ...(isAdmin ? [{ key: 'chatwell', icon: <MessageOutlined style={{ fontSize: 24, color: '#2f54eb' }} />, title: 'Chatwell', description: 'Painel externo', content: chatwellTab }] : []),
+    ...(isAdmin ? [{ key: 'danger', icon: <WarningOutlined style={{ fontSize: 24, color: '#ff4d4f' }} />, title: 'Zona de Perigo', description: 'Deletar empresa', content: tabItems.find(t => t.key === 'danger')?.children, danger: true }] : []),
+  ];
+
+  const renderMobileSections = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {mobileSections.map((section) => (
+        <Card
+          key={section.key}
+          size="small"
+          style={{
+            borderLeft: `4px solid ${section.danger ? '#ff4d4f' : '#1890ff'}`,
+            cursor: 'pointer'
+          }}
+          bodyStyle={{ padding: '12px 16px' }}
+          onClick={() => setActiveSection(activeSection === section.key ? null : section.key)}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {section.icon}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: section.danger ? '#ff4d4f' : 'inherit' }}>{section.title}</div>
+              <div style={{ fontSize: 12, color: '#888' }}>{section.description}</div>
+            </div>
+            <div style={{ color: '#ccc', fontSize: 18 }}>
+              {activeSection === section.key ? '▲' : '▼'}
+            </div>
+          </div>
+          {activeSection === section.key && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
+              {section.content}
+            </div>
+          )}
+        </Card>
+      ))}
+    </div>
+  );
+
   return (
     <div>
       <Card
@@ -1202,11 +1255,11 @@ const Settings = () => {
           onFinish={handleSubmit}
           autoComplete="off"
         >
-          <Tabs items={tabItems} />
+          {isMobile ? renderMobileSections() : <Tabs items={tabItems} />}
 
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
             <Form.Item>
-              <Button type="primary" htmlType="submit" loading={loading} size="large">
+              <Button type="primary" htmlType="submit" loading={loading} size="large" block={isMobile}>
                 Salvar Configurações
               </Button>
             </Form.Item>

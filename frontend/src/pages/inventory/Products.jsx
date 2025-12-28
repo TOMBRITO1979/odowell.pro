@@ -37,6 +37,7 @@ const Products = () => {
   const { canCreate, canEdit, canDelete } = usePermission();
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -44,6 +45,12 @@ const Products = () => {
   });
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -199,6 +206,44 @@ const Products = () => {
     }
   };
 
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (products.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum produto encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {products.map((record) => (
+          <Card key={record.id} size="small" style={{ borderLeft: `4px solid ${record.quantity === 0 ? '#ff4d4f' : record.quantity <= record.minimum_stock ? '#faad14' : '#52c41a'}` }} bodyStyle={{ padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.name}</div>
+              {getStockStatus(record.quantity, record.minimum_stock)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>Código:</strong><br />{record.code || '-'}</div>
+              <div><strong>Categoria:</strong><br />{getCategoryTag(record.category)}</div>
+              <div><strong>Qtd:</strong><br /><Badge count={record.quantity} showZero overflowCount={9999} style={{ backgroundColor: record.quantity <= record.minimum_stock ? '#FFD54F' : '#81C784' }} /></div>
+              <div><strong>Est. Mín:</strong><br />{record.minimum_stock}</div>
+              <div><strong>P. Custo:</strong><br />{formatCurrency(record.cost_price)}</div>
+              <div><strong>P. Venda:</strong><br />{formatCurrency(record.sale_price)}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              {canEdit('products') && <Button type="text" size="small" icon={<EditOutlined />} onClick={() => navigate(`/products/${record.id}/edit`)} style={{ color: actionColors.edit }}>Editar</Button>}
+              {canDelete('products') && (
+                <Popconfirm title="Tem certeza?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                </Popconfirm>
+              )}
+            </div>
+          </Card>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '16px', padding: '12px', background: '#fafafa', borderRadius: '8px' }}>
+          <Button disabled={pagination.current === 1} onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}>Anterior</Button>
+          <span style={{ fontSize: '13px' }}>Pág. {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}</span>
+          <Button disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)} onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}>Próxima</Button>
+        </div>
+      </div>
+    );
+  };
+
   const columns = [
     {
       title: 'Código',
@@ -314,64 +359,116 @@ const Products = () => {
     <div>
       <Card
         title={
-          <Space>
-            <InboxOutlined />
-            <span>Produtos e Estoque</span>
-          </Space>
+          isMobile ? null : (
+            <Space>
+              <InboxOutlined />
+              <span>Produtos e Estoque</span>
+            </Space>
+          )
         }
         extra={
-          <Space>
-            <Button
-              icon={<FileExcelOutlined />}
-              onClick={handleExportCSV}
-              style={{
-                backgroundColor: actionColors.exportExcel,
-                borderColor: actionColors.exportExcel,
-                color: '#fff'
-              }}
-            >
-              Exportar CSV
-            </Button>
-            <Button
-              icon={<FilePdfOutlined />}
-              onClick={handleExportPDF}
-              style={{
-                backgroundColor: actionColors.exportPDF,
-                borderColor: actionColors.exportPDF,
-                color: '#fff'
-              }}
-            >
-              Gerar PDF
-            </Button>
-            {canCreate('products') && (
+          isMobile ? null : (
+            <Space>
               <Button
-                icon={<UploadOutlined />}
-                onClick={() => setUploadModalVisible(true)}
+                icon={<FileExcelOutlined />}
+                onClick={handleExportCSV}
                 style={{
-                  backgroundColor: actionColors.view,
-                  borderColor: actionColors.view,
+                  backgroundColor: actionColors.exportExcel,
+                  borderColor: actionColors.exportExcel,
                   color: '#fff'
                 }}
               >
-                Importar CSV
+                Exportar CSV
               </Button>
-            )}
-            {canCreate('products') && (
               <Button
-                icon={<PlusOutlined />}
-                onClick={() => navigate('/products/new')}
+                icon={<FilePdfOutlined />}
+                onClick={handleExportPDF}
                 style={{
-                  backgroundColor: actionColors.create,
-                  borderColor: actionColors.create,
+                  backgroundColor: actionColors.exportPDF,
+                  borderColor: actionColors.exportPDF,
                   color: '#fff'
                 }}
               >
-                Novo Produto
+                Gerar PDF
               </Button>
-            )}
-          </Space>
+              {canCreate('products') && (
+                <Button
+                  icon={<UploadOutlined />}
+                  onClick={() => setUploadModalVisible(true)}
+                  style={{
+                    backgroundColor: actionColors.view,
+                    borderColor: actionColors.view,
+                    color: '#fff'
+                  }}
+                >
+                  Importar CSV
+                </Button>
+              )}
+              {canCreate('products') && (
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate('/products/new')}
+                  style={{
+                    backgroundColor: actionColors.create,
+                    borderColor: actionColors.create,
+                    color: '#fff'
+                  }}
+                >
+                  Novo Produto
+                </Button>
+              )}
+            </Space>
+          )
         }
       >
+        {isMobile && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', width: '100%', maxWidth: '280px' }}>
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={handleExportCSV}
+                size="small"
+                style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
+              >
+                CSV
+              </Button>
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={handleExportPDF}
+                size="small"
+                style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
+              >
+                PDF
+              </Button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', width: '100%', maxWidth: '280px' }}>
+              {canCreate('products') && (
+                <Button
+                  icon={<UploadOutlined />}
+                  onClick={() => setUploadModalVisible(true)}
+                  size="small"
+                  style={{ backgroundColor: actionColors.view, borderColor: actionColors.view, color: '#fff' }}
+                >
+                  Importar
+                </Button>
+              )}
+              {canCreate('products') && (
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate('/products/new')}
+                  size="small"
+                  style={{ backgroundColor: actionColors.create, borderColor: actionColors.create, color: '#fff' }}
+                >
+                  Novo
+                </Button>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+              <InboxOutlined style={{ fontSize: '18px' }} />
+              <span style={{ fontSize: '16px', fontWeight: 600 }}>Produtos</span>
+            </div>
+          </div>
+        )}
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={8}>
             <Input
@@ -418,17 +515,19 @@ const Products = () => {
           </Col>
         </Row>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={products}
-            rowKey="id"
-            loading={loading}
-            pagination={pagination}
-            onChange={handleTableChange}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={products}
+              rowKey="id"
+              loading={loading}
+              pagination={pagination}
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
 
       <Modal

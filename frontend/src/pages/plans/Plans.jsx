@@ -46,6 +46,7 @@ const Plans = () => {
   const [subscriptions, setSubscriptions] = useState([]);
   const [patients, setPatients] = useState([]);
   const [stripeConnected, setStripeConnected] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -69,6 +70,12 @@ const Plans = () => {
     { value: 'canceled', label: 'Cancelado', color: statusColors.default, icon: <CloseCircleOutlined /> },
     { value: 'trialing', label: 'Trial', color: statusColors.info, icon: <ClockCircleOutlined /> },
   ];
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     checkStripeConnection();
@@ -221,6 +228,54 @@ const Plans = () => {
       style: 'currency',
       currency: currency.toUpperCase(),
     }).format(amount / 100);
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (subscriptions.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhuma assinatura encontrada</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {subscriptions.map((record) => {
+          const option = statusOptions.find(o => o.value === record.status) || statusOptions[3];
+          return (
+            <Card
+              key={record.id}
+              size="small"
+              style={{ borderLeft: `4px solid ${option.color}` }}
+              bodyStyle={{ padding: '12px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.patient?.name || 'N/A'}</div>
+                {getStatusTag(record.status)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+                <div><strong>Plano:</strong> {record.product_name}</div>
+                <div><strong>Valor:</strong> {formatCurrency(record.price_amount, record.price_currency)}/{record.interval === 'month' ? 'mês' : 'ano'}</div>
+                {record.current_period_end && (
+                  <div><strong>Período:</strong> Até {dayjs(record.current_period_end).format('DD/MM/YYYY')}</div>
+                )}
+                <div><strong>Criado:</strong> {dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+                {record.cancel_at_period_end && (
+                  <div style={{ gridColumn: '1 / -1' }}><Text type="warning">Cancela em {dayjs(record.current_period_end).format('DD/MM/YYYY')}</Text></div>
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => handleViewDetails(record)} style={{ color: actionColors.view, padding: '0 6px', fontSize: '12px' }}>Ver</Button>
+                <Button type="text" size="small" icon={<SyncOutlined />} onClick={() => handleRefresh(record.id)} style={{ color: actionColors.edit, padding: '0 6px', fontSize: '12px' }}>Atualizar</Button>
+                {record.status === 'pending' && record.checkout_url && (
+                  <Button type="text" size="small" icon={<SendOutlined />} onClick={() => handleResendLink(record.id)} style={{ color: actionColors.save, padding: '0 6px', fontSize: '12px' }}>Link</Button>
+                )}
+                {['active', 'trialing', 'past_due'].includes(record.status) && !record.cancel_at_period_end && (
+                  <Popconfirm title="Cancelar assinatura?" onConfirm={() => handleCancel(record.id)} okText="Sim" cancelText="Não">
+                    <Button type="text" size="small" icon={<StopOutlined />} style={{ color: actionColors.delete, padding: '0 6px', fontSize: '12px' }}>Cancelar</Button>
+                  </Popconfirm>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    );
   };
 
   const columns = [
@@ -485,63 +540,110 @@ const Plans = () => {
 
       {/* Filters and Actions */}
       <Card style={{ marginBottom: 16, boxShadow: shadows.card }}>
-        <Row gutter={16} align="middle">
-          <Col flex="auto">
-            <Space wrap>
-              <Select
-                allowClear
-                placeholder="Filtrar por paciente"
-                style={{ width: 200 }}
-                value={filters.patient_id}
-                onChange={(value) => setFilters({ ...filters, patient_id: value })}
-                showSearch
-                optionFilterProp="children"
-              >
-                {patients.map(p => (
-                  <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>
-                ))}
-              </Select>
-              <Select
-                allowClear
-                placeholder="Filtrar por status"
-                style={{ width: 150 }}
-                value={filters.status}
-                onChange={(value) => setFilters({ ...filters, status: value })}
-              >
-                {statusOptions.map(s => (
-                  <Select.Option key={s.value} value={s.value}>
-                    <Space>
-                      {s.icon}
-                      {s.label}
-                    </Space>
-                  </Select.Option>
-                ))}
-              </Select>
-            </Space>
-          </Col>
-          <Col>
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Select
+              allowClear
+              placeholder="Filtrar por paciente"
+              style={{ width: '100%' }}
+              value={filters.patient_id}
+              onChange={(value) => setFilters({ ...filters, patient_id: value })}
+              showSearch
+              optionFilterProp="children"
+            >
+              {patients.map(p => (
+                <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>
+              ))}
+            </Select>
+            <Select
+              allowClear
+              placeholder="Filtrar por status"
+              style={{ width: '100%' }}
+              value={filters.status}
+              onChange={(value) => setFilters({ ...filters, status: value })}
+            >
+              {statusOptions.map(s => (
+                <Select.Option key={s.value} value={s.value}>
+                  <Space>
+                    {s.icon}
+                    {s.label}
+                  </Space>
+                </Select.Option>
+              ))}
+            </Select>
             {canCreate('payments') && (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => navigate('/plans/new')}
-              >
-                Nova Assinatura
-              </Button>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate('/plans/new')}
+                >
+                  Nova Assinatura
+                </Button>
+              </div>
             )}
-          </Col>
-        </Row>
+          </div>
+        ) : (
+          <Row gutter={16} align="middle">
+            <Col flex="auto">
+              <Space wrap>
+                <Select
+                  allowClear
+                  placeholder="Filtrar por paciente"
+                  style={{ width: 200 }}
+                  value={filters.patient_id}
+                  onChange={(value) => setFilters({ ...filters, patient_id: value })}
+                  showSearch
+                  optionFilterProp="children"
+                >
+                  {patients.map(p => (
+                    <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>
+                  ))}
+                </Select>
+                <Select
+                  allowClear
+                  placeholder="Filtrar por status"
+                  style={{ width: 150 }}
+                  value={filters.status}
+                  onChange={(value) => setFilters({ ...filters, status: value })}
+                >
+                  {statusOptions.map(s => (
+                    <Select.Option key={s.value} value={s.value}>
+                      <Space>
+                        {s.icon}
+                        {s.label}
+                      </Space>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Space>
+            </Col>
+            <Col>
+              {canCreate('payments') && (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate('/plans/new')}
+                >
+                  Nova Assinatura
+                </Button>
+              )}
+            </Col>
+          </Row>
+        )}
       </Card>
 
       {/* Subscriptions Table */}
       <Card style={{ boxShadow: shadows.card }}>
-        <Table
-          columns={columns}
-          dataSource={subscriptions}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: 20 }}
-        />
+        {isMobile ? renderMobileCards() : (
+          <Table
+            columns={columns}
+            dataSource={subscriptions}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: 20 }}
+          />
+        )}
       </Card>
 
       {/* Details Modal */}

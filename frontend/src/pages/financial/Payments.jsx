@@ -489,51 +489,103 @@ const Payments = () => {
 
       <Card
         title={
-          <Space>
-            <DollarOutlined />
-            <span>Pagamentos</span>
-          </Space>
+          isMobile ? null : (
+            <Space>
+              <DollarOutlined />
+              <span>Pagamentos</span>
+            </Space>
+          )
         }
         extra={
-          <Space>
-            <Button
-              icon={<FilePdfOutlined />}
-              onClick={handleDownloadPDF}
-              style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
-            >
-              Baixar PDF
-            </Button>
-            <Button
-              icon={<FileExcelOutlined />}
-              onClick={handleExportCSV}
-              title="Exportar CSV"
-              style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
-            >
-              Exportar CSV
-            </Button>
-            {canCreate('payments') && (
+          isMobile ? null : (
+            <Space>
               <Button
-                icon={<UploadOutlined />}
-                onClick={() => setUploadModalVisible(true)}
-                title="Importar CSV"
-                style={{ backgroundColor: actionColors.view, borderColor: actionColors.view, color: '#fff' }}
+                icon={<FilePdfOutlined />}
+                onClick={handleDownloadPDF}
+                style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
               >
-                Importar CSV
+                Baixar PDF
               </Button>
-            )}
-            {canCreate('payments') && (
               <Button
-                icon={<PlusOutlined />}
-                onClick={() => navigate('/payments/new')}
-                style={{ backgroundColor: actionColors.create, borderColor: actionColors.create, color: '#fff' }}
+                icon={<FileExcelOutlined />}
+                onClick={handleExportCSV}
+                title="Exportar CSV"
+                style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
               >
-                Novo Pagamento
+                Exportar CSV
               </Button>
-            )}
-          </Space>
+              {canCreate('payments') && (
+                <Button
+                  icon={<UploadOutlined />}
+                  onClick={() => setUploadModalVisible(true)}
+                  title="Importar CSV"
+                  style={{ backgroundColor: actionColors.view, borderColor: actionColors.view, color: '#fff' }}
+                >
+                  Importar CSV
+                </Button>
+              )}
+              {canCreate('payments') && (
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate('/payments/new')}
+                  style={{ backgroundColor: actionColors.create, borderColor: actionColors.create, color: '#fff' }}
+                >
+                  Novo Pagamento
+                </Button>
+              )}
+            </Space>
+          )
         }
         style={{ boxShadow: shadows.small }}
       >
+        {isMobile && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', width: '100%', maxWidth: '280px' }}>
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={handleDownloadPDF}
+                size="small"
+                style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
+              >
+                PDF
+              </Button>
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={handleExportCSV}
+                size="small"
+                style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
+              >
+                CSV
+              </Button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', width: '100%', maxWidth: '280px' }}>
+              {canCreate('payments') && (
+                <Button
+                  icon={<UploadOutlined />}
+                  onClick={() => setUploadModalVisible(true)}
+                  size="small"
+                  style={{ backgroundColor: actionColors.view, borderColor: actionColors.view, color: '#fff' }}
+                >
+                  Importar
+                </Button>
+              )}
+              {canCreate('payments') && (
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate('/payments/new')}
+                  size="small"
+                  style={{ backgroundColor: actionColors.create, borderColor: actionColors.create, color: '#fff' }}
+                >
+                  Novo
+                </Button>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+              <DollarOutlined style={{ fontSize: '18px' }} />
+              <span style={{ fontSize: '16px', fontWeight: 600 }}>Pagamentos</span>
+            </div>
+          </div>
+        )}
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={6}>
             <Select

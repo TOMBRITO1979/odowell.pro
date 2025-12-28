@@ -52,11 +52,18 @@ const Leads = () => {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({});
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
     total: 0
   });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -157,6 +164,108 @@ const Leads = () => {
     if (!byStatus || !Array.isArray(byStatus)) return 0;
     const found = byStatus.find(s => s.status === statusCode);
     return found ? found.count : 0;
+  };
+
+  const getStatusConfig = (status) => {
+    const statusMap = {
+      new: { color: statusColors.pending, label: 'Novo' },
+      contacted: { color: statusColors.inProgress, label: 'Contatado' },
+      qualified: { color: 'purple', label: 'Qualificado' },
+      converted: { color: statusColors.success, label: 'Convertido' },
+      lost: { color: statusColors.cancelled, label: 'Perdido' }
+    };
+    return statusMap[status] || { color: statusColors.pending, label: status };
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (leads.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum lead encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {leads.map((record) => {
+          const statusConfig = getStatusConfig(record.status);
+          return (
+            <Card
+              key={record.id}
+              size="small"
+              style={{ borderLeft: `4px solid ${statusConfig.color}` }}
+              bodyStyle={{ padding: '12px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.name}</div>
+                <Tag color={statusConfig.color}>{statusConfig.label}</Tag>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+                <div><strong><PhoneOutlined /> Telefone:</strong><br />{record.phone}</div>
+                <div>
+                  <strong>Fonte:</strong><br />
+                  <Tag color={record.source === 'whatsapp' ? 'green' : 'blue'} style={{ marginTop: 2 }}>
+                    {record.source === 'whatsapp' ? <WhatsAppOutlined /> : null} {record.source}
+                  </Tag>
+                </div>
+                {record.email && (
+                  <div style={{ gridColumn: '1 / -1' }}><strong><MailOutlined /> Email:</strong> {record.email}</div>
+                )}
+                {record.contact_reason && (
+                  <div style={{ gridColumn: '1 / -1' }}><strong>Motivo:</strong> {record.contact_reason}</div>
+                )}
+                <div><strong>Cadastro:</strong> {dayjs(record.created_at).tz('America/Sao_Paulo').format('DD/MM/YYYY')}</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => {
+                    setSelectedLead(record);
+                    setViewModalVisible(true);
+                  }}
+                  style={{ color: actionColors.view }}
+                >
+                  Ver
+                </Button>
+                {record.status !== 'converted' && canEdit('leads') && (
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => navigate(`/leads/${record.id}/edit`)}
+                    style={{ color: actionColors.edit }}
+                  >
+                    Editar
+                  </Button>
+                )}
+                {record.status !== 'converted' && canEdit('leads') && (
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<UserSwitchOutlined />}
+                    onClick={() => {
+                      setSelectedLead(record);
+                      convertForm.resetFields();
+                      setConvertModalVisible(true);
+                    }}
+                    style={{ color: actionColors.approve }}
+                  >
+                    Converter
+                  </Button>
+                )}
+                {canDelete('leads') && (
+                  <Popconfirm title="Excluir este lead?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                    <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                  </Popconfirm>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+        <div style={{ textAlign: 'center', padding: '16px' }}>
+          <span style={{ color: '#666' }}>
+            Mostrando {leads.length} de {pagination.total} leads
+          </span>
+        </div>
+      </div>
+    );
   };
 
   const columns = [
@@ -293,40 +402,40 @@ const Leads = () => {
 
       {/* Statistics */}
       <Row gutter={[spacing.md, spacing.md]} style={{ marginBottom: spacing.lg }}>
-        <Col xs={24} sm={12} md={6}>
-          <Card hoverable style={{ boxShadow: shadows.small }}>
+        <Col xs={12} sm={12} md={6}>
+          <Card hoverable style={{ boxShadow: shadows.small }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
             <Statistic
               title="Total de Leads"
               value={stats.total || 0}
-              valueStyle={{ color: brandColors.primary }}
+              valueStyle={{ color: brandColors.primary, fontSize: isMobile ? '20px' : '24px' }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card hoverable style={{ boxShadow: shadows.small }}>
+        <Col xs={12} sm={12} md={6}>
+          <Card hoverable style={{ boxShadow: shadows.small }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
             <Statistic
               title="Novos (este mês)"
               value={stats.this_month || 0}
-              valueStyle={{ color: statusColors.pending }}
+              valueStyle={{ color: statusColors.pending, fontSize: isMobile ? '20px' : '24px' }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card hoverable style={{ boxShadow: shadows.small }}>
+        <Col xs={12} sm={12} md={6}>
+          <Card hoverable style={{ boxShadow: shadows.small }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
             <Statistic
               title="Convertidos"
               value={stats.converted || 0}
-              valueStyle={{ color: statusColors.success }}
+              valueStyle={{ color: statusColors.success, fontSize: isMobile ? '20px' : '24px' }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card hoverable style={{ boxShadow: shadows.small }}>
+        <Col xs={12} sm={12} md={6}>
+          <Card hoverable style={{ boxShadow: shadows.small }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
             <Statistic
-              title="Taxa de Conversão"
+              title={isMobile ? "Conversão" : "Taxa de Conversão"}
               value={stats.total > 0 ? ((stats.converted / stats.total) * 100).toFixed(1) : 0}
               suffix="%"
-              valueStyle={{ color: statusColors.inProgress }}
+              valueStyle={{ color: statusColors.inProgress, fontSize: isMobile ? '20px' : '24px' }}
             />
           </Card>
         </Col>
@@ -392,19 +501,21 @@ const Leads = () => {
 
       {/* Table */}
       <Card style={{ boxShadow: shadows.small }}>
-        <Table
-          columns={columns}
-          dataSource={leads}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50', '100'],
-          }}
-          onChange={handleTableChange}
-          scroll={{ x: 1000 }}
-        />
+        {isMobile ? renderMobileCards() : (
+          <Table
+            columns={columns}
+            dataSource={leads}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: 1000 }}
+          />
+        )}
       </Card>
 
       {/* View Modal */}

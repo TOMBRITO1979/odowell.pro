@@ -33,6 +33,7 @@ const MedicalRecords = () => {
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -54,6 +55,12 @@ const MedicalRecords = () => {
     { value: 'prescription', label: 'Receita', color: 'orange' },
     { value: 'certificate', label: 'Atestado', color: 'red' },
   ];
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchRecords();
@@ -110,6 +117,64 @@ const MedicalRecords = () => {
       <Tag color={typeObj.color}>{typeObj.label}</Tag>
     ) : (
       <Tag>{type}</Tag>
+    );
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (records.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum prontuário encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {records.map((record) => {
+          const typeObj = recordTypes.find((t) => t.value === record.type);
+          return (
+            <Card
+              key={record.id}
+              size="small"
+              style={{ borderLeft: `4px solid ${typeObj?.color || '#1890ff'}` }}
+              bodyStyle={{ padding: '12px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.patient?.name}</div>
+                {getTypeTag(record.type)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+                <div><strong>Data:</strong> {dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+                <div><strong>Profissional:</strong> {record.dentist?.name || '-'}</div>
+                {record.diagnosis && (
+                  <div style={{ gridColumn: '1 / -1' }}><strong>Diagnóstico:</strong> {record.diagnosis}</div>
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => navigate(`/medical-records/${record.id}/view`)}
+                  style={{ color: actionColors.view }}
+                >
+                  Ver
+                </Button>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => navigate(`/medical-records/${record.id}/edit`)}
+                  style={{ color: actionColors.edit }}
+                >
+                  Editar
+                </Button>
+                <Popconfirm title="Excluir prontuário?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                </Popconfirm>
+              </div>
+            </Card>
+          );
+        })}
+        <div style={{ textAlign: 'center', padding: '16px' }}>
+          <span style={{ color: '#666' }}>Mostrando {records.length} de {pagination.total} prontuários</span>
+        </div>
+      </div>
     );
   };
 
@@ -266,17 +331,19 @@ const MedicalRecords = () => {
           </Col>
         </Row>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={records}
-            rowKey="id"
-            loading={loading}
-            pagination={pagination}
-            onChange={handleTableChange}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={records}
+              rowKey="id"
+              loading={loading}
+              pagination={pagination}
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
     </div>
   );

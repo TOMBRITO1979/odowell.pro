@@ -38,6 +38,7 @@ const AuditLogs = () => {
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [filters, setFilters] = useState({
     user_email: '',
@@ -48,6 +49,12 @@ const AuditLogs = () => {
   });
   const [selectedLog, setSelectedLog] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchLogs();
@@ -175,6 +182,48 @@ const AuditLogs = () => {
       auth: 'Autenticacao',
     };
     return labels[resource] || resource;
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (logs.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum log encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {logs.map((record) => (
+          <Card
+            key={record.id}
+            size="small"
+            style={{ borderLeft: `4px solid ${record.success ? '#52c41a' : '#ff4d4f'}` }}
+            bodyStyle={{ padding: '12px' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '14px' }}>{record.user_email || '-'}</div>
+                <Text type="secondary" style={{ fontSize: 12 }}>{record.user_role}</Text>
+              </div>
+              {record.success ? (
+                <Tag icon={<CheckCircleOutlined />} color="success">OK</Tag>
+              ) : (
+                <Tag icon={<CloseCircleOutlined />} color="error">Erro</Tag>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>Acao:</strong><br /><Tag color={getActionColor(record.action)}>{getActionLabel(record.action)}</Tag></div>
+              <div><strong>Recurso:</strong><br />{getResourceLabel(record.resource)}</div>
+              <div><strong>Data:</strong> {dayjs(record.created_at).format('DD/MM/YY HH:mm')}</div>
+              <div><strong>IP:</strong> {record.ip_address}</div>
+              <div style={{ gridColumn: '1 / -1' }}><Text code style={{ fontSize: 11 }}>{record.method} {record.path}</Text></div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => showLogDetails(record)}>Detalhes</Button>
+            </div>
+          </Card>
+        ))}
+        <div style={{ textAlign: 'center', padding: '16px' }}>
+          <span style={{ color: '#666' }}>Mostrando {logs.length} de {pagination.total} logs</span>
+        </div>
+      </div>
+    );
   };
 
   const columns = [
@@ -396,19 +445,21 @@ const AuditLogs = () => {
 
       {/* Table */}
       <Card>
-        <Table
-          columns={columns}
-          dataSource={logs}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            showTotal: (total) => `Total: ${total} registros`,
-          }}
-          onChange={handleTableChange}
-          scroll={{ x: 1000 }}
-        />
+        {isMobile ? renderMobileCards() : (
+          <Table
+            columns={columns}
+            dataSource={logs}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              showTotal: (total) => `Total: ${total} registros`,
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: 1000 }}
+          />
+        )}
       </Card>
 
       {/* Details Drawer */}

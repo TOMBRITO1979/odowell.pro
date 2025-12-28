@@ -37,6 +37,7 @@ const Treatments = () => {
   const [loading, setLoading] = useState(false);
   const [treatments, setTreatments] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [stats, setStats] = useState({
     total: 0,
     inProgress: 0,
@@ -60,6 +61,12 @@ const Treatments = () => {
     { value: 'completed', label: 'Concluído', color: statusColors.success, icon: <CheckCircleOutlined /> },
     { value: 'cancelled', label: 'Cancelado', color: statusColors.error, icon: <CloseCircleOutlined /> },
   ];
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchTreatments();
@@ -141,6 +148,64 @@ const Treatments = () => {
       style: 'currency',
       currency: 'BRL',
     }).format(value || 0);
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (treatments.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum tratamento encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {treatments.map((record) => {
+          const statusObj = statusOptions.find((s) => s.value === record.status);
+          const remaining = record.total_value - record.paid_value;
+          const percent = record.total_value > 0 ? Math.round((record.paid_value / record.total_value) * 100) : 0;
+          return (
+            <Card
+              key={record.id}
+              size="small"
+              style={{ borderLeft: `4px solid ${statusObj?.color || statusColors.inProgress}` }}
+              bodyStyle={{ padding: '12px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.patient?.name}</div>
+                {getStatusTag(record.status)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+                <div><strong>ID:</strong> #{record.id}</div>
+                <div><strong>Data:</strong> {dayjs(record.start_date).format('DD/MM/YYYY')}</div>
+                <div><strong>Total:</strong> {formatCurrency(record.total_value)}</div>
+                <div><strong>Pago:</strong> <Text type="success">{formatCurrency(record.paid_value)}</Text></div>
+                <div><strong>Restante:</strong> <Text type={remaining > 0 ? 'danger' : 'success'}>{formatCurrency(remaining)}</Text></div>
+                <div><strong>Progresso:</strong> {percent}%</div>
+                {record.description && (
+                  <div style={{ gridColumn: '1 / -1' }}><strong>Descrição:</strong> {record.description}</div>
+                )}
+              </div>
+              <Progress percent={percent} size="small" status={percent >= 100 ? 'success' : 'active'} style={{ marginTop: 8 }} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => navigate(`/treatments/${record.id}`)}
+                  style={{ color: actionColors.view }}
+                >
+                  Ver
+                </Button>
+                {canDelete('budgets') && record.status !== 'completed' && (
+                  <Popconfirm title="Excluir tratamento?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                    <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                  </Popconfirm>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+        <div style={{ textAlign: 'center', padding: '16px' }}>
+          <span style={{ color: '#666' }}>Mostrando {treatments.length} de {pagination.total} tratamentos</span>
+        </div>
+      </div>
+    );
   };
 
   const columns = [
@@ -271,44 +336,46 @@ const Treatments = () => {
     <div>
       {/* Stats Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ boxShadow: shadows.small }}>
+        <Col xs={12} sm={12} md={6}>
+          <Card style={{ boxShadow: shadows.small }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
             <Statistic
-              title="Total de Tratamentos"
+              title={isMobile ? "Tratamento" : "Total de Tratamentos"}
               value={stats.total}
               prefix={<MedicineBoxOutlined style={{ color: '#64B5F6' }} />}
+              valueStyle={{ fontSize: isMobile ? '20px' : '24px' }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ boxShadow: shadows.small }}>
+        <Col xs={12} sm={12} md={6}>
+          <Card style={{ boxShadow: shadows.small }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
             <Statistic
               title="Em Andamento"
               value={stats.inProgress}
               prefix={<ClockCircleOutlined style={{ color: statusColors.inProgress }} />}
-              valueStyle={{ color: statusColors.inProgress }}
+              valueStyle={{ color: statusColors.inProgress, fontSize: isMobile ? '20px' : '24px' }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ boxShadow: shadows.small }}>
+          <Card style={{ boxShadow: shadows.small }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
             <Statistic
-              title="Valor Total"
+              title={isMobile ? "Valor Total" : "Valor Total"}
               value={stats.totalValue}
               precision={2}
               prefix={<DollarOutlined style={{ color: '#722ed1' }} />}
               formatter={(value) => formatCurrency(value)}
+              valueStyle={{ fontSize: isMobile ? '20px' : '24px' }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ boxShadow: shadows.small }}>
+          <Card style={{ boxShadow: shadows.small }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
             <Statistic
-              title="Total Recebido"
+              title={isMobile ? "Recebido" : "Total Recebido"}
               value={stats.totalPaid}
               precision={2}
               prefix={<CheckCircleOutlined style={{ color: statusColors.success }} />}
-              valueStyle={{ color: statusColors.success }}
+              valueStyle={{ color: statusColors.success, fontSize: isMobile ? '20px' : '24px' }}
               formatter={(value) => formatCurrency(value)}
             />
           </Card>
@@ -368,21 +435,23 @@ const Treatments = () => {
           </Col>
         </Row>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={treatments}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
-            onChange={handleTableChange}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={treatments}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
     </div>
   );

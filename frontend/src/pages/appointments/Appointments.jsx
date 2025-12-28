@@ -696,9 +696,9 @@ const Appointments = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <h1 style={{ margin: 0 }}>Agendamentos</h1>
-        <Space wrap>
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: 16 }}>
+          <h1 style={{ margin: 0, fontSize: '18px', textAlign: 'left' }}>Agendamentos</h1>
           <Segmented
             value={viewMode}
             onChange={setViewMode}
@@ -707,46 +707,82 @@ const Appointments = () => {
               { value: 'calendar', icon: <CalendarOutlined />, label: 'Calendário' },
             ]}
           />
-          <Button
-            icon={<FileExcelOutlined />}
-            onClick={handleExportCSV}
-            style={{
-              backgroundColor: actionColors.exportExcel,
-              borderColor: actionColors.exportExcel,
-              color: '#fff'
-            }}
-          >
-            <span className="btn-text-desktop">Exportar CSV</span>
-            <span className="btn-text-mobile">CSV</span>
-          </Button>
-          <Button
-            icon={<FilePdfOutlined />}
-            onClick={handleExportPDF}
-            style={{
-              backgroundColor: actionColors.exportPDF,
-              borderColor: actionColors.exportPDF,
-              color: '#fff'
-            }}
-          >
-            <span className="btn-text-desktop">Gerar PDF</span>
-            <span className="btn-text-mobile">PDF</span>
-          </Button>
-          {canCreate('appointments') && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', width: '100%' }}>
             <Button
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/appointments/new')}
+              icon={<FileExcelOutlined />}
+              onClick={handleExportCSV}
+              style={{ backgroundColor: actionColors.exportExcel, borderColor: actionColors.exportExcel, color: '#fff' }}
+            >
+              CSV
+            </Button>
+            <Button
+              icon={<FilePdfOutlined />}
+              onClick={handleExportPDF}
+              style={{ backgroundColor: actionColors.exportPDF, borderColor: actionColors.exportPDF, color: '#fff' }}
+            >
+              PDF
+            </Button>
+            {canCreate('appointments') && (
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/appointments/new')}
+                style={{ backgroundColor: actionColors.create, borderColor: actionColors.create, color: '#fff' }}
+              >
+                Novo
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <h1 style={{ margin: 0 }}>Agendamentos</h1>
+          <Space wrap>
+            <Segmented
+              value={viewMode}
+              onChange={setViewMode}
+              options={[
+                { value: 'list', icon: <UnorderedListOutlined />, label: 'Lista' },
+                { value: 'calendar', icon: <CalendarOutlined />, label: 'Calendário' },
+              ]}
+            />
+            <Button
+              icon={<FileExcelOutlined />}
+              onClick={handleExportCSV}
               style={{
-                backgroundColor: actionColors.create,
-                borderColor: actionColors.create,
+                backgroundColor: actionColors.exportExcel,
+                borderColor: actionColors.exportExcel,
                 color: '#fff'
               }}
             >
-              <span className="btn-text-desktop">Novo Agendamento</span>
-              <span className="btn-text-mobile">Novo</span>
+              Exportar CSV
             </Button>
-          )}
-        </Space>
-      </div>
+            <Button
+              icon={<FilePdfOutlined />}
+              onClick={handleExportPDF}
+              style={{
+                backgroundColor: actionColors.exportPDF,
+                borderColor: actionColors.exportPDF,
+                color: '#fff'
+              }}
+            >
+              Gerar PDF
+            </Button>
+            {canCreate('appointments') && (
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/appointments/new')}
+                style={{
+                  backgroundColor: actionColors.create,
+                  borderColor: actionColors.create,
+                  color: '#fff'
+                }}
+              >
+                Novo Agendamento
+              </Button>
+            )}
+          </Space>
+        </div>
+      )}
 
       <Card style={{ boxShadow: shadows.small }}>
         {/* Filtros - mostrar apenas no modo lista ou filtros simplificados no calendário */}

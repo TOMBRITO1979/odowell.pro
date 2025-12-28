@@ -51,6 +51,7 @@ const DataRequests = () => {
   const [requests, setRequests] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [filters, setFilters] = useState({ status: '', type: '' });
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -69,6 +70,12 @@ const DataRequests = () => {
   const [statusForm] = Form.useForm();
   const [otpForm] = Form.useForm();
   const { canEdit } = usePermission();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchRequests();
@@ -285,6 +292,49 @@ const DataRequests = () => {
       return { color: 'orange', text: `${record.days_remaining} dias`, icon: <WarningOutlined /> };
     }
     return { color: 'green', text: `${record.days_remaining} dias`, icon: <ClockCircleOutlined /> };
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (requests.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhuma solicitacao encontrada</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {requests.map((record) => {
+          const sla = getSLAStatus(record);
+          return (
+            <Card
+              key={record.id}
+              size="small"
+              style={{ borderLeft: `4px solid ${getStatusColor(record.status) === 'green' ? '#52c41a' : getStatusColor(record.status) === 'red' ? '#ff4d4f' : '#1890ff'}` }}
+              bodyStyle={{ padding: '12px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '15px' }}>{record.patient_name}</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{record.patient_cpf}</Text>
+                </div>
+                <Tag color={getStatusColor(record.status)}>{getStatusLabel(record.status)}</Tag>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+                <div><strong>Tipo:</strong><br /><Tag color={getTypeColor(record.type)}>{getTypeLabel(record.type)}</Tag></div>
+                <div><strong>Prazo:</strong><br /><Tag color={sla.color} icon={sla.icon}>{sla.text}</Tag></div>
+                <div><strong>Data:</strong> {dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+                <div><strong>Verificado:</strong> {record.otp_verified ? 'Sim' : 'Pendente'}</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => showDetails(record)}>Ver</Button>
+                {canEdit('data_requests') && record.status !== 'completed' && record.status !== 'rejected' && (
+                  <Button type="text" size="small" icon={<EditOutlined />} onClick={() => showStatusModal(record)}>Status</Button>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+        <div style={{ textAlign: 'center', padding: '16px' }}>
+          <span style={{ color: '#666' }}>Mostrando {requests.length} de {pagination.total} solicitacoes</span>
+        </div>
+      </div>
+    );
   };
 
   const columns = [
@@ -511,23 +561,25 @@ const DataRequests = () => {
 
       {/* Table */}
       <Card>
-        <Table
-          columns={columns}
-          dataSource={requests}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            showTotal: (total) => `Total: ${total} solicitacoes`,
-          }}
-          onChange={handleTableChange}
-          rowClassName={(record) => {
-            if (record.is_overdue) return 'row-overdue';
-            if (record.is_near_deadline) return 'row-warning';
-            return '';
-          }}
-        />
+        {isMobile ? renderMobileCards() : (
+          <Table
+            columns={columns}
+            dataSource={requests}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              showTotal: (total) => `Total: ${total} solicitacoes`,
+            }}
+            onChange={handleTableChange}
+            rowClassName={(record) => {
+              if (record.is_overdue) return 'row-overdue';
+              if (record.is_near_deadline) return 'row-warning';
+              return '';
+            }}
+          />
+        )}
       </Card>
 
       {/* Create Modal */}

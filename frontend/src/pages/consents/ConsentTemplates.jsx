@@ -20,9 +20,16 @@ const ConsentTemplates = () => {
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [form] = Form.useForm();
 
   const { canCreate, canEdit, canDelete } = usePermission();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const consentTypes = [
     { value: 'treatment', label: 'Tratamento', color: statusColors.inProgress },
@@ -120,6 +127,72 @@ const ConsentTemplates = () => {
 
   const getTypeInfo = (type) => {
     return consentTypes.find(t => t.value === type) || consentTypes[4];
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (templates.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum template encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {templates.map((record) => {
+          const typeInfo = getTypeInfo(record.type);
+          return (
+            <Card
+              key={record.id}
+              size="small"
+              style={{ borderLeft: `4px solid ${record.active ? statusColors.success : statusColors.cancelled}` }}
+              bodyStyle={{ padding: '12px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.title}</div>
+              </div>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                <Tag color={typeInfo.color}>{typeInfo.label}</Tag>
+                <Tag>v{record.version}</Tag>
+                {record.active ? (
+                  <Tag color={statusColors.success}>Ativo</Tag>
+                ) : (
+                  <Tag color={statusColors.cancelled}>Inativo</Tag>
+                )}
+                {record.is_default && <Tag color={statusColors.inProgress}>Padrão</Tag>}
+              </div>
+              {record.description && (
+                <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
+                  {record.description.length > 100 ? record.description.substring(0, 100) + '...' : record.description}
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => handlePreview(record)}
+                  style={{ color: actionColors.view }}
+                >
+                  Ver
+                </Button>
+                {canEdit('clinical_records') && (
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => handleEdit(record)}
+                    style={{ color: actionColors.edit }}
+                  >
+                    Editar
+                  </Button>
+                )}
+                {canDelete('clinical_records') && (
+                  <Popconfirm title="Excluir este template?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                    <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                  </Popconfirm>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    );
   };
 
   const columns = [
@@ -222,16 +295,18 @@ const ConsentTemplates = () => {
           )}
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={templates}
-            rowKey="id"
-            loading={loading}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={templates}
+              rowKey="id"
+              loading={loading}
+              pagination={{ pageSize: 10 }}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
 
       <Modal

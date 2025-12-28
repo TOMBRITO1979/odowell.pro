@@ -26,6 +26,7 @@ const AdminTenants = () => {
   const [tenants, setTenants] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [usersDrawerVisible, setUsersDrawerVisible] = useState(false);
   const [tenantUsers, setTenantUsers] = useState([]);
@@ -39,6 +40,12 @@ const AdminTenants = () => {
   const [tenantToDelete, setTenantToDelete] = useState(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -178,6 +185,54 @@ const AdminTenants = () => {
       style: 'currency',
       currency: 'BRL',
     }).format(cents / 100);
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (tenants.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhuma clinica cadastrada</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {tenants.map((record) => (
+          <Card
+            key={record.id}
+            size="small"
+            style={{ borderLeft: `4px solid ${record.active ? (record.subscription_status === 'active' ? '#52c41a' : '#faad14') : '#d9d9d9'}` }}
+            bodyStyle={{ padding: '12px' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '15px' }}>{record.name}</div>
+                <Text type="secondary" style={{ fontSize: 12 }}>{record.email}</Text>
+              </div>
+              <Switch
+                size="small"
+                checked={record.active}
+                onChange={(checked) => handleToggleActive(record, checked)}
+                checkedChildren="Ativo"
+                unCheckedChildren="Inativo"
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              {getStatusTag(record.subscription_status)}
+              {getPlanTag(record.plan_type)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>Usuarios:</strong> <Tag icon={<TeamOutlined />} size="small">{record.user_count || 0}</Tag></div>
+              <div><strong>Pacientes:</strong> {record.patient_count || 0}/{record.patient_limit?.toLocaleString()}</div>
+              <div><strong>Criado:</strong> {dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+              {record.subscription_details?.price_monthly && (
+                <div><strong>Valor:</strong> {formatPrice(record.subscription_details.price_monthly)}</div>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)', flexWrap: 'wrap' }}>
+              <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => handleViewUsers(record)}>Usuarios</Button>
+              <Button type="text" size="small" icon={<SettingOutlined />} onClick={() => handleEditTenant(record)}>Editar</Button>
+              <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => handleOpenDeleteModal(record)}>Deletar</Button>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
   };
 
   const columns = [
@@ -548,18 +603,20 @@ const AdminTenants = () => {
 
       {/* Tenants Table */}
       <Card title="Clínicas Cadastradas">
-        <Table
-          columns={columns}
-          dataSource={tenants}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            defaultPageSize: 20,
-            pageSizeOptions: ['20', '50', '100'],
-            showSizeChanger: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} de ${total} clínicas`,
-          }}
-        />
+        {isMobile ? renderMobileCards() : (
+          <Table
+            columns={columns}
+            dataSource={tenants}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              defaultPageSize: 20,
+              pageSizeOptions: ['20', '50', '100'],
+              showSizeChanger: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} de ${total} clínicas`,
+            }}
+          />
+        )}
       </Card>
 
       {/* Users Drawer */}
