@@ -38,6 +38,7 @@ const Budgets = () => {
   const [loading, setLoading] = useState(false);
   const [budgets, setBudgets] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -46,6 +47,12 @@ const Budgets = () => {
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -224,6 +231,49 @@ const Budgets = () => {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (budgets.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum orçamento encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {budgets.map((record) => {
+          const paidAmount = (record.payments || []).filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
+          const dueAmount = record.total_value - paidAmount;
+          return (
+            <Card key={record.id} size="small" style={{ borderLeft: `4px solid ${record.status === 'approved' ? '#52c41a' : record.status === 'rejected' ? '#ff4d4f' : '#faad14'}` }} bodyStyle={{ padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.patient?.name || 'N/A'}</div>
+                {getStatusTag(record.status)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+                <div><strong>ID:</strong> #{record.id}</div>
+                <div><strong>Data:</strong> {dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+                <div><strong>Total:</strong> {formatCurrency(record.total_value)}</div>
+                <div><strong>Pago:</strong> <span style={{ color: '#81C784' }}>{formatCurrency(paidAmount)}</span></div>
+                <div><strong>Devido:</strong> <span style={{ color: dueAmount > 0 ? '#E57373' : '#81C784' }}>{formatCurrency(dueAmount)}</span></div>
+                <div><strong>Validade:</strong> {record.valid_until ? dayjs(record.valid_until).format('DD/MM/YYYY') : '-'}</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/budgets/${record.id}/view`)} style={{ color: actionColors.view }}>Ver</Button>
+                {canEdit('budgets') && <Button type="text" size="small" icon={<EditOutlined />} onClick={() => navigate(`/budgets/${record.id}/edit`)} style={{ color: actionColors.edit }}>Editar</Button>}
+                {canDelete('budgets') && (
+                  <Popconfirm title="Tem certeza?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                    <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                  </Popconfirm>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '16px', padding: '12px', background: '#fafafa', borderRadius: '8px' }}>
+          <Button disabled={pagination.current === 1} onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}>Anterior</Button>
+          <span style={{ fontSize: '13px' }}>Pág. {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}</span>
+          <Button disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)} onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}>Próxima</Button>
+        </div>
+      </div>
+    );
   };
 
   const columns = [
@@ -448,21 +498,23 @@ const Budgets = () => {
           </Col>
         </Row>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={budgets}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
-            onChange={handleTableChange}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={budgets}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
 
       <Modal

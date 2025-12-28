@@ -43,6 +43,7 @@ const Payments = () => {
   const [loading, setLoading] = useState(false);
   const [payments, setPayments] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [statistics, setStatistics] = useState({
     income: 0,
     expenses: 0,
@@ -57,6 +58,12 @@ const Payments = () => {
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -270,6 +277,49 @@ const Payments = () => {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  };
+
+  const getMethodLabel = (method) => {
+    const methodObj = paymentMethods.find(m => m.value === method);
+    return methodObj ? methodObj.label : method || '-';
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (payments.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum pagamento encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {payments.map((record) => (
+          <Card key={record.id} size="small" style={{ borderLeft: `4px solid ${record.type === 'income' ? '#52c41a' : '#ff4d4f'}` }} bodyStyle={{ padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.patient?.name || record.description || 'N/A'}</div>
+              {getStatusTag(record.status)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>Tipo:</strong><br /><Tag color={record.type === 'income' ? statusColors.success : statusColors.error}>{record.type === 'income' ? 'Receita' : 'Despesa'}</Tag></div>
+              <div><strong>Valor:</strong><br /><span style={{ color: record.type === 'income' ? statusColors.success : statusColors.error, fontWeight: 'bold' }}>{formatCurrency(record.amount)}</span></div>
+              <div><strong>Data:</strong><br />{dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+              <div><strong>Método:</strong><br />{getMethodLabel(record.payment_method)}</div>
+              <div><strong>Vencimento:</strong><br />{record.due_date ? dayjs(record.due_date).format('DD/MM/YYYY') : '-'}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/payments/${record.id}`)} style={{ color: actionColors.view }}>Ver</Button>
+              {canEdit('payments') && <Button type="text" size="small" icon={<EditOutlined />} onClick={() => navigate(`/payments/${record.id}/edit`)} style={{ color: actionColors.edit }}>Editar</Button>}
+              {canDelete('payments') && (
+                <Popconfirm title="Tem certeza?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                </Popconfirm>
+              )}
+            </div>
+          </Card>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '16px', padding: '12px', background: '#fafafa', borderRadius: '8px' }}>
+          <Button disabled={pagination.current === 1} onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}>Anterior</Button>
+          <span style={{ fontSize: '13px' }}>Pág. {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}</span>
+          <Button disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)} onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}>Próxima</Button>
+        </div>
+      </div>
+    );
   };
 
   const columns = [
@@ -543,21 +593,23 @@ const Payments = () => {
           </Col>
         </Row>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={payments}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
-            onChange={handleTableChange}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={payments}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
 
       <Modal

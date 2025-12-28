@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Tag, message, Modal, Form, Input, Select } from 'antd';
+import { Table, Button, Space, Tag, message, Modal, Form, Input, Select, Card } from 'antd';
 import { UserOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { usersAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
@@ -14,8 +14,15 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [permissionsVisible, setPermissionsVisible] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [form] = Form.useForm();
   const { isAdmin } = usePermission();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -48,6 +55,30 @@ const Users = () => {
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao criar usuário');
     }
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (users.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum usuário encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {users.map((record) => (
+          <Card key={record.id} size="small" style={{ borderLeft: `4px solid ${record.role === 'admin' ? '#ff4d4f' : record.role === 'dentist' ? '#1890ff' : '#52c41a'}` }} bodyStyle={{ padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.name}</div>
+              <Tag color={record.active ? 'success' : 'default'}>{record.active ? 'Ativo' : 'Inativo'}</Tag>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Email:</strong> {record.email}</div>
+              <div><strong>Função:</strong><br /><Tag color={record.role === 'admin' ? 'red' : record.role === 'dentist' ? 'blue' : 'green'}>{record.role}</Tag></div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <Button size="small" icon={<KeyOutlined />} onClick={() => handleManagePermissions(record)}>Permissões</Button>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
   };
 
   const columns = [
@@ -120,15 +151,17 @@ const Users = () => {
         </Button>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <Table
-          columns={columns}
-          dataSource={users}
-          loading={loading}
-          rowKey="id"
-          scroll={{ x: 'max-content' }}
-        />
-      </div>
+      {isMobile ? renderMobileCards() : (
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={users}
+            loading={loading}
+            rowKey="id"
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
+      )}
 
       <Modal
         title="Novo Usuário"

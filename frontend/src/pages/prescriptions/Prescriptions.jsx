@@ -31,11 +31,18 @@ const Prescriptions = () => {
   const [loading, setLoading] = useState(false);
   const [prescriptions, setPrescriptions] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
     total: 0,
   });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -138,6 +145,41 @@ const Prescriptions = () => {
       <Tag color={statusObj.color}>{statusObj.label}</Tag>
     ) : (
       <Tag>{status}</Tag>
+    );
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (prescriptions.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhuma receita encontrada</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {prescriptions.map((record) => (
+          <Card key={record.id} size="small" style={{ borderLeft: `4px solid ${record.status === 'issued' ? '#52c41a' : record.status === 'cancelled' ? '#ff4d4f' : '#faad14'}` }} bodyStyle={{ padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.patient?.name || 'N/A'}</div>
+              {getStatusTag(record.status)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>Tipo:</strong><br />{getTypeTag(record.type)}</div>
+              <div><strong>Data:</strong><br />{dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+              <div><strong>Título:</strong><br />{record.title || '-'}</div>
+              <div><strong>Dentista:</strong><br />{record.dentist_name || '-'}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/prescriptions/${record.id}`)} style={{ color: actionColors.view }}>Ver</Button>
+              <Button type="text" size="small" icon={<FilePdfOutlined />} onClick={() => handleDownloadPDF(record.id)} style={{ color: actionColors.exportPDF }}>PDF</Button>
+              <Popconfirm title="Tem certeza?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+              </Popconfirm>
+            </div>
+          </Card>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '16px', padding: '12px', background: '#fafafa', borderRadius: '8px' }}>
+          <Button disabled={pagination.current === 1} onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}>Anterior</Button>
+          <span style={{ fontSize: '13px' }}>Pág. {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}</span>
+          <Button disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)} onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}>Próxima</Button>
+        </div>
+      </div>
     );
   };
 
@@ -312,17 +354,19 @@ const Prescriptions = () => {
           </Col>
         </Row>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={prescriptions}
-            rowKey="id"
-            loading={loading}
-            pagination={pagination}
-            onChange={handleTableChange}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={prescriptions}
+              rowKey="id"
+              loading={loading}
+              pagination={pagination}
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
     </div>
   );

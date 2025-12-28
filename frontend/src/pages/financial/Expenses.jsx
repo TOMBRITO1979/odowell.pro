@@ -35,6 +35,7 @@ const Expenses = () => {
   const { canCreate, canEdit, canDelete } = usePermission();
   const [loading, setLoading] = useState(false);
   const [expenses, setExpenses] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [statistics, setStatistics] = useState({
     total: 0,
     paid: 0,
@@ -45,6 +46,12 @@ const Expenses = () => {
     pageSize: 20,
     total: 0,
   });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [filters, setFilters] = useState({
     category: undefined,
@@ -159,6 +166,48 @@ const Expenses = () => {
       style: 'currency',
       currency: 'BRL',
     }).format(value || 0);
+  };
+
+  const getMethodLabel = (method) => {
+    const methodObj = paymentMethods.find(m => m.value === method);
+    return methodObj ? methodObj.label : method || '-';
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (expenses.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhuma conta encontrada</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {expenses.map((record) => (
+          <Card key={record.id} size="small" style={{ borderLeft: `4px solid ${record.status === 'paid' ? '#52c41a' : record.status === 'overdue' ? '#ff4d4f' : '#faad14'}` }} bodyStyle={{ padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{getCategoryLabel(record.category)}</div>
+              {getStatusTag(record.status)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>Descrição:</strong><br />{record.description || '-'}</div>
+              <div><strong>Valor:</strong><br /><span style={{ color: statusColors.error, fontWeight: 'bold' }}>{formatCurrency(record.amount)}</span></div>
+              <div><strong>Data:</strong><br />{dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+              <div><strong>Vencimento:</strong><br />{record.due_date ? dayjs(record.due_date).format('DD/MM/YYYY') : '-'}</div>
+              <div><strong>Método:</strong><br />{getMethodLabel(record.payment_method)}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              {canEdit('payments') && <Button type="text" size="small" icon={<EditOutlined />} onClick={() => navigate(`/expenses/${record.id}/edit`)} style={{ color: actionColors.edit }}>Editar</Button>}
+              {canDelete('payments') && (
+                <Popconfirm title="Tem certeza?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                </Popconfirm>
+              )}
+            </div>
+          </Card>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '16px', padding: '12px', background: '#fafafa', borderRadius: '8px' }}>
+          <Button disabled={pagination.current === 1} onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}>Anterior</Button>
+          <span style={{ fontSize: '13px' }}>Pág. {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}</span>
+          <Button disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)} onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}>Próxima</Button>
+        </div>
+      </div>
+    );
   };
 
   const columns = [
@@ -376,21 +425,23 @@ const Expenses = () => {
           </Col>
         </Row>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={expenses}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
-            onChange={handleTableChange}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={expenses}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
     </div>
   );

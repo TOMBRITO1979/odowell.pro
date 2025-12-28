@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Input, Space, Popconfirm, message, Tag, Upload, Modal } from 'antd';
+import { Table, Button, Input, Space, Popconfirm, message, Tag, Upload, Modal, Card } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, FileExcelOutlined, FilePdfOutlined, UploadOutlined } from '@ant-design/icons';
 import { patientsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
@@ -14,9 +14,17 @@ const Patients = () => {
   const [search, setSearch] = useState('');
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const { canCreate, canEdit, canDelete } = usePermission();
+
+  // Detectar mudança de tamanho da tela
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -195,6 +203,56 @@ const Patients = () => {
     return false; // Prevent default upload behavior
   };
 
+  // Renderizar cards para versão mobile
+  const renderMobileCards = () => {
+    if (loading) {
+      return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    }
+    if (patients.length === 0) {
+      return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum paciente encontrado</div>;
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {patients.map((record) => (
+          <Card
+            key={record.id}
+            size="small"
+            style={{
+              borderLeft: `4px solid ${record.active ? statusColors.success : statusColors.cancelled}`,
+            }}
+            bodyStyle={{ padding: '12px' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.name}</div>
+              <Tag color={record.active ? statusColors.success : statusColors.cancelled}>
+                {record.active ? 'Ativo' : 'Inativo'}
+              </Tag>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>CPF:</strong><br />{record.cpf || '-'}</div>
+              <div><strong>Telefone:</strong><br />{record.cell_phone || record.phone || '-'}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Email:</strong> {record.email || '-'}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/patients/${record.id}`)} style={{ color: actionColors.view }}>Ver</Button>
+              {canEdit('patients') && <Button type="text" size="small" icon={<EditOutlined />} onClick={() => navigate(`/patients/${record.id}/edit`)} style={{ color: actionColors.edit }}>Editar</Button>}
+              {canDelete('patients') && (
+                <Popconfirm title="Tem certeza que deseja excluir?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                </Popconfirm>
+              )}
+            </div>
+          </Card>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '16px', padding: '12px', background: '#fafafa', borderRadius: '8px' }}>
+          <Button disabled={pagination.current === 1} onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}>Anterior</Button>
+          <span style={{ fontSize: '13px' }}>Página {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}</span>
+          <Button disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)} onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}>Próxima</Button>
+        </div>
+      </div>
+    );
+  };
+
   const columns = [
     {
       title: 'Nome',
@@ -343,17 +401,21 @@ const Patients = () => {
         style={{ marginBottom: 16, maxWidth: 400 }}
       />
 
-      <div style={{ overflowX: 'auto' }}>
-        <Table
-          columns={columns}
-          dataSource={patients}
-          rowKey="id"
-          loading={loading}
-          pagination={pagination}
-          onChange={(newPagination) => setPagination(newPagination)}
-          scroll={{ x: 'max-content' }}
-        />
-      </div>
+      {isMobile ? (
+        renderMobileCards()
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={patients}
+            rowKey="id"
+            loading={loading}
+            pagination={pagination}
+            onChange={(newPagination) => setPagination(newPagination)}
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
+      )}
 
       <Modal
         title="Importar Pacientes via CSV"

@@ -35,6 +35,7 @@ const Campaigns = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [campaigns, setCampaigns] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -45,6 +46,12 @@ const Campaigns = () => {
     status: undefined,
     type: undefined,
   });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const statusOptions = [
     { value: 'draft', label: 'Rascunho', color: 'default' },
@@ -124,6 +131,44 @@ const Campaigns = () => {
       <Tag color={typeObj.color}>{typeObj.label}</Tag>
     ) : (
       <Tag>{type}</Tag>
+    );
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (campaigns.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhuma campanha encontrada</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {campaigns.map((record) => {
+          const statusObj = statusOptions.find(s => s.value === record.status);
+          return (
+            <Card key={record.id} size="small" style={{ borderLeft: `4px solid ${statusObj?.color === 'success' ? '#52c41a' : statusObj?.color === 'error' ? '#ff4d4f' : statusObj?.color === 'warning' ? '#faad14' : '#1890ff'}` }} bodyStyle={{ padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{record.name}</div>
+                {getStatusTag(record.status)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+                <div><strong>Tipo:</strong><br />{getTypeTag(record.type)}</div>
+                <div><strong>Destinatários:</strong><br />{record.total_recipients || 0}</div>
+                <div><strong>Enviados:</strong><br />{record.sent || 0} / {record.total_recipients || 0}</div>
+                <div><strong>Agendada:</strong><br />{record.scheduled_at ? (() => { const m = record.scheduled_at.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : '-'; })() : '-'}</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                {record.status === 'draft' && <Button type="text" size="small" icon={<SendOutlined />} onClick={() => handleSend(record.id)} style={{ color: actionColors.save }}>Enviar</Button>}
+                <Button type="text" size="small" icon={<EditOutlined />} onClick={() => navigate(`/campaigns/${record.id}/edit`)} style={{ color: actionColors.edit }}>Editar</Button>
+                <Popconfirm title="Tem certeza?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+                </Popconfirm>
+              </div>
+            </Card>
+          );
+        })}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '16px', padding: '12px', background: '#fafafa', borderRadius: '8px' }}>
+          <Button disabled={pagination.current === 1} onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}>Anterior</Button>
+          <span style={{ fontSize: '13px' }}>Pág. {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}</span>
+          <Button disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)} onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}>Próxima</Button>
+        </div>
+      </div>
     );
   };
 
@@ -298,17 +343,19 @@ const Campaigns = () => {
           </Col>
         </Row>
 
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={campaigns}
-            rowKey="id"
-            loading={loading}
-            pagination={pagination}
-            onChange={setPagination}
-            scroll={{ x: 'max-content' }}
-          />
-        </div>
+        {isMobile ? renderMobileCards() : (
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={campaigns}
+              rowKey="id"
+              loading={loading}
+              pagination={pagination}
+              onChange={setPagination}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
       </Card>
     </div>
   );

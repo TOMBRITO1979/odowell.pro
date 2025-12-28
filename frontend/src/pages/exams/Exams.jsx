@@ -38,6 +38,7 @@ const Exams = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
   const [pagination, setPagination] = useState({
@@ -45,6 +46,12 @@ const Exams = () => {
     pageSize: 20,
     total: 0,
   });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchPatients();
@@ -142,6 +149,36 @@ const Exams = () => {
     } catch (error) {
       message.error('Erro ao deletar exame');
     }
+  };
+
+  const renderMobileCards = () => {
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Carregando...</div>;
+    if (exams.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>Nenhum exame encontrado</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {exams.map((record) => (
+          <Card key={record.id} size="small" style={{ borderLeft: '4px solid #1890ff' }} bodyStyle={{ padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}><FileOutlined /> {record.name}</div>
+              {record.exam_type && <Tag color="blue">{record.exam_type}</Tag>}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '13px', color: '#555' }}>
+              <div><strong>Data:</strong><br />{record.exam_date ? dayjs(record.exam_date).format('DD/MM/YYYY') : '-'}</div>
+              <div><strong>Arquivo:</strong><br />{record.file_name || '-'}</div>
+              <div><strong>Tamanho:</strong><br />{record.file_size ? `${(record.file_size / 1024).toFixed(2)} KB` : '-'}</div>
+              <div><strong>Upload:</strong><br />{dayjs(record.created_at).format('DD/MM/YYYY')}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/exams/${record.id}`)} style={{ color: actionColors.view }}>Ver</Button>
+              <Button type="text" size="small" icon={<DownloadOutlined />} onClick={() => handleDownload(record)} style={{ color: actionColors.exportPDF }}>Baixar</Button>
+              <Popconfirm title="Tem certeza?" onConfirm={() => handleDelete(record.id)} okText="Sim" cancelText="Não">
+                <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: actionColors.delete }}>Excluir</Button>
+              </Popconfirm>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
   };
 
   const columns = [
@@ -290,6 +327,8 @@ const Exams = () => {
               Selecione um paciente para visualizar seus exames
             </p>
           </div>
+        ) : isMobile ? (
+          renderMobileCards()
         ) : (
           <Table
             dataSource={exams}
