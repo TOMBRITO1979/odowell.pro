@@ -13,6 +13,25 @@ import './index.css'
 import './styles/mobile.css'
 import './styles/mobile-override.css'
 
+// Limpa Service Workers antigos para evitar problemas de cache
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(registration => {
+      registration.unregister()
+      console.log('Service Worker removido:', registration.scope)
+    })
+  })
+  // Limpa caches antigos
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(name => {
+        caches.delete(name)
+        console.log('Cache removido:', name)
+      })
+    })
+  }
+}
+
 // Configure dayjs with timezone support
 dayjs.extend(utc)
 dayjs.extend(timezone)
