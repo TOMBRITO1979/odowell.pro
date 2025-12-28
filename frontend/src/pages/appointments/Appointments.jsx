@@ -30,6 +30,7 @@ const Appointments = () => {
   const [dentists, setDentists] = useState([]);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
   const [currentWeekStart, setCurrentWeekStart] = useState(dayjs().startOf('week'));
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [filters, setFilters] = useState({
     dentist_id: null,
     procedure: null,
@@ -44,6 +45,15 @@ const Appointments = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { canCreate, canEdit, canDelete } = usePermission();
+
+  // Detectar mudança de tamanho da tela
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -449,6 +459,159 @@ const Appointments = () => {
     );
   };
 
+  // Renderizar cards para versão mobile
+  const renderMobileCards = () => {
+    if (loading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <span>Carregando...</span>
+        </div>
+      );
+    }
+
+    if (data.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+          Nenhum agendamento encontrado
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {data.map((record) => {
+          const statusConfig = getStatusConfig(record.status);
+          return (
+            <Card
+              key={record.id}
+              size="small"
+              style={{
+                borderLeft: `4px solid ${statusConfig.color}`,
+                backgroundColor: statusConfig.bg,
+              }}
+              bodyStyle={{ padding: '12px' }}
+            >
+              {/* Cabeçalho com Paciente e Status */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: '8px'
+              }}>
+                <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>
+                  {record.patient?.name || 'N/A'}
+                </div>
+                {getStatusTag(record.status)}
+              </div>
+
+              {/* Informações do agendamento */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '6px',
+                fontSize: '13px',
+                color: '#555'
+              }}>
+                <div>
+                  <strong>Data/Hora:</strong><br />
+                  {record.start_time ? dayjs(record.start_time).format('DD/MM/YYYY HH:mm') : 'N/A'}
+                </div>
+                <div>
+                  <strong>Procedimento:</strong><br />
+                  {getProcedureText(record.procedure)}
+                </div>
+                <div>
+                  <strong>Profissional:</strong><br />
+                  {record.dentist?.name || 'N/A'}
+                </div>
+                <div>
+                  <strong>Sala:</strong><br />
+                  {record.room || '-'}
+                </div>
+              </div>
+
+              {/* Botões de ação */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                marginTop: '12px',
+                paddingTop: '8px',
+                borderTop: '1px solid rgba(0,0,0,0.06)'
+              }}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => navigate(`/appointments/${record.id}`)}
+                  style={{ color: actionColors.view }}
+                >
+                  Ver
+                </Button>
+                {canEdit('appointments') && (
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => navigate(`/appointments/${record.id}/edit`)}
+                    style={{ color: actionColors.edit }}
+                  >
+                    Editar
+                  </Button>
+                )}
+                {canDelete('appointments') && (
+                  <Popconfirm
+                    title="Tem certeza que deseja deletar este agendamento?"
+                    onConfirm={() => handleDelete(record.id)}
+                    okText="Sim"
+                    cancelText="Não"
+                  >
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      style={{ color: actionColors.delete }}
+                    >
+                      Excluir
+                    </Button>
+                  </Popconfirm>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+
+        {/* Paginação para mobile */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '16px',
+          marginTop: '16px',
+          padding: '12px',
+          background: '#fafafa',
+          borderRadius: '8px'
+        }}>
+          <Button
+            disabled={pagination.current === 1}
+            onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}
+          >
+            Anterior
+          </Button>
+          <span style={{ fontSize: '13px' }}>
+            Página {pagination.current} de {Math.ceil(pagination.total / pagination.pageSize) || 1}
+          </span>
+          <Button
+            disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)}
+            onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}
+          >
+            Próxima
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const columns = [
     {
       title: 'Paciente',
@@ -658,21 +821,27 @@ const Appointments = () => {
 
         {/* Renderizar visualização baseada no modo */}
         {viewMode === 'list' ? (
-          <div style={{ overflowX: 'auto' }}>
-            <Table
-              columns={columns}
-              dataSource={data}
-              rowKey="id"
-              loading={loading}
-              pagination={{
-                ...pagination,
-                showSizeChanger: true,
-                pageSizeOptions: ['10', '20', '50', '100'],
-                onChange: (page, pageSize) => setPagination({ ...pagination, current: page, pageSize }),
-              }}
-              scroll={{ x: 'max-content' }}
-            />
-          </div>
+          isMobile ? (
+            // Versão mobile: cards
+            renderMobileCards()
+          ) : (
+            // Versão desktop: tabela
+            <div style={{ overflowX: 'auto' }}>
+              <Table
+                columns={columns}
+                dataSource={data}
+                rowKey="id"
+                loading={loading}
+                pagination={{
+                  ...pagination,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['10', '20', '50', '100'],
+                  onChange: (page, pageSize) => setPagination({ ...pagination, current: page, pageSize }),
+                }}
+                scroll={{ x: 'max-content' }}
+              />
+            </div>
+          )
         ) : (
           renderCalendarView()
         )}
