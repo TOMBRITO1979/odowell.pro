@@ -17,8 +17,21 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import { appointmentsAPI } from '../../services/api';
+
 import { usePermission } from '../../contexts/AuthContext';
+
+// Configurar plugins de timezone
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Função para formatar data/hora no timezone de São Paulo
+const formatDateTime = (dateTime) => {
+  if (!dateTime) return 'N/A';
+  return dayjs(dateTime).tz('America/Sao_Paulo').format('DD/MM/YYYY HH:mm');
+};
 
 const AppointmentDetails = () => {
   const [appointment, setAppointment] = useState(null);
@@ -150,14 +163,10 @@ const AppointmentDetails = () => {
             {getProcedureText(appointment.procedure)}
           </Descriptions.Item>
           <Descriptions.Item label="Data/Hora Início">
-            {appointment.start_time
-              ? dayjs(appointment.start_time).format('DD/MM/YYYY HH:mm')
-              : 'N/A'}
+            {formatDateTime(appointment.start_time)}
           </Descriptions.Item>
           <Descriptions.Item label="Data/Hora Fim">
-            {appointment.end_time
-              ? dayjs(appointment.end_time).format('DD/MM/YYYY HH:mm')
-              : 'N/A'}
+            {formatDateTime(appointment.end_time)}
           </Descriptions.Item>
           <Descriptions.Item label="Duração">
             {appointment.start_time && appointment.end_time
@@ -168,14 +177,10 @@ const AppointmentDetails = () => {
             {appointment.room || '-'}
           </Descriptions.Item>
           <Descriptions.Item label="Criado em">
-            {appointment.created_at
-              ? dayjs(appointment.created_at).format('DD/MM/YYYY HH:mm')
-              : 'N/A'}
+            {formatDateTime(appointment.created_at)}
           </Descriptions.Item>
           <Descriptions.Item label="Atualizado em">
-            {appointment.updated_at
-              ? dayjs(appointment.updated_at).format('DD/MM/YYYY HH:mm')
-              : 'N/A'}
+            {formatDateTime(appointment.updated_at)}
           </Descriptions.Item>
           <Descriptions.Item label="Observações" span={2}>
             {appointment.notes || 'Sem observações'}

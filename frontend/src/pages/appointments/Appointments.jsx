@@ -19,9 +19,19 @@ import { usePermission } from '../../contexts/AuthContext';
 import { actionColors, statusColors, spacing, shadows } from '../../theme/designSystem';
 import { getHolidayInfo } from '../../utils/brazilianHolidays';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import 'dayjs/locale/pt-br';
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.locale('pt-br');
+
+// Função para formatar data/hora no timezone de São Paulo
+const formatDateTime = (dateTime, format = 'DD/MM/YYYY HH:mm') => {
+  if (!dateTime) return 'N/A';
+  return dayjs(dateTime).tz('America/Sao_Paulo').format(format);
+};
 
 const { RangePicker } = DatePicker;
 
@@ -320,7 +330,7 @@ const Appointments = () => {
           <div>
             <div><strong>{appointment.patient?.name}</strong></div>
             <div>{getProcedureText(appointment.procedure)}</div>
-            <div>{dayjs(appointment.start_time).format('HH:mm')} - {dayjs(appointment.end_time).format('HH:mm')}</div>
+            <div>{formatDateTime(appointment.start_time, 'HH:mm')} - {formatDateTime(appointment.end_time, 'HH:mm')}</div>
             <div>Prof: {appointment.dentist?.name}</div>
             <div>Status: {config.text}</div>
           </div>
@@ -345,7 +355,7 @@ const Appointments = () => {
             {appointment.patient?.name?.split(' ')[0] || 'N/A'}
           </div>
           <div style={{ fontSize: '10px', color: '#666' }}>
-            {dayjs(appointment.start_time).format('HH:mm')}
+            {formatDateTime(appointment.start_time, 'HH:mm')}
           </div>
         </div>
       </Tooltip>
@@ -595,7 +605,7 @@ const Appointments = () => {
               }}>
                 <div>
                   <strong>Data/Hora:</strong><br />
-                  {record.start_time ? dayjs(record.start_time).format('DD/MM/YYYY HH:mm') : 'N/A'}
+                  {formatDateTime(record.start_time)}
                 </div>
                 <div>
                   <strong>Procedimento:</strong><br />
@@ -710,7 +720,7 @@ const Appointments = () => {
       title: 'Data/Hora',
       dataIndex: 'start_time',
       key: 'start_time',
-      render: (text) => text ? dayjs(text).format('DD/MM/YYYY HH:mm') : 'N/A',
+      render: (text) => formatDateTime(text),
       sorter: (a, b) => dayjs(a.start_time).unix() - dayjs(b.start_time).unix(),
       defaultSortOrder: 'ascend',
     },
