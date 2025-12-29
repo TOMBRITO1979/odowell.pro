@@ -86,6 +86,11 @@ const Settings = () => {
         working_hours_start: settings.working_hours_start ? dayjs(settings.working_hours_start, 'HH:mm') : null,
         working_hours_end: settings.working_hours_end ? dayjs(settings.working_hours_end, 'HH:mm') : null,
         default_appointment_duration: settings.default_appointment_duration || 30,
+        // Lunch break fields
+        lunch_break_enabled: settings.lunch_break_enabled ?? false,
+        lunch_break_start: settings.lunch_break_start ? dayjs(settings.lunch_break_start, 'HH:mm') : null,
+        lunch_break_end: settings.lunch_break_end ? dayjs(settings.lunch_break_end, 'HH:mm') : null,
+        // Payment fields
         payment_cash_enabled: settings.payment_cash_enabled ?? true,
         payment_credit_card_enabled: settings.payment_credit_card_enabled ?? true,
         payment_debit_card_enabled: settings.payment_debit_card_enabled ?? true,
@@ -349,6 +354,8 @@ const Settings = () => {
         ...values,
         working_hours_start: values.working_hours_start?.format('HH:mm'),
         working_hours_end: values.working_hours_end?.format('HH:mm'),
+        lunch_break_start: values.lunch_break_start?.format('HH:mm'),
+        lunch_break_end: values.lunch_break_end?.format('HH:mm'),
       };
 
       await settingsAPI.update(settingsData);
