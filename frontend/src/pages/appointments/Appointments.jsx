@@ -80,8 +80,8 @@ const Appointments = () => {
     const fetchSettings = async () => {
       try {
         const response = await settingsAPI.get();
-        if (mounted && response.data) {
-          const settings = response.data;
+        if (mounted && response.data?.settings) {
+          const settings = response.data.settings;
           if (settings.lunch_break_enabled && settings.lunch_break_start && settings.lunch_break_end) {
             setLunchBreak({
               enabled: true,
