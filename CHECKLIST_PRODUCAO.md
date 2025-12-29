@@ -262,4 +262,5 @@ curl -I https://app.odowell.pro
 | 28/12/2024 | WhatsApp API - cancel/reschedule retornando 500 | Adicionado Session() para evitar contaminação GORM |
 | 28/12/2024 | WhatsApp API - waiting-list POST retornando 500 | Substituído Create() por raw SQL |
 | 28/12/2024 | Service Worker causando cache infinito | Adicionado código para limpar SW automaticamente |
+| 29/12/2024 | Delete de agendamento mostrava 2 mensagens (sucesso + erro) | fetchAppointments() estava indefinida - refatorado para useCallback |
 

@@ -78,64 +78,53 @@ const Appointments = () => {
     };
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
+  // Função para buscar agendamentos - reutilizável
+  const fetchAppointments = React.useCallback(() => {
+    setLoading(true);
+    const params = {
+      page: viewMode === 'calendar' ? 1 : pagination.current,
+      page_size: viewMode === 'calendar' ? 500 : pagination.pageSize
+    };
 
-    const fetchAppointments = () => {
-      setLoading(true);
-      const params = {
-        page: viewMode === 'calendar' ? 1 : pagination.current,
-        page_size: viewMode === 'calendar' ? 500 : pagination.pageSize
-      };
+    if (filters.dentist_id) params.dentist_id = filters.dentist_id;
+    if (filters.procedure) params.procedure = filters.procedure;
+    if (filters.status) params.status = filters.status;
 
-      if (filters.dentist_id) params.dentist_id = filters.dentist_id;
-      if (filters.procedure) params.procedure = filters.procedure;
-      if (filters.status) params.status = filters.status;
-
-      if (viewMode === 'calendar') {
-        // Para o calendário, buscar a semana inteira
-        params.start_date = currentWeekStart.startOf('day').toISOString();
-        params.end_date = currentWeekStart.add(6, 'day').endOf('day').toISOString();
+    if (viewMode === 'calendar') {
+      // Para o calendário, buscar a semana inteira
+      params.start_date = currentWeekStart.startOf('day').toISOString();
+      params.end_date = currentWeekStart.add(6, 'day').endOf('day').toISOString();
+    } else {
+      // Para lista, usar filtros normais
+      if (filters.dateRange && filters.dateRange[0]) {
+        params.start_date = filters.dateRange[0].startOf('day').toISOString();
       } else {
-        // Para lista, usar filtros normais
-        if (filters.dateRange && filters.dateRange[0]) {
-          params.start_date = filters.dateRange[0].startOf('day').toISOString();
-        } else {
-          params.start_date = dayjs().startOf('day').toISOString();
-        }
-        if (filters.dateRange && filters.dateRange[1]) {
-          params.end_date = filters.dateRange[1].endOf('day').toISOString();
-        }
+        params.start_date = dayjs().startOf('day').toISOString();
       }
+      if (filters.dateRange && filters.dateRange[1]) {
+        params.end_date = filters.dateRange[1].endOf('day').toISOString();
+      }
+    }
 
-      appointmentsAPI.getAll(params)
-        .then(res => {
-          if (mounted) {
-            setData(res.data.appointments || []);
-            setPagination(prev => ({
-              ...prev,
-              total: res.data.total || 0,
-            }));
-          }
-        })
-        .catch(() => {
-          if (mounted) {
-            message.error('Erro ao carregar agendamentos');
-          }
-        })
-        .finally(() => {
-          if (mounted) {
-            setLoading(false);
-          }
-        });
-    };
+    appointmentsAPI.getAll(params)
+      .then(res => {
+        setData(res.data.appointments || []);
+        setPagination(prev => ({
+          ...prev,
+          total: res.data.total || 0,
+        }));
+      })
+      .catch(() => {
+        message.error('Erro ao carregar agendamentos');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [pagination.current, pagination.pageSize, filters, viewMode, currentWeekStart]);
 
+  useEffect(() => {
     fetchAppointments();
-
-    return () => {
-      mounted = false;
-    };
-  }, [pagination.current, pagination.pageSize, filters, location.key, viewMode, currentWeekStart]);
+  }, [fetchAppointments, location.key]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
