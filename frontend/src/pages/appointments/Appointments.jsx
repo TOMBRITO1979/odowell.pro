@@ -17,6 +17,7 @@ import {
 import { appointmentsAPI, usersAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import { actionColors, statusColors, spacing, shadows } from '../../theme/designSystem';
+import { getHolidayInfo } from '../../utils/brazilianHolidays';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 
@@ -383,26 +384,50 @@ const Appointments = () => {
             </div>
             {weekDays.map((day, index) => {
               const isToday = day.format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD');
+              const holiday = getHolidayInfo(day);
+              const isHoliday = holiday !== null;
+
               return (
-                <div
+                <Tooltip
                   key={index}
-                  style={{
-                    backgroundColor: isToday ? '#e6f7ff' : '#fafafa',
-                    padding: '8px',
-                    textAlign: 'center',
-                    fontWeight: 600,
-                    borderBottom: '1px solid #e8e8e8',
-                    borderRight: index < 6 ? '1px solid #e8e8e8' : 'none'
-                  }}
+                  title={isHoliday ? holiday.name : null}
+                  placement="top"
                 >
-                  <div>{dayNames[index]}</div>
-                  <div style={{
-                    fontSize: '18px',
-                    color: isToday ? '#1890ff' : 'inherit'
-                  }}>
-                    {day.format('DD')}
+                  <div
+                    style={{
+                      backgroundColor: isHoliday ? '#fff1f0' : isToday ? '#e6f7ff' : '#fafafa',
+                      padding: '8px',
+                      textAlign: 'center',
+                      fontWeight: 600,
+                      borderBottom: '1px solid #e8e8e8',
+                      borderRight: index < 6 ? '1px solid #e8e8e8' : 'none',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ color: isHoliday ? '#cf1322' : 'inherit' }}>
+                      {dayNames[index]}
+                    </div>
+                    <div style={{
+                      fontSize: '18px',
+                      color: isHoliday ? '#cf1322' : isToday ? '#1890ff' : 'inherit'
+                    }}>
+                      {day.format('DD')}
+                    </div>
+                    {isHoliday && (
+                      <div style={{
+                        fontSize: '9px',
+                        color: '#cf1322',
+                        marginTop: '2px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '100%'
+                      }}>
+                        {holiday.name}
+                      </div>
+                    )}
                   </div>
-                </div>
+                </Tooltip>
               );
             })}
 
@@ -425,6 +450,17 @@ const Appointments = () => {
                 {weekDays.map((day, dayIndex) => {
                   const appointments = getAppointmentsForSlot(day, timeSlot);
                   const isToday = day.format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD');
+                  const dayHoliday = getHolidayInfo(day);
+                  const isDayHoliday = dayHoliday !== null;
+
+                  // Prioridade de cor: feriado > hoje > normal
+                  let bgColor = '#fff';
+                  if (isDayHoliday) {
+                    bgColor = '#fff7f6'; // Vermelho claro para feriados
+                  } else if (isToday) {
+                    bgColor = '#f6ffed'; // Verde claro para hoje
+                  }
+
                   return (
                     <div
                       key={dayIndex}
@@ -433,7 +469,7 @@ const Appointments = () => {
                         borderBottom: slotIndex < timeSlots.length - 1 ? '1px solid #e8e8e8' : 'none',
                         borderRight: dayIndex < 6 ? '1px solid #e8e8e8' : 'none',
                         minHeight: '60px',
-                        backgroundColor: isToday ? '#f6ffed' : '#fff'
+                        backgroundColor: bgColor
                       }}
                     >
                       {appointments.map(apt => renderAppointmentCard(apt))}
