@@ -777,6 +777,14 @@ func WhatsAppGetAvailableSlots(c *gin.Context) {
 	startTime, _ := time.Parse("15:04", workingStart)
 	endTime, _ := time.Parse("15:04", workingEnd)
 
+	// Parse lunch break hours
+	var lunchStart, lunchEnd time.Time
+	hasLunchBreak := settings.LunchBreakEnabled && settings.LunchBreakStart != "" && settings.LunchBreakEnd != ""
+	if hasLunchBreak {
+		lunchStart, _ = time.Parse("15:04", settings.LunchBreakStart)
+		lunchEnd, _ = time.Parse("15:04", settings.LunchBreakEnd)
+	}
+
 	// Generate available slots
 	availableSlots := make([]WhatsAppAvailableSlot, 0)
 
@@ -790,8 +798,19 @@ func WhatsAppGetAvailableSlots(c *gin.Context) {
 		for current.Before(endOfWork) {
 			slotTime := current.Format("15:04")
 
-			// Check if slot is not busy and is in the future
-			if !busySlots[dentist.ID][slotTime] && current.After(time.Now()) {
+			// Check if slot is during lunch break
+			isLunchTime := false
+			if hasLunchBreak {
+				slotHour := current.Hour()
+				slotMinute := current.Minute()
+				lunchStartMinutes := lunchStart.Hour()*60 + lunchStart.Minute()
+				lunchEndMinutes := lunchEnd.Hour()*60 + lunchEnd.Minute()
+				slotMinutes := slotHour*60 + slotMinute
+				isLunchTime = slotMinutes >= lunchStartMinutes && slotMinutes < lunchEndMinutes
+			}
+
+			// Check if slot is not busy, not during lunch, and is in the future
+			if !busySlots[dentist.ID][slotTime] && !isLunchTime && current.After(time.Now()) {
 				slotEnd := current.Add(time.Duration(slotDuration) * time.Minute)
 				availableSlots = append(availableSlots, WhatsAppAvailableSlot{
 					Date:        date.Format("02/01/2006"),

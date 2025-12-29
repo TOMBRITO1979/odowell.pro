@@ -12,14 +12,16 @@ import {
   Col,
   Space,
   TimePicker,
+  Modal,
 } from 'antd';
 import {
   SaveOutlined,
   ArrowLeftOutlined,
   CalendarOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { appointmentsAPI, patientsAPI, usersAPI, waitingListAPI } from '../../services/api';
+import { appointmentsAPI, patientsAPI, usersAPI, waitingListAPI, settingsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { TextArea } = Input;
@@ -33,6 +35,11 @@ const AppointmentForm = () => {
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
   const [dentists, setDentists] = useState([]);
+  const [lunchBreak, setLunchBreak] = useState({
+    enabled: false,
+    start: null,
+    end: null,
+  });
   const isEditing = !!id;
 
   // Get patient_id from URL params (from waiting list)
@@ -73,10 +80,29 @@ const AppointmentForm = () => {
   useEffect(() => {
     fetchPatients();
     fetchDentists();
+    fetchSettings();
     if (isEditing) {
       fetchAppointment();
     }
   }, [id]);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await settingsAPI.get();
+      if (response.data?.settings) {
+        const settings = response.data.settings;
+        if (settings.lunch_break_enabled && settings.lunch_break_start && settings.lunch_break_end) {
+          setLunchBreak({
+            enabled: true,
+            start: settings.lunch_break_start,
+            end: settings.lunch_break_end,
+          });
+        }
+      }
+    } catch (error) {
+      // Ignora erro se não conseguir buscar configurações
+    }
+  };
 
   const fetchPatients = async () => {
     try {
@@ -127,7 +153,25 @@ const AppointmentForm = () => {
     }
   };
 
-  const onFinish = async (values) => {
+  // Verifica se o horário está dentro do período de almoço
+  const isLunchTime = (startTime) => {
+    if (!lunchBreak.enabled || !lunchBreak.start || !lunchBreak.end) {
+      return false;
+    }
+
+    const slotHour = startTime.hour();
+    const slotMinute = startTime.minute();
+    const slotMinutes = slotHour * 60 + slotMinute;
+
+    const [lunchStartHour, lunchStartMinute] = lunchBreak.start.split(':').map(Number);
+    const [lunchEndHour, lunchEndMinute] = lunchBreak.end.split(':').map(Number);
+    const lunchStartMinutes = lunchStartHour * 60 + lunchStartMinute;
+    const lunchEndMinutes = lunchEndHour * 60 + lunchEndMinute;
+
+    return slotMinutes >= lunchStartMinutes && slotMinutes < lunchEndMinutes;
+  };
+
+  const saveAppointment = async (values) => {
     setLoading(true);
     try {
       // Combinar data com horários
@@ -183,6 +227,26 @@ const AppointmentForm = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onFinish = async (values) => {
+    const startTime = values.start_time;
+
+    // Verificar se está tentando agendar no horário de almoço
+    if (isLunchTime(startTime)) {
+      Modal.confirm({
+        title: 'Horário de Almoço',
+        icon: <ExclamationCircleOutlined />,
+        content: `Este horário (${startTime.format('HH:mm')}) está dentro do período de almoço (${lunchBreak.start} - ${lunchBreak.end}). Deseja continuar mesmo assim?`,
+        okText: 'Sim, continuar',
+        cancelText: 'Não, escolher outro horário',
+        onOk: () => saveAppointment(values),
+      });
+      return;
+    }
+
+    // Se não for horário de almoço, salvar normalmente
+    saveAppointment(values);
   };
 
   return (
