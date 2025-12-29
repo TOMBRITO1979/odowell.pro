@@ -21,8 +21,14 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import { appointmentsAPI, patientsAPI, usersAPI, waitingListAPI, settingsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Configurar plugins de timezone
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { TextArea } = Input;
 
@@ -174,22 +180,21 @@ const AppointmentForm = () => {
   const saveAppointment = async (values) => {
     setLoading(true);
     try {
-      // Combinar data com horários
+      // Combinar data com horários usando timezone de São Paulo
       const date = values.date;
       const startTime = values.start_time;
       const endTime = values.end_time;
 
-      const start_time = dayjs(date)
-        .hour(startTime.hour())
-        .minute(startTime.minute())
-        .second(0)
-        .toISOString();
+      // Criar datetime com timezone explícito de São Paulo
+      const start_time = dayjs.tz(
+        `${date.format('YYYY-MM-DD')} ${startTime.format('HH:mm')}:00`,
+        'America/Sao_Paulo'
+      ).toISOString();
 
-      const end_time = dayjs(date)
-        .hour(endTime.hour())
-        .minute(endTime.minute())
-        .second(0)
-        .toISOString();
+      const end_time = dayjs.tz(
+        `${date.format('YYYY-MM-DD')} ${endTime.format('HH:mm')}:00`,
+        'America/Sao_Paulo'
+      ).toISOString();
 
       const data = {
         patient_id: values.patient_id,
