@@ -509,7 +509,7 @@ const Appointments = () => {
                           position: 'relative'
                         }}
                       >
-                        {isLunchHour && appointments.length === 0 && (
+                        {isLunchHour && (
                           <div style={{
                             position: 'absolute',
                             top: '50%',
@@ -517,12 +517,16 @@ const Appointments = () => {
                             transform: 'translate(-50%, -50%)',
                             color: '#bbb',
                             fontSize: '10px',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            zIndex: 0,
+                            pointerEvents: 'none'
                           }}>
                             Almoço
                           </div>
                         )}
-                        {appointments.map(apt => renderAppointmentCard(apt))}
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          {appointments.map(apt => renderAppointmentCard(apt))}
+                        </div>
                       </div>
                     </Tooltip>
                   );
