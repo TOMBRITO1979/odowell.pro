@@ -14,7 +14,7 @@ import {
   LeftOutlined,
   RightOutlined
 } from '@ant-design/icons';
-import { appointmentsAPI, usersAPI } from '../../services/api';
+import { appointmentsAPI, usersAPI, settingsAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import { actionColors, statusColors, spacing, shadows } from '../../theme/designSystem';
 import { getHolidayInfo } from '../../utils/brazilianHolidays';
@@ -32,6 +32,11 @@ const Appointments = () => {
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
   const [currentWeekStart, setCurrentWeekStart] = useState(dayjs().startOf('week'));
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [lunchBreak, setLunchBreak] = useState({
+    enabled: false,
+    start: null,
+    end: null,
+  });
   const [filters, setFilters] = useState({
     dentist_id: null,
     procedure: null,
@@ -72,7 +77,26 @@ const Appointments = () => {
       }
     };
 
+    const fetchSettings = async () => {
+      try {
+        const response = await settingsAPI.get();
+        if (mounted && response.data) {
+          const settings = response.data;
+          if (settings.lunch_break_enabled && settings.lunch_break_start && settings.lunch_break_end) {
+            setLunchBreak({
+              enabled: true,
+              start: parseInt(settings.lunch_break_start.split(':')[0]),
+              end: parseInt(settings.lunch_break_end.split(':')[0]),
+            });
+          }
+        }
+      } catch (error) {
+        // Ignora erro se não conseguir buscar configurações
+      }
+    };
+
     fetchDentists();
+    fetchSettings();
 
     return () => {
       mounted = false;
@@ -432,20 +456,27 @@ const Appointments = () => {
             })}
 
             {/* Slots de horário */}
-            {timeSlots.map((timeSlot, slotIndex) => (
+            {timeSlots.map((timeSlot, slotIndex) => {
+              const slotHour = parseInt(timeSlot.split(':')[0]);
+              const isLunchHour = lunchBreak.enabled && slotHour >= lunchBreak.start && slotHour < lunchBreak.end;
+
+              return (
               <React.Fragment key={timeSlot}>
                 <div style={{
                   padding: '4px 8px',
-                  backgroundColor: '#fafafa',
+                  backgroundColor: isLunchHour ? '#f5f5f5' : '#fafafa',
                   borderBottom: slotIndex < timeSlots.length - 1 ? '1px solid #e8e8e8' : 'none',
                   borderRight: '1px solid #e8e8e8',
                   fontSize: '12px',
                   fontWeight: 500,
                   display: 'flex',
                   alignItems: 'flex-start',
-                  minHeight: '60px'
+                  minHeight: '60px',
+                  color: isLunchHour ? '#999' : 'inherit'
                 }}>
-                  {timeSlot}
+                  <Tooltip title={isLunchHour ? 'Horário de Almoço' : null}>
+                    <span>{timeSlot}</span>
+                  </Tooltip>
                 </div>
                 {weekDays.map((day, dayIndex) => {
                   const appointments = getAppointmentsForSlot(day, timeSlot);
@@ -453,31 +484,52 @@ const Appointments = () => {
                   const dayHoliday = getHolidayInfo(day);
                   const isDayHoliday = dayHoliday !== null;
 
-                  // Prioridade de cor: feriado > hoje > normal
+                  // Prioridade de cor: almoço > feriado > hoje > normal
                   let bgColor = '#fff';
-                  if (isDayHoliday) {
+                  if (isLunchHour) {
+                    bgColor = '#f0f0f0'; // Cinza para almoço
+                  } else if (isDayHoliday) {
                     bgColor = '#fff7f6'; // Vermelho claro para feriados
                   } else if (isToday) {
                     bgColor = '#f6ffed'; // Verde claro para hoje
                   }
 
                   return (
-                    <div
+                    <Tooltip
                       key={dayIndex}
-                      style={{
-                        padding: '4px',
-                        borderBottom: slotIndex < timeSlots.length - 1 ? '1px solid #e8e8e8' : 'none',
-                        borderRight: dayIndex < 6 ? '1px solid #e8e8e8' : 'none',
-                        minHeight: '60px',
-                        backgroundColor: bgColor
-                      }}
+                      title={isLunchHour ? 'Horário de Almoço' : null}
                     >
-                      {appointments.map(apt => renderAppointmentCard(apt))}
-                    </div>
+                      <div
+                        style={{
+                          padding: '4px',
+                          borderBottom: slotIndex < timeSlots.length - 1 ? '1px solid #e8e8e8' : 'none',
+                          borderRight: dayIndex < 6 ? '1px solid #e8e8e8' : 'none',
+                          minHeight: '60px',
+                          backgroundColor: bgColor,
+                          position: 'relative'
+                        }}
+                      >
+                        {isLunchHour && appointments.length === 0 && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            color: '#bbb',
+                            fontSize: '10px',
+                            textAlign: 'center'
+                          }}>
+                            Almoço
+                          </div>
+                        )}
+                        {appointments.map(apt => renderAppointmentCard(apt))}
+                      </div>
+                    </Tooltip>
                   );
                 })}
               </React.Fragment>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

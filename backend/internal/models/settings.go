@@ -29,6 +29,11 @@ type TenantSettings struct {
 	WorkingHoursEnd            string `json:"working_hours_end"`   // Format: "HH:MM"
 	DefaultAppointmentDuration int    `json:"default_appointment_duration" gorm:"default:30"`
 
+	// Lunch Break
+	LunchBreakEnabled bool   `json:"lunch_break_enabled" gorm:"default:false"`
+	LunchBreakStart   string `json:"lunch_break_start"` // Format: "HH:MM"
+	LunchBreakEnd     string `json:"lunch_break_end"`   // Format: "HH:MM"
+
 	// Payment Methods
 	PaymentCashEnabled         bool `json:"payment_cash_enabled" gorm:"default:true"`
 	PaymentCreditCardEnabled   bool `json:"payment_credit_card_enabled" gorm:"default:true"`

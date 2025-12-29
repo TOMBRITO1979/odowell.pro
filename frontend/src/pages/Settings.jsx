@@ -498,6 +498,38 @@ const Settings = () => {
           <Input type="number" min={15} step={15} placeholder="30" />
         </Form.Item>
       </Col>
+
+      <Col xs={24}>
+        <Divider orientation="left">Horário de Almoço</Divider>
+      </Col>
+
+      <Col xs={24} md={8}>
+        <Form.Item
+          label="Bloquear Horário de Almoço"
+          name="lunch_break_enabled"
+          valuePropName="checked"
+        >
+          <Switch />
+        </Form.Item>
+      </Col>
+
+      <Col xs={24} md={8}>
+        <Form.Item
+          label="Início do Almoço"
+          name="lunch_break_start"
+        >
+          <TimePicker format="HH:mm" style={{ width: '100%' }} />
+        </Form.Item>
+      </Col>
+
+      <Col xs={24} md={8}>
+        <Form.Item
+          label="Fim do Almoço"
+          name="lunch_break_end"
+        >
+          <TimePicker format="HH:mm" style={{ width: '100%' }} />
+        </Form.Item>
+      </Col>
     </Row>
   );
 
