@@ -25,6 +25,7 @@ import { patientsAPI } from '../../services/api';
 import dayjs from 'dayjs';
 import { usePermission } from '../../contexts/AuthContext';
 import PatientConsents from '../../components/consents/PatientConsents';
+import PatientPortalAccess from '../../components/patients/PatientPortalAccess';
 
 const PatientDetails = () => {
   const [patient, setPatient] = useState(null);
@@ -237,6 +238,9 @@ const PatientDetails = () => {
         <div style={{ marginBottom: 16 }}>
           <PatientConsents patient={patient} />
         </div>
+
+        {/* Portal do Paciente */}
+        <PatientPortalAccess patient={patient} />
 
         {/* Convênio */}
         {(patient.insurance_name || patient.insurance_number) && (

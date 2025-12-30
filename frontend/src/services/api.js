@@ -535,3 +535,26 @@ export const signingAPI = {
   verifySignature: (type, id) => api.get(`/documents/${type}/${id}/verify`),
   downloadSignedPrescriptionPDF: (id) => api.get(`/prescriptions/${id}/pdf/signed`, { responseType: 'blob' }),
 };
+
+// Patient Portal API (for patients)
+export const patientPortalAPI = {
+  // Patient's own data
+  getProfile: () => api.get('/patient/me'),
+  getClinic: () => api.get('/patient/clinic'),
+
+  // Appointments
+  getAppointments: (status) => api.get('/patient/appointments', { params: { status } }),
+  createAppointment: (data) => api.post('/patient/appointments', data),
+  cancelAppointment: (id) => api.delete(`/patient/appointments/${id}`),
+
+  // Available slots
+  getAvailableSlots: (dentistId, date) => api.get('/patient/available-slots', { params: { dentist_id: dentistId, date } }),
+};
+
+// Patient Portal Admin API (for staff to manage patient access)
+export const patientPortalAdminAPI = {
+  getAccess: (patientId) => api.get(`/patient-portal/${patientId}`),
+  createAccess: (data) => api.post('/patient-portal', data),
+  updatePassword: (patientId, password) => api.put(`/patient-portal/${patientId}/password`, { password }),
+  deleteAccess: (patientId) => api.delete(`/patient-portal/${patientId}`),
+};

@@ -668,6 +668,39 @@ func main() {
 	}
 
 	// ==============================================
+	// Patient Portal Routes (for patients to access their own data)
+	// ==============================================
+	patientPortal := r.Group("/api/patient")
+	patientPortal.Use(middleware.AuthMiddleware())
+	patientPortal.Use(middleware.TenantMiddleware())
+	patientPortal.Use(middleware.PatientMiddleware())
+	{
+		// Patient's own profile
+		patientPortal.GET("/me", handlers.PatientPortalGetProfile)
+
+		// Clinic information
+		patientPortal.GET("/clinic", handlers.PatientPortalGetClinic)
+
+		// Appointments
+		patientPortal.GET("/appointments", handlers.PatientPortalGetAppointments)
+		patientPortal.POST("/appointments", handlers.PatientPortalCreateAppointment)
+		patientPortal.DELETE("/appointments/:id", handlers.PatientPortalCancelAppointment)
+
+		// Available slots for booking
+		patientPortal.GET("/available-slots", handlers.PatientPortalGetAvailableSlots)
+	}
+
+	// Patient Portal Management (for staff to manage patient portal access)
+	patientPortalAdmin := tenanted.Group("/patient-portal")
+	patientPortalAdmin.Use(middleware.PermissionMiddleware("patient_portal", "view"))
+	{
+		patientPortalAdmin.GET("/:patient_id", handlers.GetPatientPortalAccess)
+		patientPortalAdmin.POST("", middleware.PermissionMiddleware("patient_portal", "create"), handlers.CreatePatientPortalAccess)
+		patientPortalAdmin.PUT("/:patient_id/password", middleware.PermissionMiddleware("patient_portal", "edit"), handlers.UpdatePatientPortalPassword)
+		patientPortalAdmin.DELETE("/:patient_id", middleware.PermissionMiddleware("patient_portal", "delete"), handlers.DeletePatientPortalAccess)
+	}
+
+	// ==============================================
 	// Patient Subscriptions (Planos - for patients)
 	// ==============================================
 	patientSubs := tenanted.Group("/patient-subscriptions")

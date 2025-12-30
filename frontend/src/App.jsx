@@ -84,8 +84,17 @@ import Subscription from './pages/subscription/Subscription';
 import SubscriptionSuccess from './pages/subscription/SubscriptionSuccess';
 import SubscriptionCancel from './pages/subscription/SubscriptionCancel';
 
+// Patient Portal
+import PatientPortalLayout from './components/layouts/PatientPortalLayout';
+import {
+  PatientDashboard,
+  PatientAppointments,
+  PatientBookAppointment,
+  PatientProfile,
+} from './pages/patient-portal';
+
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isPatient } = useAuth();
 
   if (loading) {
     return (
@@ -95,7 +104,40 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  // Redirect patients to patient portal
+  if (isPatient) {
+    return <Navigate to="/patient" />;
+  }
+
+  return children;
+};
+
+// Route for patient portal - only allows patient role
+const PatientRoute = ({ children }) => {
+  const { isAuthenticated, loading, isPatient } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  // Only patients can access patient portal
+  if (!isPatient) {
+    return <Navigate to="/" />;
+  }
+
+  return children;
 };
 
 function App() {
@@ -285,6 +327,21 @@ function App() {
         <Route path="subscription" element={<Subscription />} />
         <Route path="subscription/success" element={<SubscriptionSuccess />} />
         <Route path="subscription/cancel" element={<SubscriptionCancel />} />
+      </Route>
+
+      {/* Patient Portal Routes */}
+      <Route
+        path="/patient"
+        element={
+          <PatientRoute>
+            <PatientPortalLayout />
+          </PatientRoute>
+        }
+      >
+        <Route index element={<PatientDashboard />} />
+        <Route path="appointments" element={<PatientAppointments />} />
+        <Route path="book" element={<PatientBookAppointment />} />
+        <Route path="profile" element={<PatientProfile />} />
       </Route>
 
       {/* Catch all */}

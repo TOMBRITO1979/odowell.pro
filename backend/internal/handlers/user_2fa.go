@@ -477,7 +477,7 @@ func Verify2FALogin(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := helpers.GenerateToken(user.ID, user.TenantID, user.Role, user.IsSuperAdmin)
+	accessToken, err := helpers.GenerateToken(user.ID, user.TenantID, user.Role, user.IsSuperAdmin, user.PatientID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao gerar token"})
 		return

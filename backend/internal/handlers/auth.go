@@ -72,6 +72,7 @@ type Claims struct {
 	Role         string                     `json:"role"`
 	IsSuperAdmin bool                       `json:"is_super_admin"`
 	TenantActive bool                       `json:"tenant_active,omitempty"` // Cached tenant active status
+	PatientID    *uint                      `json:"patient_id,omitempty"`    // For patient portal users
 	Permissions  map[string]map[string]bool `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
 }
@@ -147,7 +148,7 @@ func Login(c *gin.Context) {
 	}
 
 	// Generate access token (short-lived)
-	accessToken, err := generateAccessToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin)
+	accessToken, err := generateAccessToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin, user.PatientID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate access token"})
 		return
@@ -220,6 +221,7 @@ func Login(c *gin.Context) {
 			"tenant_id":      user.TenantID,
 			"hide_sidebar":   user.HideSidebar,
 			"is_super_admin": user.IsSuperAdmin,
+			"patient_id":     user.PatientID,
 		},
 		"tenant": gin.H{
 			"id":                  tenant.ID,
@@ -558,7 +560,7 @@ func generateSecureToken(length int) (string, error) {
 }
 
 // generateAccessToken creates a short-lived JWT access token
-func generateAccessToken(userID, tenantID uint, email, role string, isSuperAdmin bool) (string, error) {
+func generateAccessToken(userID, tenantID uint, email, role string, isSuperAdmin bool, patientID *uint) (string, error) {
 	// Get user permissions (admins get all permissions in the middleware, but we still include them for consistency)
 	var permissions map[string]map[string]bool
 	var err error
@@ -570,6 +572,9 @@ func generateAccessToken(userID, tenantID uint, email, role string, isSuperAdmin
 			// Log error but continue - admin will have bypass anyway
 			permissions = make(map[string]map[string]bool)
 		}
+	} else if role == "patient" {
+		// Patients don't need permissions - they have fixed access to patient portal
+		permissions = make(map[string]map[string]bool)
 	} else {
 		// Regular users get their assigned permissions
 		permissions, err = middleware.GetUserPermissions(userID)
@@ -587,6 +592,7 @@ func generateAccessToken(userID, tenantID uint, email, role string, isSuperAdmin
 		Role:         role,
 		IsSuperAdmin: isSuperAdmin,
 		TenantActive: true, // PERFORMANCE: Cache tenant active status in JWT to skip DB lookup
+		PatientID:    patientID,
 		Permissions:  permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(cache.AccessTokenExpiry)),
@@ -676,7 +682,7 @@ func RefreshToken(c *gin.Context) {
 	}
 
 	// Generate new access token
-	accessToken, err := generateAccessToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin)
+	accessToken, err := generateAccessToken(user.ID, user.TenantID, user.Email, user.Role, user.IsSuperAdmin, user.PatientID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return

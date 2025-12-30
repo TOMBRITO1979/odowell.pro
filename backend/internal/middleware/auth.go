@@ -23,6 +23,7 @@ type Claims struct {
 	Email        string                     `json:"email"`
 	Role         string                     `json:"role"`
 	TenantActive bool                       `json:"tenant_active,omitempty"` // Cached tenant active status
+	PatientID    *uint                      `json:"patient_id,omitempty"`    // For patient portal users
 	Permissions  map[string]map[string]bool `json:"permissions,omitempty"`   // Optional for backward compatibility
 	jwt.RegisteredClaims
 }
@@ -104,9 +105,79 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Set tenant active status from JWT (cached for performance)
 		c.Set("tenant_active", claims.TenantActive)
 
+		// Set patient_id for patient portal users
+		if claims.PatientID != nil {
+			c.Set("patient_id", *claims.PatientID)
+		}
+
 		// Set permissions in context (may be nil for old tokens - backward compatibility)
 		if claims.Permissions != nil {
 			c.Set("user_permissions", claims.Permissions)
+		}
+
+		c.Next()
+	}
+}
+
+// PatientMiddleware ensures the user is a patient and has a valid patient_id
+// Must be used after AuthMiddleware
+func PatientMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("user_role")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{"error": "User role not found"})
+			c.Abort()
+			return
+		}
+
+		roleStr, ok := userRole.(string)
+		if !ok || roleStr != "patient" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Patient access required"})
+			c.Abort()
+			return
+		}
+
+		patientID, exists := c.Get("patient_id")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Patient not linked to account"})
+			c.Abort()
+			return
+		}
+
+		// Validate patient_id type
+		if _, ok := patientID.(uint); !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid patient ID"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// StaffOnlyMiddleware blocks patient users from accessing staff routes
+// Use this on routes that should only be accessible by admin, dentist, receptionist, user
+func StaffOnlyMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("user_role")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{"error": "User role not found"})
+			c.Abort()
+			return
+		}
+
+		roleStr, ok := userRole.(string)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid role type"})
+			c.Abort()
+			return
+		}
+
+		// Block patient users
+		if roleStr == "patient" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Staff access required"})
+			c.Abort()
+			return
 		}
 
 		c.Next()

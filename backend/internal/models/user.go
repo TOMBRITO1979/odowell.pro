@@ -21,9 +21,12 @@ type User struct {
 	Password  string `gorm:"not null" json:"-"`
 	Phone     string `json:"phone,omitempty"`
 
-	Role         string `gorm:"default:'user'" json:"role"` // admin, dentist, receptionist, user
+	Role         string `gorm:"default:'user'" json:"role"` // admin, dentist, receptionist, user, patient
 	Active       bool   `gorm:"default:true" json:"active"`
 	IsSuperAdmin bool   `gorm:"default:false" json:"is_super_admin"` // Platform-level admin
+
+	// Patient portal - links user to patient record
+	PatientID *uint `gorm:"index" json:"patient_id,omitempty"` // Only for role="patient"
 
 	// Professional info (for dentists)
 	CRO       string `json:"cro,omitempty"`

@@ -60,12 +60,13 @@ func ValidateTempToken(tokenString string) (*TempTokenClaims, error) {
 }
 
 // GenerateToken creates a JWT token for a user (wrapper for auth handler)
-func GenerateToken(userID, tenantID uint, role string, isSuperAdmin bool) (string, error) {
+func GenerateToken(userID, tenantID uint, role string, isSuperAdmin bool, patientID *uint) (string, error) {
 	type Claims struct {
 		UserID       uint   `json:"user_id"`
 		TenantID     uint   `json:"tenant_id"`
 		Role         string `json:"role"`
 		IsSuperAdmin bool   `json:"is_super_admin"`
+		PatientID    *uint  `json:"patient_id,omitempty"`
 		jwt.RegisteredClaims
 	}
 
@@ -74,6 +75,7 @@ func GenerateToken(userID, tenantID uint, role string, isSuperAdmin bool) (strin
 		TenantID:     tenantID,
 		Role:         role,
 		IsSuperAdmin: isSuperAdmin,
+		PatientID:    patientID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
