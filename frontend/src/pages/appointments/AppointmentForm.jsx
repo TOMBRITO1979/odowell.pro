@@ -180,21 +180,15 @@ const AppointmentForm = () => {
   const saveAppointment = async (values) => {
     setLoading(true);
     try {
-      // Combinar data com horários usando timezone de São Paulo
+      // Combinar data com horários
       const date = values.date;
       const startTime = values.start_time;
       const endTime = values.end_time;
 
-      // Criar datetime com timezone explícito de São Paulo
-      const start_time = dayjs.tz(
-        `${date.format('YYYY-MM-DD')} ${startTime.format('HH:mm')}:00`,
-        'America/Sao_Paulo'
-      ).toISOString();
-
-      const end_time = dayjs.tz(
-        `${date.format('YYYY-MM-DD')} ${endTime.format('HH:mm')}:00`,
-        'America/Sao_Paulo'
-      ).toISOString();
+      // Formatar data/hora SEM conversão para UTC
+      // O backend interpreta como horário de São Paulo
+      const start_time = `${date.format('YYYY-MM-DD')}T${startTime.format('HH:mm')}:00`;
+      const end_time = `${date.format('YYYY-MM-DD')}T${endTime.format('HH:mm')}:00`;
 
       const data = {
         patient_id: values.patient_id,
