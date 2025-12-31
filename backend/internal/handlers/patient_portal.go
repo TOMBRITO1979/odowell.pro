@@ -6,9 +6,11 @@ import (
 	"drcrwell/backend/internal/models"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // PatientPortalGetProfile returns the patient's own profile data
@@ -569,5 +571,177 @@ func GetPatientPortalAccess(c *gin.Context) {
 			"email":  user.Email,
 			"active": user.Active,
 		},
+	})
+}
+
+// ========================================
+// Public endpoints for patient portal login (no auth required)
+// ========================================
+
+// PatientPortalPublicClinicInfo returns public clinic info by subdomain slug
+// This is used on the login page to display the clinic name
+func PatientPortalPublicClinicInfo(c *gin.Context) {
+	slug := c.Query("slug")
+	if slug == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Slug é obrigatório"})
+		return
+	}
+
+	// Validate slug format (alphanumeric and hyphens only)
+	for _, r := range slug {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Slug inválido"})
+			return
+		}
+	}
+
+	db := database.GetDB()
+
+	// Find tenant by subdomain
+	var tenant models.Tenant
+	if err := db.Where("subdomain = ? AND active = true", slug).First(&tenant).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Clínica não encontrada"})
+		return
+	}
+
+	// Get tenant settings for clinic name
+	var settings models.TenantSettings
+	db.Where("tenant_id = ?", tenant.ID).First(&settings)
+
+	clinicName := settings.ClinicName
+	if clinicName == "" {
+		clinicName = tenant.Name
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"clinic_name": clinicName,
+		"slug":        slug,
+	})
+}
+
+// PatientPortalLoginRequest represents the login request for patient portal
+type PatientPortalLoginRequest struct {
+	Slug     string `json:"slug" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+// PatientPortalLogin authenticates a patient and returns JWT token
+// Only allows users with role='patient' from the specified tenant
+func PatientPortalLogin(c *gin.Context) {
+	var req PatientPortalLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
+		return
+	}
+
+	db := database.GetDB()
+
+	// Find tenant by subdomain
+	var tenant models.Tenant
+	if err := db.Where("subdomain = ? AND active = true", req.Slug).First(&tenant).Error; err != nil {
+		helpers.AuditLogin(c, req.Email, false, map[string]interface{}{
+			"reason":       "tenant_not_found",
+			"slug":         req.Slug,
+			"patient_portal": true,
+		})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciais inválidas"})
+		return
+	}
+
+	// Check if tenant subscription is active
+	if !tenant.IsSubscriptionActive() {
+		c.JSON(http.StatusPaymentRequired, gin.H{"error": "Clínica com assinatura inativa"})
+		return
+	}
+
+	// Find user by email AND tenant_id AND role='patient'
+	var user models.User
+	if err := db.Where("email = ? AND tenant_id = ? AND role = 'patient'", req.Email, tenant.ID).First(&user).Error; err != nil {
+		helpers.AuditLogin(c, req.Email, false, map[string]interface{}{
+			"reason":         "patient_not_found",
+			"tenant_id":      tenant.ID,
+			"slug":           req.Slug,
+			"patient_portal": true,
+		})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciais inválidas"})
+		return
+	}
+
+	// Check if user is active
+	if !user.Active {
+		helpers.AuditLogin(c, req.Email, false, map[string]interface{}{
+			"reason":         "user_inactive",
+			"patient_portal": true,
+		})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Conta inativa"})
+		return
+	}
+
+	// Verify password
+	if !user.CheckPassword(req.Password) {
+		helpers.AuditLogin(c, req.Email, false, map[string]interface{}{
+			"reason":         "wrong_password",
+			"patient_portal": true,
+		})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciais inválidas"})
+		return
+	}
+
+	// Generate JWT token
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro interno do servidor"})
+		return
+	}
+
+	// Create claims
+	claims := Claims{
+		UserID:       user.ID,
+		TenantID:     user.TenantID,
+		Email:        user.Email,
+		Role:         user.Role,
+		IsSuperAdmin: false,
+		TenantActive: true,
+		PatientID:    user.PatientID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(jwtSecret))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao gerar token"})
+		return
+	}
+
+	// Audit successful login
+	helpers.AuditLogin(c, req.Email, true, map[string]interface{}{
+		"patient_portal": true,
+		"tenant_id":      tenant.ID,
+		"patient_id":     user.PatientID,
+	})
+
+	// Get clinic name for response
+	var settings models.TenantSettings
+	db.Where("tenant_id = ?", tenant.ID).First(&settings)
+	clinicName := settings.ClinicName
+	if clinicName == "" {
+		clinicName = tenant.Name
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": tokenString,
+		"user": gin.H{
+			"id":         user.ID,
+			"name":       user.Name,
+			"email":      user.Email,
+			"role":       user.Role,
+			"patient_id": user.PatientID,
+			"tenant_id":  user.TenantID,
+		},
+		"clinic_name": clinicName,
 	})
 }

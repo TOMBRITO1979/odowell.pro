@@ -360,6 +360,7 @@ func GetMe(c *gin.Context) {
 		"tenant": gin.H{
 			"id":                  tenant.ID,
 			"name":                tenant.Name,
+			"subdomain":           tenant.Subdomain,
 			"subscription_status": tenant.SubscriptionStatus,
 			"trial_ends_at":       tenant.TrialEndsAt,
 			"plan_type":           tenant.PlanType,

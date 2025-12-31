@@ -474,6 +474,43 @@ const Settings = () => {
           <Input placeholder="contato@clinica.com" />
         </Form.Item>
       </Col>
+
+      {/* Portal do Paciente URL */}
+      {tenant?.subdomain && (
+        <Col xs={24}>
+          <Divider orientation="left">Portal do Paciente</Divider>
+          <Alert
+            type="info"
+            showIcon
+            icon={<LinkOutlined />}
+            message="URL do Portal do Paciente"
+            description={
+              <div>
+                <Text>Seus pacientes podem acessar o portal através do endereço:</Text>
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Input
+                    value={`https://${tenant.subdomain}.odowell.pro`}
+                    readOnly
+                    style={{ maxWidth: 350 }}
+                    addonAfter={
+                      <CopyOutlined
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(`https://${tenant.subdomain}.odowell.pro`);
+                          message.success('URL copiada!');
+                        }}
+                      />
+                    }
+                  />
+                </div>
+                <Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
+                  Para ativar o acesso de um paciente, va ate a ficha do paciente e clique em "Criar Acesso" no card "Portal do Paciente".
+                </Text>
+              </div>
+            }
+          />
+        </Col>
+      )}
     </Row>
   );
 

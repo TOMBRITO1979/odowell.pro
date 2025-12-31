@@ -558,3 +558,9 @@ export const patientPortalAdminAPI = {
   updatePassword: (patientId, password) => api.put(`/patient-portal/${patientId}/password`, { password }),
   deleteAccess: (patientId) => api.delete(`/patient-portal/${patientId}`),
 };
+
+// Patient Portal Public API (no auth required - for login page)
+export const patientPortalPublicAPI = {
+  getClinicInfo: (slug) => api.get('/portal/clinic-info', { params: { slug } }),
+  login: (slug, email, password) => api.post('/portal/login', { slug, email, password }),
+};

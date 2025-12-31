@@ -80,14 +80,30 @@ func main() {
 	// Create router
 	r := gin.Default()
 
-	// CORS - use origins from environment
+	// CORS - use origins from environment + allow *.odowell.pro subdomains
 	allowedOrigins := []string{"http://localhost:3000"}
 	if corsOrigins := os.Getenv("CORS_ORIGINS"); corsOrigins != "" {
 		allowedOrigins = strings.Split(corsOrigins, ",")
 	}
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
+		AllowOriginFunc: func(origin string) bool {
+			// Allow configured origins
+			for _, allowed := range allowedOrigins {
+				if origin == allowed {
+					return true
+				}
+			}
+			// Allow any *.odowell.pro subdomain for patient portal
+			if strings.HasSuffix(origin, ".odowell.pro") {
+				return true
+			}
+			// Allow localhost for development
+			if strings.HasPrefix(origin, "http://localhost") {
+				return true
+			}
+			return false
+		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -232,6 +248,11 @@ func main() {
 		public.GET("/auth/validate-reset-token", handlers.ValidateResetToken)
 		// 2FA verification during login (rate limited to prevent brute force)
 		public.POST("/auth/2fa/verify", middleware.TwoFARateLimiter.RateLimitMiddleware(), handlers.Verify2FALogin)
+
+		// Patient Portal Public Routes (no auth required)
+		// Used for patient login from clinic subdomains (e.g., clinicadrsouza.odowell.pro)
+		public.GET("/portal/clinic-info", handlers.PatientPortalPublicClinicInfo)
+		public.POST("/portal/login", middleware.RedisLoginRateLimiter.RateLimitMiddleware(), handlers.PatientPortalLogin)
 	}
 
 	// Static file serving for uploads

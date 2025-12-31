@@ -91,10 +91,40 @@ import {
   PatientAppointments,
   PatientBookAppointment,
   PatientProfile,
+  PatientPortalLogin,
 } from './pages/patient-portal';
+
+// Check if current subdomain is a clinic portal (not app, api, or www)
+const isClinicPortal = () => {
+  const hostname = window.location.hostname;
+
+  // Local development
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('slug');
+  }
+
+  // Production: xxx.odowell.pro
+  const parts = hostname.split('.');
+  if (parts.length >= 3 && parts[1] === 'odowell' && parts[2] === 'pro') {
+    const slug = parts[0];
+    // Reserved subdomains - NOT clinic portals
+    if (slug === 'app' || slug === 'api' || slug === 'www') {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+};
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading, isPatient } = useAuth();
+
+  // If on clinic portal subdomain, redirect to portal login
+  if (isClinicPortal() && !isAuthenticated) {
+    return <Navigate to="/portal-login" />;
+  }
 
   if (loading) {
     return (
@@ -119,6 +149,7 @@ const PrivateRoute = ({ children }) => {
 // Route for patient portal - only allows patient role
 const PatientRoute = ({ children }) => {
   const { isAuthenticated, loading, isPatient } = useAuth();
+  const clinicPortal = isClinicPortal();
 
   if (loading) {
     return (
@@ -129,7 +160,8 @@ const PatientRoute = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    // If on clinic portal, go to portal login, otherwise main login
+    return <Navigate to={clinicPortal ? "/portal-login" : "/login"} />;
   }
 
   // Only patients can access patient portal
@@ -199,6 +231,9 @@ function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/resend-verification" element={<ResendVerification />} />
+
+      {/* Patient Portal Login (for clinic subdomains) */}
+      <Route path="/portal-login" element={<PatientPortalLogin />} />
 
       {/* Legal pages (public) */}
       <Route path="/termos-de-uso" element={<TermsOfService />} />
@@ -344,8 +379,8 @@ function App() {
         <Route path="profile" element={<PatientProfile />} />
       </Route>
 
-      {/* Catch all */}
-      <Route path="*" element={<Navigate to="/" />} />
+      {/* Catch all - redirect to portal login if on clinic subdomain */}
+      <Route path="*" element={isClinicPortal() ? <Navigate to="/portal-login" /> : <Navigate to="/" />} />
     </Routes>
       </ErrorBoundary>
       </ConfigProvider>

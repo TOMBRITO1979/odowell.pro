@@ -233,11 +233,18 @@ services:
           memory: 32M
       labels:
         - "traefik.enable=true"
+        # Main frontend route (app.odowell.pro)
         - "traefik.http.routers.drcrwell-frontend.rule=Host(`${FRONTEND_URL:-app.odowell.pro}`)"
         - "traefik.http.routers.drcrwell-frontend.entrypoints=websecure"
         - "traefik.http.routers.drcrwell-frontend.tls.certresolver=letsencryptresolver"
         - "traefik.http.services.drcrwell-frontend.loadbalancer.server.port=80"
         - "traefik.docker.network=network_public"
+        # Patient Portal wildcard route (*.odowell.pro except app, api, www)
+        - "traefik.http.routers.drcrwell-portal.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.odowell.pro`) && !Host(`app.odowell.pro`) && !Host(`api.odowell.pro`) && !Host(`www.odowell.pro`)"
+        - "traefik.http.routers.drcrwell-portal.entrypoints=websecure"
+        - "traefik.http.routers.drcrwell-portal.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.drcrwell-portal.service=drcrwell-frontend"
+        - "traefik.http.routers.drcrwell-portal.priority=1"
         # Security headers
         - "traefik.http.middlewares.drcrwell-frontend-security.headers.stsSeconds=63072000"
         - "traefik.http.middlewares.drcrwell-frontend-security.headers.stsIncludeSubdomains=true"
@@ -245,6 +252,7 @@ services:
         - "traefik.http.middlewares.drcrwell-frontend-security.headers.browserXssFilter=true"
         - "traefik.http.middlewares.drcrwell-frontend-security.headers.frameDeny=true"
         - "traefik.http.routers.drcrwell-frontend.middlewares=drcrwell-frontend-security"
+        - "traefik.http.routers.drcrwell-portal.middlewares=drcrwell-frontend-security"
     depends_on:
       - backend
 
