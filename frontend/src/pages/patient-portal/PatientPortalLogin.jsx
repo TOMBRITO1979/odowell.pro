@@ -39,7 +39,7 @@ const PatientPortalLogin = () => {
   const [clinicSlug, setClinicSlug] = useState(null);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const { login: authLogin } = useAuth();
+  const { loginWithData } = useAuth();
 
   useEffect(() => {
     const slug = getClinicSlug();
@@ -76,12 +76,8 @@ const PatientPortalLogin = () => {
     try {
       const response = await patientPortalPublicAPI.login(clinicSlug, values.email, values.password);
 
-      // Store token and user info
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-
-      // Update auth context
-      authLogin(response.data);
+      // Update auth context with login data
+      loginWithData(response.data);
 
       message.success('Login realizado com sucesso!');
       navigate('/patient');

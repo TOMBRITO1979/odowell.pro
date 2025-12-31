@@ -114,6 +114,20 @@ export const AuthProvider = ({ children }) => {
     setPermissions({});
   };
 
+  // Login with already obtained data (used by patient portal)
+  const loginWithData = (data) => {
+    const { token, user: userData } = data;
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
+
+    // Extract and set permissions
+    const perms = extractPermissions(token);
+    setPermissions(perms);
+
+    setUser(userData);
+  };
+
   const updateUser = (userData) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -130,6 +144,7 @@ export const AuthProvider = ({ children }) => {
     permissions,
     loading,
     login,
+    loginWithData,
     register,
     createTenant,
     logout,
