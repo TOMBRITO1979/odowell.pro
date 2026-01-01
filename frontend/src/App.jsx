@@ -128,10 +128,27 @@ const isClinicPortal = () => {
 };
 
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading, isPatient } = useAuth();
+  const { isAuthenticated, loading, isPatient, logout } = useAuth();
+  const clinicPortal = isClinicPortal();
 
-  // If on clinic portal subdomain, redirect to portal login
-  if (isClinicPortal() && !isAuthenticated) {
+  // SECURITY: Staff routes should NEVER be accessible from clinic portal subdomain
+  // If someone tries to access staff routes from a clinic portal, force them to patient portal
+  if (clinicPortal) {
+    if (loading) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <Spin size="large" />
+        </div>
+      );
+    }
+    // If authenticated as patient, go to patient portal
+    if (isAuthenticated && isPatient) {
+      return <Navigate to="/patient" />;
+    }
+    // If authenticated as staff on clinic portal, logout and go to portal login
+    if (isAuthenticated && !isPatient) {
+      logout();
+    }
     return <Navigate to="/portal-login" />;
   }
 
@@ -156,8 +173,9 @@ const PrivateRoute = ({ children }) => {
 };
 
 // Route for patient portal - only allows patient role
+// SECURITY: If a staff user tries to access patient portal, they are logged out
 const PatientRoute = ({ children }) => {
-  const { isAuthenticated, loading, isPatient } = useAuth();
+  const { isAuthenticated, loading, isPatient, logout } = useAuth();
   const clinicPortal = isClinicPortal();
 
   if (loading) {
@@ -173,8 +191,16 @@ const PatientRoute = ({ children }) => {
     return <Navigate to={clinicPortal ? "/portal-login" : "/login"} />;
   }
 
-  // Only patients can access patient portal
+  // SECURITY: Only patients can access patient portal
+  // If a staff user somehow ends up here, log them out to prevent data leakage
   if (!isPatient) {
+    // If on clinic portal subdomain and user is NOT a patient, force logout
+    // This prevents staff sessions from being used on patient portal
+    if (clinicPortal) {
+      logout();
+      return <Navigate to="/portal-login" />;
+    }
+    // If not on clinic portal, redirect to main app
     return <Navigate to="/" />;
   }
 
