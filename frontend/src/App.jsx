@@ -92,6 +92,7 @@ import {
   PatientBookAppointment,
   PatientProfile,
   PatientPortalLogin,
+  PatientMedicalRecords,
 } from './pages/patient-portal';
 
 // Check if current subdomain is a clinic portal (not app, api, or www)
@@ -108,8 +109,16 @@ const isClinicPortal = () => {
   const parts = hostname.split('.');
   if (parts.length >= 3 && parts[1] === 'odowell' && parts[2] === 'pro') {
     const slug = parts[0];
-    // Reserved subdomains - NOT clinic portals
-    if (slug === 'app' || slug === 'api' || slug === 'www') {
+    // Reserved subdomains - NOT clinic portals (infrastructure, monitoring, etc.)
+    const reservedSubdomains = [
+      'app', 'api', 'www',
+      'port1979leoale',  // Portainer
+      'grafana', 'monitoring', 'metrics',  // Monitoring
+      'n8n', 'webhook', 'webhooks',  // N8N
+      'mail', 'smtp', 'imap',  // Email
+      'admin', 'dashboard',  // Admin
+    ];
+    if (reservedSubdomains.includes(slug) || slug.startsWith('port') || slug.startsWith('graf')) {
       return false;
     }
     return true;
@@ -376,6 +385,7 @@ function App() {
         <Route index element={<PatientDashboard />} />
         <Route path="appointments" element={<PatientAppointments />} />
         <Route path="book" element={<PatientBookAppointment />} />
+        <Route path="medical-records" element={<PatientMedicalRecords />} />
         <Route path="profile" element={<PatientProfile />} />
       </Route>
 

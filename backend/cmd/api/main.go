@@ -709,6 +709,10 @@ func main() {
 
 		// Available slots for booking
 		patientPortal.GET("/available-slots", handlers.PatientPortalGetAvailableSlots)
+
+		// Medical Records (prontuários)
+		patientPortal.GET("/medical-records", handlers.PatientPortalGetMedicalRecords)
+		patientPortal.GET("/medical-records/:id", handlers.PatientPortalGetMedicalRecordDetail)
 	}
 
 	// Patient Portal Management (for staff to manage patient portal access)

@@ -270,6 +270,111 @@ func PatientPortalCancelAppointment(c *gin.Context) {
 	})
 }
 
+// PatientPortalGetMedicalRecords returns the patient's medical records
+func PatientPortalGetMedicalRecords(c *gin.Context) {
+	patientID, _ := c.Get("patient_id")
+	tenantID, _ := c.Get("tenant_id")
+
+	db := database.GetDB()
+	schemaName := fmt.Sprintf("tenant_%d", tenantID.(uint))
+	tenantDB := database.SetSchema(db, schemaName)
+
+	var records []models.MedicalRecord
+	query := tenantDB.Where("patient_id = ?", patientID).
+		Preload("Dentist").
+		Order("created_at DESC")
+
+	// Optional type filter
+	recordType := c.Query("type")
+	if recordType != "" {
+		query = query.Where("type = ?", recordType)
+	}
+
+	if err := query.Find(&records).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar prontuários"})
+		return
+	}
+
+	// Prepare response with sanitized data (remove sensitive internal fields)
+	var response []gin.H
+	for _, record := range records {
+		item := gin.H{
+			"id":             record.ID,
+			"created_at":     record.CreatedAt,
+			"type":           record.Type,
+			"diagnosis":      record.Diagnosis,
+			"treatment_plan": record.TreatmentPlan,
+			"procedure_done": record.ProcedureDone,
+			"evolution":      record.Evolution,
+			"notes":          record.Notes,
+			"is_signed":      record.IsSigned,
+			"signed_at":      record.SignedAt,
+			"signed_by_name": record.SignedByName,
+			"signed_by_cro":  record.SignedByCRO,
+		}
+
+		// Include dentist name if available
+		if record.Dentist != nil {
+			item["dentist_name"] = record.Dentist.Name
+			item["dentist_cro"] = record.Dentist.CRO
+		}
+
+		response = append(response, item)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"medical_records": response,
+		"total":           len(response),
+	})
+}
+
+// PatientPortalGetMedicalRecordDetail returns a specific medical record
+func PatientPortalGetMedicalRecordDetail(c *gin.Context) {
+	patientID, _ := c.Get("patient_id")
+	tenantID, _ := c.Get("tenant_id")
+	recordID := c.Param("id")
+
+	db := database.GetDB()
+	schemaName := fmt.Sprintf("tenant_%d", tenantID.(uint))
+	tenantDB := database.SetSchema(db, schemaName)
+
+	var record models.MedicalRecord
+	if err := tenantDB.Where("id = ? AND patient_id = ?", recordID, patientID).
+		Preload("Dentist").
+		First(&record).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Prontuário não encontrado"})
+		return
+	}
+
+	response := gin.H{
+		"id":             record.ID,
+		"created_at":     record.CreatedAt,
+		"type":           record.Type,
+		"diagnosis":      record.Diagnosis,
+		"treatment_plan": record.TreatmentPlan,
+		"procedure_done": record.ProcedureDone,
+		"materials":      record.Materials,
+		"evolution":      record.Evolution,
+		"notes":          record.Notes,
+		"odontogram":     record.Odontogram,
+		"is_signed":      record.IsSigned,
+		"signed_at":      record.SignedAt,
+		"signed_by_name": record.SignedByName,
+		"signed_by_cro":  record.SignedByCRO,
+	}
+
+	// Include dentist info if available
+	if record.Dentist != nil {
+		response["dentist_name"] = record.Dentist.Name
+		response["dentist_cro"] = record.Dentist.CRO
+		response["dentist_specialty"] = record.Dentist.Specialty
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"medical_record": response,
+	})
+}
+
 // PatientPortalGetAvailableSlots returns available time slots for a dentist on a specific date
 func PatientPortalGetAvailableSlots(c *gin.Context) {
 	tenantID, _ := c.Get("tenant_id")

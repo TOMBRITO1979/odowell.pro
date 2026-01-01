@@ -125,28 +125,32 @@ func PatientMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole, exists := c.Get("user_role")
 		if !exists {
-			c.JSON(http.StatusForbidden, gin.H{"error": "User role not found"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "User role not found", "code": "ROLE_NOT_FOUND"})
 			c.Abort()
 			return
 		}
 
 		roleStr, ok := userRole.(string)
 		if !ok || roleStr != "patient" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Patient access required"})
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":        "Patient access required",
+				"code":         "NOT_PATIENT",
+				"current_role": roleStr,
+			})
 			c.Abort()
 			return
 		}
 
 		patientID, exists := c.Get("patient_id")
 		if !exists {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Patient not linked to account"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Patient not linked to account", "code": "NO_PATIENT_ID"})
 			c.Abort()
 			return
 		}
 
 		// Validate patient_id type
 		if _, ok := patientID.(uint); !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid patient ID"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid patient ID", "code": "INVALID_PATIENT_ID"})
 			c.Abort()
 			return
 		}

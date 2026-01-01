@@ -549,6 +549,10 @@ export const patientPortalAPI = {
 
   // Available slots
   getAvailableSlots: (dentistId, date) => api.get('/patient/available-slots', { params: { dentist_id: dentistId, date } }),
+
+  // Medical Records (prontuarios)
+  getMedicalRecords: (type) => api.get('/patient/medical-records', { params: { type: type || undefined } }),
+  getMedicalRecordDetail: (id) => api.get(`/patient/medical-records/${id}`),
 };
 
 // Patient Portal Admin API (for staff to manage patient access)

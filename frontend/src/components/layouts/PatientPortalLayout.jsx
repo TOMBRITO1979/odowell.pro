@@ -17,6 +17,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MedicineBoxOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { patientPortalAPI } from '../../services/api';
@@ -71,6 +72,11 @@ const PatientPortalLayout = () => {
       key: '/patient/book',
       icon: <MedicineBoxOutlined />,
       label: 'Agendar Consulta',
+    },
+    {
+      key: '/patient/medical-records',
+      icon: <FileTextOutlined />,
+      label: 'Meus Prontuarios',
     },
     {
       key: '/patient/profile',
