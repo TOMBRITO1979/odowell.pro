@@ -650,6 +650,7 @@ func main() {
 		portalNotifications.Use(middleware.PermissionMiddleware("appointments", "view"))
 		{
 			portalNotifications.GET("", handlers.GetPortalNotifications)
+			portalNotifications.GET("/count", handlers.GetPortalNotificationsCount)
 		}
 
 		// Data Requests (LGPD - Solicitacoes do Titular)

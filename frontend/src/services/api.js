@@ -517,6 +517,7 @@ export const auditAPI = {
 // Portal Notifications API (Patient Portal Activities)
 export const portalNotificationsAPI = {
   getAll: (params) => api.get('/portal-notifications', { params }),
+  getCount: () => api.get('/portal-notifications/count'),
 };
 
 // Data Requests API (LGPD - Solicitacoes do Titular)

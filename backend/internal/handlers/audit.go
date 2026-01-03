@@ -150,6 +150,23 @@ func GetAuditLogStats(c *gin.Context) {
 	})
 }
 
+// GetPortalNotificationsCount returns the count of recent portal notifications (last 24h)
+func GetPortalNotificationsCount(c *gin.Context) {
+	db := database.GetDB()
+
+	var count int64
+	db.Model(&models.AuditLog{}).
+		Where("resource = ?", "appointments").
+		Where("details LIKE ?", "%patient_portal%").
+		Where("path LIKE ?", "%/patient/%").
+		Where("created_at >= ?", time.Now().Add(-24*time.Hour)).
+		Count(&count)
+
+	c.JSON(http.StatusOK, gin.H{
+		"count": count,
+	})
+}
+
 // GetPortalNotifications returns patient portal activities (bookings/cancellations)
 func GetPortalNotifications(c *gin.Context) {
 	tenantID, _ := c.Get("tenant_id")

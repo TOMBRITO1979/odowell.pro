@@ -32,7 +32,7 @@ import {
   BellOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
-import { tasksAPI, paymentsAPI } from '../../services/api';
+import { tasksAPI, paymentsAPI, portalNotificationsAPI } from '../../services/api';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -45,6 +45,7 @@ const DashboardLayout = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [overduePaymentsCount, setOverduePaymentsCount] = useState(0);
+  const [portalNotificationsCount, setPortalNotificationsCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, tenant, logout } = useAuth();
@@ -123,6 +124,34 @@ const DashboardLayout = () => {
     };
   }, [canView]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPortalNotificationsCount = async () => {
+      try {
+        const response = await portalNotificationsAPI.getCount();
+        if (mounted) {
+          setPortalNotificationsCount(response.data.count || 0);
+        }
+      } catch (error) {
+      }
+    };
+
+    if (canView('appointments')) {
+      loadPortalNotificationsCount();
+      // Reload count every 2 minutes
+      const interval = setInterval(loadPortalNotificationsCount, 120000);
+      return () => {
+        mounted = false;
+        clearInterval(interval);
+      };
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [canView]);
+
   // Calculate trial days remaining
   const getTrialInfo = () => {
     if (!tenant) return null;
@@ -172,7 +201,11 @@ const DashboardLayout = () => {
     {
       key: '/portal-notifications',
       icon: <BellOutlined />,
-      label: 'Notif. Portal',
+      label: (
+        <Badge count={portalNotificationsCount} offset={[10, 0]} size="small">
+          Notif. Portal
+        </Badge>
+      ),
       permission: 'appointments',
     },
     {
