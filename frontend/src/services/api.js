@@ -94,7 +94,14 @@ api.interceptors.response.use(
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('tenant');
-        window.location.href = '/login';
+
+        // Redirect to appropriate login page based on subdomain
+        const hostname = window.location.hostname;
+        const isClinicPortal = hostname.split('.').length >= 3 &&
+          hostname.includes('odowell.pro') &&
+          !['app', 'api', 'www'].includes(hostname.split('.')[0]);
+
+        window.location.href = isClinicPortal ? '/portal-login' : '/login';
         return Promise.reject(error);
       }
     }
