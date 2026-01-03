@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"drcrwell/backend/internal/database"
+	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -148,6 +149,13 @@ func GetWhatsAppTemplates(c *gin.Context) {
 		return
 	}
 
+	// Decrypt access token
+	accessToken, err := helpers.DecryptIfNeeded(settings.WhatsAppAccessToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao descriptografar token"})
+		return
+	}
+
 	// Fetch templates from Meta API
 	url := fmt.Sprintf("%s/%s/message_templates?fields=name,status,category,language,components",
 		MetaGraphAPIURL, settings.WhatsAppBusinessAccountID)
@@ -158,7 +166,7 @@ func GetWhatsAppTemplates(c *gin.Context) {
 		return
 	}
 
-	req.Header.Set("Authorization", "Bearer "+settings.WhatsAppAccessToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -255,6 +263,13 @@ func SendWhatsAppMessage(c *gin.Context) {
 		return
 	}
 
+	// Decrypt access token
+	accessToken, err := helpers.DecryptIfNeeded(settings.WhatsAppAccessToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao descriptografar token"})
+		return
+	}
+
 	// Default language
 	languageCode := req.LanguageCode
 	if languageCode == "" {
@@ -302,7 +317,7 @@ func SendWhatsAppMessage(c *gin.Context) {
 	}
 
 	// Send message
-	result, err := sendMetaMessage(settings.WhatsAppPhoneNumberID, settings.WhatsAppAccessToken, message)
+	result, err := sendMetaMessage(settings.WhatsAppPhoneNumberID, accessToken, message)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -342,6 +357,13 @@ func SendAppointmentConfirmation(c *gin.Context) {
 
 	if settings.WhatsAppTemplateConfirmation == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Template de confirmação não configurado"})
+		return
+	}
+
+	// Decrypt access token
+	accessToken, err := helpers.DecryptIfNeeded(settings.WhatsAppAccessToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao descriptografar token"})
 		return
 	}
 
@@ -421,7 +443,7 @@ func SendAppointmentConfirmation(c *gin.Context) {
 	}
 
 	// Send message
-	result, err := sendMetaMessage(settings.WhatsAppPhoneNumberID, settings.WhatsAppAccessToken, message)
+	result, err := sendMetaMessage(settings.WhatsAppPhoneNumberID, accessToken, message)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -460,6 +482,13 @@ func TestWhatsAppConnection(c *gin.Context) {
 		return
 	}
 
+	// Decrypt access token
+	accessToken, err := helpers.DecryptIfNeeded(settings.WhatsAppAccessToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Erro ao descriptografar token"})
+		return
+	}
+
 	// Test connection by fetching phone numbers
 	url := fmt.Sprintf("%s/%s/phone_numbers", MetaGraphAPIURL, settings.WhatsAppBusinessAccountID)
 
@@ -469,7 +498,7 @@ func TestWhatsAppConnection(c *gin.Context) {
 		return
 	}
 
-	req.Header.Set("Authorization", "Bearer "+settings.WhatsAppAccessToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
