@@ -71,6 +71,7 @@ import Attendance from './pages/attendance/Attendance';
 import AdminTenants from './pages/admin/AdminTenants';
 import AuditLogs from './pages/admin/AuditLogs';
 import DataRequests from './pages/admin/DataRequests';
+import PortalNotifications from './pages/portal-notifications/PortalNotifications';
 
 // Certificates (Digital Signature)
 import Certificates from './pages/certificates/Certificates';
@@ -382,6 +383,9 @@ function App() {
 
         {/* Audit Logs - LGPD Compliance (Admin only) */}
         <Route path="admin/audit-logs" element={<AuditLogs />} />
+
+        {/* Portal Notifications */}
+        <Route path="portal-notifications" element={<PortalNotifications />} />
 
         {/* Data Requests - LGPD (Solicitacoes do Titular) */}
         <Route path="admin/data-requests" element={<DataRequests />} />

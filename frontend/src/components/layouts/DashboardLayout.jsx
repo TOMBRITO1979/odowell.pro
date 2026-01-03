@@ -29,6 +29,7 @@ import {
   SafetyOutlined,
   SafetyCertificateOutlined,
   WarningOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { useAuth, usePermission } from '../../contexts/AuthContext';
 import { tasksAPI, paymentsAPI } from '../../services/api';
@@ -166,6 +167,12 @@ const DashboardLayout = () => {
       key: '/appointments',
       icon: <CalendarOutlined />,
       label: 'Agenda',
+      permission: 'appointments',
+    },
+    {
+      key: '/portal-notifications',
+      icon: <BellOutlined />,
+      label: 'Notif. Portal',
       permission: 'appointments',
     },
     {

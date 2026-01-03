@@ -150,6 +150,109 @@ func GetAuditLogStats(c *gin.Context) {
 	})
 }
 
+// GetPortalNotifications returns patient portal activities (bookings/cancellations)
+func GetPortalNotifications(c *gin.Context) {
+	tenantID, _ := c.Get("tenant_id")
+
+	// Get pagination params
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	// Get filter params
+	action := c.Query("action") // create, cancel
+	unreadOnly := c.Query("unread") == "true"
+	_ = unreadOnly // TODO: implement read/unread tracking
+
+	db := database.GetDB()
+	query := db.Model(&models.AuditLog{}).
+		Where("resource = ?", "appointments").
+		Where("details LIKE ?", "%patient_portal%")
+
+	// Filter by tenant - the details JSON contains patient_id which we can use
+	// For now, we filter by checking the path contains /patient/
+	query = query.Where("path LIKE ?", "%/patient/%")
+
+	if action != "" {
+		query = query.Where("action = ?", action)
+	}
+
+	// Count total
+	var total int64
+	query.Count(&total)
+
+	// Get paginated results with patient info
+	type PortalNotification struct {
+		models.AuditLog
+		PatientName  string `json:"patient_name"`
+		DentistName  string `json:"dentist_name"`
+		StartTime    string `json:"start_time"`
+	}
+
+	var logs []models.AuditLog
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&logs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar notificações"})
+		return
+	}
+
+	// Enrich with patient and appointment data
+	schemaName := "tenant_" + strconv.FormatUint(uint64(tenantID.(uint)), 10)
+	notifications := make([]map[string]interface{}, 0)
+
+	for _, log := range logs {
+		notification := map[string]interface{}{
+			"id":         log.ID,
+			"created_at": log.CreatedAt,
+			"action":     log.Action,
+			"resource":   log.Resource,
+			"details":    log.Details,
+			"success":    log.Success,
+		}
+
+		// Try to get appointment details
+		if log.ResourceID > 0 {
+			var appointment struct {
+				ID          uint      `json:"id"`
+				StartTime   time.Time `json:"start_time"`
+				EndTime     time.Time `json:"end_time"`
+				Procedure   string    `json:"procedure"`
+				Status      string    `json:"status"`
+				PatientName string    `json:"patient_name"`
+				DentistName string    `json:"dentist_name"`
+			}
+
+			err := db.Raw(`
+				SELECT a.id, a.start_time, a.end_time, a.procedure, a.status,
+					   p.name as patient_name, u.name as dentist_name
+				FROM `+schemaName+`.appointments a
+				LEFT JOIN `+schemaName+`.patients p ON a.patient_id = p.id
+				LEFT JOIN public.users u ON a.dentist_id = u.id
+				WHERE a.id = ?
+			`, log.ResourceID).Scan(&appointment).Error
+
+			if err == nil && appointment.ID > 0 {
+				notification["appointment"] = appointment
+			}
+		}
+
+		notifications = append(notifications, notification)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"notifications": notifications,
+		"total":         total,
+		"page":          page,
+		"page_size":     pageSize,
+		"pages":         (total + int64(pageSize) - 1) / int64(pageSize),
+	})
+}
+
 // ExportAuditLogsCSV exports audit logs to CSV
 func ExportAuditLogsCSV(c *gin.Context) {
 	// Verify admin role

@@ -514,6 +514,11 @@ export const auditAPI = {
   exportCSV: (params) => api.get('/audit/export/csv', { params, responseType: 'blob' }),
 };
 
+// Portal Notifications API (Patient Portal Activities)
+export const portalNotificationsAPI = {
+  getAll: (params) => api.get('/portal-notifications', { params }),
+};
+
 // Data Requests API (LGPD - Solicitacoes do Titular)
 export const dataRequestAPI = {
   getAll: (params) => api.get('/data-requests', { params }),

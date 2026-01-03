@@ -645,6 +645,13 @@ func main() {
 			audit.GET("/export/csv", handlers.ExportAuditLogsCSV)
 		}
 
+		// Portal Notifications (patient portal activities)
+		portalNotifications := tenanted.Group("/portal-notifications")
+		portalNotifications.Use(middleware.PermissionMiddleware("appointments", "view"))
+		{
+			portalNotifications.GET("", handlers.GetPortalNotifications)
+		}
+
 		// Data Requests (LGPD - Solicitacoes do Titular)
 		dataRequests := tenanted.Group("/data-requests")
 		{
