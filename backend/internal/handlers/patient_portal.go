@@ -252,17 +252,18 @@ func PatientPortalCancelAppointment(c *gin.Context) {
 		return
 	}
 
-	// Update status to cancelled
-	appointment.Status = "cancelled"
-	if err := tenantDB.Save(&appointment).Error; err != nil {
+	// Update status to cancelled using fresh DB connection to avoid GORM state issues
+	updateDB := database.SetSchema(db, schemaName)
+	if err := updateDB.Model(&models.Appointment{}).Where("id = ?", appointment.ID).Update("status", "cancelled").Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao cancelar agendamento"})
 		return
 	}
 
 	helpers.AuditAction(c, "cancel", "appointments", appointment.ID, true, map[string]interface{}{
-		"patient_portal": true,
-		"patient_id":     patientID,
-		"cancelled_by":   "patient",
+		"patient_portal":   true,
+		"patient_id":       patientID,
+		"cancelled_by":     "patient",
+		"appointment_date": appointment.StartTime,
 	})
 
 	c.JSON(http.StatusOK, gin.H{
