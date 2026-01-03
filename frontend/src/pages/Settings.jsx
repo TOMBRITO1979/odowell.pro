@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, message, Row, Col, Tabs, TimePicker, Switch, Modal, Alert, Typography, Space, Divider, Collapse } from 'antd';
-import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, CreditCardOutlined, MessageOutlined, LinkOutlined, MailOutlined, WarningOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { settingsAPI, stripeSettingsAPI } from '../services/api';
+import { Card, Form, Input, Button, message, Row, Col, Tabs, TimePicker, Switch, Modal, Alert, Typography, Space, Divider, Collapse, Select, InputNumber } from 'antd';
+import { SettingOutlined, ShopOutlined, ClockCircleOutlined, DollarOutlined, ApiOutlined, CopyOutlined, ReloadOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined, CreditCardOutlined, MessageOutlined, LinkOutlined, MailOutlined, WarningOutlined, ExclamationCircleOutlined, WhatsAppOutlined, SyncOutlined } from '@ant-design/icons';
+import { settingsAPI, stripeSettingsAPI, whatsappBusinessAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, usePermission } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
@@ -48,6 +48,19 @@ const Settings = () => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // WhatsApp Business state
+  const [whatsappPhoneNumberId, setWhatsappPhoneNumberId] = useState('');
+  const [whatsappAccessToken, setWhatsappAccessToken] = useState('');
+  const [whatsappBusinessAccountId, setWhatsappBusinessAccountId] = useState('');
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [whatsappTemplates, setWhatsappTemplates] = useState([]);
+  const [whatsappTemplatesLoading, setWhatsappTemplatesLoading] = useState(false);
+  const [whatsappTesting, setWhatsappTesting] = useState(false);
+  const [whatsappPhoneNumbers, setWhatsappPhoneNumbers] = useState([]);
+  const [whatsappTemplateConfirmation, setWhatsappTemplateConfirmation] = useState('');
+  const [whatsappTemplateReminder, setWhatsappTemplateReminder] = useState('');
+  const [whatsappReminderHours, setWhatsappReminderHours] = useState(24);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -105,6 +118,15 @@ const Settings = () => {
         smtp_from_email: settings.smtp_from_email || '',
         smtp_use_tls: settings.smtp_use_tls ?? true,
       };
+
+      // WhatsApp Business fields (separate state, not form)
+      setWhatsappPhoneNumberId(settings.whatsapp_phone_number_id || '');
+      setWhatsappBusinessAccountId(settings.whatsapp_business_account_id || '');
+      setWhatsappEnabled(settings.whatsapp_enabled || false);
+      setWhatsappTemplateConfirmation(settings.whatsapp_template_confirmation || '');
+      setWhatsappTemplateReminder(settings.whatsapp_template_reminder || '');
+      setWhatsappReminderHours(settings.whatsapp_template_reminder_hours || 24);
+      // Access token is masked, so we don't load it
 
       form.setFieldsValue(formValues);
     } catch (error) {
@@ -266,6 +288,59 @@ const Settings = () => {
       message.error(error.response?.data?.error || 'Erro ao testar conexão SMTP');
     } finally {
       setSmtpTesting(false);
+    }
+  };
+
+  // WhatsApp Business functions
+  const handleTestWhatsApp = async () => {
+    setWhatsappTesting(true);
+    try {
+      const response = await whatsappBusinessAPI.testConnection();
+      if (response.data.success) {
+        message.success(response.data.message || 'Conexão WhatsApp estabelecida!');
+        setWhatsappPhoneNumbers(response.data.phone_numbers || []);
+      } else {
+        message.error(response.data.error || 'Falha na conexão');
+      }
+    } catch (error) {
+      message.error(error.response?.data?.error || error.response?.data?.meta_error || 'Erro ao testar conexão WhatsApp');
+    } finally {
+      setWhatsappTesting(false);
+    }
+  };
+
+  const handleFetchWhatsAppTemplates = async () => {
+    setWhatsappTemplatesLoading(true);
+    try {
+      const response = await whatsappBusinessAPI.getTemplates();
+      setWhatsappTemplates(response.data.templates || []);
+      message.success(`${response.data.count || 0} templates carregados`);
+    } catch (error) {
+      message.error(error.response?.data?.error || error.response?.data?.meta_error || 'Erro ao carregar templates');
+    } finally {
+      setWhatsappTemplatesLoading(false);
+    }
+  };
+
+  const handleSaveWhatsApp = async () => {
+    try {
+      const whatsappSettings = {
+        whatsapp_phone_number_id: whatsappPhoneNumberId,
+        whatsapp_business_account_id: whatsappBusinessAccountId,
+        whatsapp_enabled: whatsappEnabled,
+        whatsapp_template_confirmation: whatsappTemplateConfirmation,
+        whatsapp_template_reminder: whatsappTemplateReminder,
+        whatsapp_template_reminder_hours: whatsappReminderHours,
+      };
+      // Only include access token if it was changed (not empty)
+      if (whatsappAccessToken) {
+        whatsappSettings.whatsapp_access_token = whatsappAccessToken;
+      }
+      await settingsAPI.update(whatsappSettings);
+      message.success('Configurações do WhatsApp salvas!');
+      setWhatsappAccessToken(''); // Clear after save
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao salvar configurações');
     }
   };
 
@@ -1058,6 +1133,248 @@ const Settings = () => {
     </div>
   );
 
+  const whatsappTab = (
+    <div>
+      <Alert
+        message="WhatsApp Business API (Meta)"
+        description="Configure a integração com a API oficial do WhatsApp Business para enviar confirmações de consulta e lembretes automáticos para seus pacientes."
+        type="info"
+        showIcon
+        icon={<WhatsAppOutlined />}
+        style={{ marginBottom: 24 }}
+      />
+
+      {/* Status */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Row align="middle" justify="space-between">
+          <Col>
+            <Space>
+              <Text strong>Status:</Text>
+              {whatsappEnabled ? (
+                <Text type="success"><CheckCircleOutlined /> Ativo</Text>
+              ) : (
+                <Text type="secondary"><CloseCircleOutlined /> Inativo</Text>
+              )}
+            </Space>
+          </Col>
+          <Col>
+            <Switch
+              checked={whatsappEnabled}
+              onChange={setWhatsappEnabled}
+              checkedChildren="Ativo"
+              unCheckedChildren="Inativo"
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Phone Numbers from test */}
+      {whatsappPhoneNumbers.length > 0 && (
+        <Alert
+          message="Números Conectados"
+          description={
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              {whatsappPhoneNumbers.map((phone, idx) => (
+                <li key={idx}>
+                  <Text strong>{phone.phone}</Text> - {phone.verified_name}
+                  <Text type="secondary"> (Qualidade: {phone.quality_rating})</Text>
+                </li>
+              ))}
+            </ul>
+          }
+          type="success"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      <Divider>Credenciais da Meta</Divider>
+
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Business Account ID</label>
+            <Input
+              value={whatsappBusinessAccountId}
+              onChange={(e) => setWhatsappBusinessAccountId(e.target.value)}
+              placeholder="Ex: 123456789012345"
+            />
+            <div style={{ marginTop: 4, fontSize: 12, color: '#888' }}>
+              Meta Business Suite → Configurações → WhatsApp → ID da Conta Comercial
+            </div>
+          </div>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Phone Number ID</label>
+            <Input
+              value={whatsappPhoneNumberId}
+              onChange={(e) => setWhatsappPhoneNumberId(e.target.value)}
+              placeholder="Ex: 123456789012345"
+            />
+            <div style={{ marginTop: 4, fontSize: 12, color: '#888' }}>
+              ID do número de telefone configurado na API
+            </div>
+          </div>
+        </Col>
+
+        <Col xs={24}>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Access Token (Permanente)</label>
+            <Input.Password
+              value={whatsappAccessToken}
+              onChange={(e) => setWhatsappAccessToken(e.target.value)}
+              placeholder={whatsappBusinessAccountId ? "••••••••••••••••" : "Token de acesso permanente da Meta"}
+            />
+            <div style={{ marginTop: 4, fontSize: 12, color: '#888' }}>
+              Meta Business Suite → Configurações → Tokens de API → Token de Sistema
+            </div>
+          </div>
+        </Col>
+      </Row>
+
+      <Space wrap style={{ marginBottom: 24 }}>
+        <Button type="primary" onClick={handleSaveWhatsApp}>
+          Salvar Credenciais
+        </Button>
+        <Button
+          onClick={handleTestWhatsApp}
+          loading={whatsappTesting}
+          disabled={!whatsappBusinessAccountId}
+        >
+          Testar Conexão
+        </Button>
+      </Space>
+
+      <Divider>Templates de Mensagem</Divider>
+
+      <Alert
+        message="Templates Aprovados pela Meta"
+        description="Os templates devem ser criados e aprovados no Meta Business Suite. Após aprovação, carregue-os aqui para usar no sistema."
+        type="warning"
+        showIcon
+        style={{ marginBottom: 16 }}
+      />
+
+      <Space wrap style={{ marginBottom: 16 }}>
+        <Button
+          icon={<SyncOutlined spin={whatsappTemplatesLoading} />}
+          onClick={handleFetchWhatsAppTemplates}
+          loading={whatsappTemplatesLoading}
+          disabled={!whatsappBusinessAccountId}
+        >
+          Carregar Templates da Meta
+        </Button>
+      </Space>
+
+      {whatsappTemplates.length > 0 && (
+        <Row gutter={16}>
+          <Col xs={24} md={12}>
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Template de Confirmação de Consulta</label>
+              <Select
+                style={{ width: '100%' }}
+                value={whatsappTemplateConfirmation}
+                onChange={setWhatsappTemplateConfirmation}
+                placeholder="Selecione um template"
+                allowClear
+              >
+                {whatsappTemplates.map((t) => (
+                  <Select.Option key={t.name} value={t.name}>
+                    {t.name} ({t.language})
+                  </Select.Option>
+                ))}
+              </Select>
+              <div style={{ marginTop: 4, fontSize: 12, color: '#888' }}>
+                Usado para confirmar agendamentos via WhatsApp
+              </div>
+            </div>
+          </Col>
+
+          <Col xs={24} md={12}>
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Template de Lembrete</label>
+              <Select
+                style={{ width: '100%' }}
+                value={whatsappTemplateReminder}
+                onChange={setWhatsappTemplateReminder}
+                placeholder="Selecione um template"
+                allowClear
+              >
+                {whatsappTemplates.map((t) => (
+                  <Select.Option key={t.name} value={t.name}>
+                    {t.name} ({t.language})
+                  </Select.Option>
+                ))}
+              </Select>
+              <div style={{ marginTop: 4, fontSize: 12, color: '#888' }}>
+                Usado para lembretes automáticos antes da consulta
+              </div>
+            </div>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Enviar Lembrete (horas antes)</label>
+              <InputNumber
+                style={{ width: '100%' }}
+                value={whatsappReminderHours}
+                onChange={setWhatsappReminderHours}
+                min={1}
+                max={72}
+              />
+            </div>
+          </Col>
+        </Row>
+      )}
+
+      {whatsappTemplates.length > 0 && (
+        <Button type="primary" onClick={handleSaveWhatsApp}>
+          Salvar Configurações de Templates
+        </Button>
+      )}
+
+      <Divider />
+
+      <Collapse>
+        <Panel header="Como configurar" key="1">
+          <Paragraph>
+            <ol>
+              <li>Acesse o <a href="https://business.facebook.com" target="_blank" rel="noopener noreferrer">Meta Business Suite</a></li>
+              <li>Vá em Configurações → WhatsApp → Configuração da API</li>
+              <li>Copie o Business Account ID e Phone Number ID</li>
+              <li>Crie um Token de Sistema permanente em Configurações → Tokens de API</li>
+              <li>Cole as credenciais aqui e clique em "Testar Conexão"</li>
+              <li>Crie templates de mensagem em WhatsApp → Gerenciador de Templates</li>
+              <li>Após aprovação, clique em "Carregar Templates" e selecione os templates</li>
+            </ol>
+          </Paragraph>
+        </Panel>
+        <Panel header="Variáveis dos Templates" key="2">
+          <Paragraph>
+            O sistema preenche automaticamente as variáveis do template:
+            <ul>
+              <li><Text code>{'{{1}}'}</Text> - Nome do paciente</li>
+              <li><Text code>{'{{2}}'}</Text> - Data da consulta (DD/MM/AAAA)</li>
+              <li><Text code>{'{{3}}'}</Text> - Horário da consulta (HH:MM)</li>
+              <li><Text code>{'{{4}}'}</Text> - Nome do dentista</li>
+              <li><Text code>{'{{5}}'}</Text> - Nome da clínica</li>
+            </ul>
+          </Paragraph>
+        </Panel>
+        <Panel header="Webhook (Opcional)" key="3">
+          <Paragraph>
+            Para receber status de entrega das mensagens, configure o webhook no Meta:
+            <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 4, marginTop: 8 }}>
+              <Text code copyable>https://api.odowell.pro/webhook/whatsapp</Text>
+            </div>
+          </Paragraph>
+        </Panel>
+      </Collapse>
+    </div>
+  );
+
   const chatwellTab = (
     <div>
       <Alert
@@ -1205,6 +1522,17 @@ const Settings = () => {
       ),
       children: smtpTab,
     }] : []),
+    // WhatsApp Business tab for admins
+    ...(isAdmin ? [{
+      key: 'whatsapp',
+      label: (
+        <span>
+          <WhatsAppOutlined />
+          WhatsApp
+        </span>
+      ),
+      children: whatsappTab,
+    }] : []),
     // Chatwell tab for admins
     ...(isAdmin ? [{
       key: 'chatwell',
@@ -1277,6 +1605,7 @@ const Settings = () => {
     ...(isAdmin ? [{ key: 'api', icon: <ApiOutlined style={{ fontSize: 24, color: '#722ed1' }} />, title: 'Integração API', description: 'WhatsApp e assistentes de IA', content: apiTab }] : []),
     ...(isAdmin ? [{ key: 'stripe', icon: <CreditCardOutlined style={{ fontSize: 24, color: '#13c2c2' }} />, title: 'Stripe', description: 'Assinaturas recorrentes', content: stripeTab }] : []),
     ...(isAdmin ? [{ key: 'smtp', icon: <MailOutlined style={{ fontSize: 24, color: '#eb2f96' }} />, title: 'Email / SMTP', description: 'Campanhas de email', content: smtpTab }] : []),
+    ...(isAdmin ? [{ key: 'whatsapp', icon: <WhatsAppOutlined style={{ fontSize: 24, color: '#25D366' }} />, title: 'WhatsApp', description: 'API oficial do WhatsApp Business', content: whatsappTab }] : []),
     ...(isAdmin ? [{ key: 'chatwell', icon: <MessageOutlined style={{ fontSize: 24, color: '#2f54eb' }} />, title: 'Chatwell', description: 'Painel externo', content: chatwellTab }] : []),
     ...(isAdmin ? [{ key: 'danger', icon: <WarningOutlined style={{ fontSize: 24, color: '#ff4d4f' }} />, title: 'Zona de Perigo', description: 'Deletar empresa', content: tabItems.find(t => t.key === 'danger')?.children, danger: true }] : []),
   ];

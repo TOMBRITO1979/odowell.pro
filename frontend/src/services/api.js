@@ -397,6 +397,18 @@ export const leadsAPI = {
   getStats: () => api.get('/leads/stats'),
 };
 
+// WhatsApp Business API (Meta WABA Integration)
+export const whatsappBusinessAPI = {
+  // Get approved templates from Meta
+  getTemplates: () => api.get('/settings/whatsapp/templates'),
+  // Test WhatsApp connection
+  testConnection: () => api.post('/settings/whatsapp/test'),
+  // Send a message using a template
+  sendMessage: (data) => api.post('/settings/whatsapp/send', data),
+  // Send appointment confirmation
+  sendConfirmation: (appointmentId) => api.post('/settings/whatsapp/send-confirmation', { appointment_id: parseInt(appointmentId, 10) }),
+};
+
 // Consent Templates API
 export const consentTemplatesAPI = {
   getAll: (params) => api.get('/consent-templates', { params }),

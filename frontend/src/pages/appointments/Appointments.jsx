@@ -12,9 +12,10 @@ import {
   UnorderedListOutlined,
   CalendarOutlined,
   LeftOutlined,
-  RightOutlined
+  RightOutlined,
+  WhatsAppOutlined
 } from '@ant-design/icons';
-import { appointmentsAPI, usersAPI, settingsAPI } from '../../services/api';
+import { appointmentsAPI, usersAPI, settingsAPI, whatsappBusinessAPI } from '../../services/api';
 import { usePermission } from '../../contexts/AuthContext';
 import { actionColors, statusColors, spacing, shadows } from '../../theme/designSystem';
 import { getHolidayInfo } from '../../utils/brazilianHolidays';
@@ -42,6 +43,7 @@ const Appointments = () => {
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
   const [currentWeekStart, setCurrentWeekStart] = useState(dayjs().startOf('week'));
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(null); // ID do agendamento sendo enviado
   const [lunchBreak, setLunchBreak] = useState({
     enabled: false,
     start: null,
@@ -206,6 +208,21 @@ const Appointments = () => {
       fetchAppointments();
     } catch (error) {
       message.error('Erro ao deletar agendamento');
+    }
+  };
+
+  const handleSendWhatsApp = async (appointmentId, patientName) => {
+    setSendingWhatsApp(appointmentId);
+    try {
+      const response = await whatsappBusinessAPI.sendConfirmation(appointmentId);
+      if (response.data.success) {
+        message.success(`Confirmação enviada para ${patientName || 'paciente'} via WhatsApp!`);
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || 'Erro ao enviar confirmação';
+      message.error(errorMsg);
+    } finally {
+      setSendingWhatsApp(null);
     }
   };
 
@@ -628,7 +645,8 @@ const Appointments = () => {
                 gap: '8px',
                 marginTop: '12px',
                 paddingTop: '8px',
-                borderTop: '1px solid rgba(0,0,0,0.06)'
+                borderTop: '1px solid rgba(0,0,0,0.06)',
+                flexWrap: 'wrap'
               }}>
                 <Button
                   type="text"
@@ -639,6 +657,18 @@ const Appointments = () => {
                 >
                   Ver
                 </Button>
+                {canEdit('appointments') && record.status !== 'cancelled' && record.status !== 'completed' && (
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<WhatsAppOutlined />}
+                    onClick={() => handleSendWhatsApp(record.id, record.patient?.name)}
+                    loading={sendingWhatsApp === record.id}
+                    style={{ color: '#25D366' }}
+                  >
+                    WhatsApp
+                  </Button>
+                )}
                 {canEdit('appointments') && (
                   <Button
                     type="text"
@@ -745,25 +775,38 @@ const Appointments = () => {
     {
       title: 'Ações',
       key: 'actions',
-      width: 100,
+      width: 140,
       align: 'center',
       render: (_, record) => (
         <Space>
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/appointments/${record.id}`)}
-            title="Visualizar"
-            style={{ color: actionColors.view }}
-          />
-          {canEdit('appointments') && (
+          <Tooltip title="Visualizar">
             <Button
               type="text"
-              icon={<EditOutlined />}
-              onClick={() => navigate(`/appointments/${record.id}/edit`)}
-              title="Editar"
-              style={{ color: actionColors.edit }}
+              icon={<EyeOutlined />}
+              onClick={() => navigate(`/appointments/${record.id}`)}
+              style={{ color: actionColors.view }}
             />
+          </Tooltip>
+          {canEdit('appointments') && record.status !== 'cancelled' && record.status !== 'completed' && (
+            <Tooltip title="Enviar Confirmação WhatsApp">
+              <Button
+                type="text"
+                icon={<WhatsAppOutlined />}
+                onClick={() => handleSendWhatsApp(record.id, record.patient?.name)}
+                loading={sendingWhatsApp === record.id}
+                style={{ color: '#25D366' }}
+              />
+            </Tooltip>
+          )}
+          {canEdit('appointments') && (
+            <Tooltip title="Editar">
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() => navigate(`/appointments/${record.id}/edit`)}
+                style={{ color: actionColors.edit }}
+              />
+            </Tooltip>
           )}
           {canDelete('appointments') && (
             <Popconfirm
@@ -772,12 +815,13 @@ const Appointments = () => {
               okText="Sim"
               cancelText="Não"
             >
-              <Button
-                type="text"
-                icon={<DeleteOutlined />}
-                title="Deletar"
-                style={{ color: actionColors.delete }}
-              />
+              <Tooltip title="Deletar">
+                <Button
+                  type="text"
+                  icon={<DeleteOutlined />}
+                  style={{ color: actionColors.delete }}
+                />
+              </Tooltip>
             </Popconfirm>
           )}
         </Space>

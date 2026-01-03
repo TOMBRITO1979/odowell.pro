@@ -228,6 +228,11 @@ func main() {
 		c.JSON(httpStatus, response)
 	})
 
+	// WhatsApp Business Webhook (public endpoint for Meta callbacks)
+	// This must be accessible without authentication for Meta to verify and send updates
+	r.GET("/webhook/whatsapp", handlers.WhatsAppWebhookVerify)
+	r.POST("/webhook/whatsapp", handlers.WhatsAppWebhookHandler)
+
 	// Public routes
 	public := r.Group("/api")
 	{
@@ -595,6 +600,15 @@ func main() {
 		tenanted.PATCH("/settings/api-key/toggle", middleware.PermissionMiddleware("settings", "edit"), handlers.ToggleAPIKey)
 		tenanted.DELETE("/settings/api-key", middleware.PermissionMiddleware("settings", "edit"), handlers.RevokeAPIKey)
 		tenanted.GET("/settings/api-key/docs", middleware.PermissionMiddleware("settings", "view"), handlers.WhatsAppAPIDocumentation)
+
+		// WhatsApp Business API (Meta WABA Integration)
+		whatsappBusiness := tenanted.Group("/settings/whatsapp")
+		{
+			whatsappBusiness.GET("/templates", middleware.PermissionMiddleware("settings", "view"), handlers.GetWhatsAppTemplates)
+			whatsappBusiness.POST("/test", middleware.PermissionMiddleware("settings", "edit"), handlers.TestWhatsAppConnection)
+			whatsappBusiness.POST("/send", middleware.PermissionMiddleware("settings", "edit"), handlers.SendWhatsAppMessage)
+			whatsappBusiness.POST("/send-confirmation", middleware.PermissionMiddleware("appointments", "edit"), handlers.SendAppointmentConfirmation)
+		}
 
 		// Embed Token Management (for Chatwell/external panels)
 		tenanted.GET("/settings/embed-token", middleware.PermissionMiddleware("settings", "view"), handlers.GetEmbedToken)

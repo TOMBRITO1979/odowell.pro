@@ -51,9 +51,19 @@ type TenantSettings struct {
 	SMTPFromEmail string `json:"smtp_from_email"`
 	SMTPUseTLS   bool   `json:"smtp_use_tls"`
 
-	// WhatsApp Settings (future use)
-	WhatsAppAPIKey string `json:"whatsapp_api_key,omitempty"`
-	WhatsAppNumber string `json:"whatsapp_number,omitempty"`
+	// WhatsApp Business API Settings (Meta WABA)
+	WhatsAppAPIKey            string `json:"whatsapp_api_key,omitempty" gorm:"column:whatsapp_api_key"`
+	WhatsAppNumber            string `json:"whatsapp_number,omitempty" gorm:"column:whatsapp_number"`
+	WhatsAppPhoneNumberID     string `json:"whatsapp_phone_number_id,omitempty" gorm:"column:whatsapp_phone_number_id"`
+	WhatsAppAccessToken       string `json:"whatsapp_access_token,omitempty" gorm:"column:whatsapp_access_token"`
+	WhatsAppBusinessAccountID string `json:"whatsapp_business_account_id,omitempty" gorm:"column:whatsapp_business_account_id"`
+	WhatsAppWebhookVerifyToken string `json:"whatsapp_webhook_verify_token,omitempty" gorm:"column:whatsapp_webhook_verify_token"`
+	WhatsAppEnabled           bool   `json:"whatsapp_enabled" gorm:"column:whatsapp_enabled;default:false"`
+
+	// WhatsApp Template Selection (template names selected by user from Meta-approved list)
+	WhatsAppTemplateConfirmation string `json:"whatsapp_template_confirmation,omitempty" gorm:"column:whatsapp_template_confirmation"`
+	WhatsAppTemplateReminder     string `json:"whatsapp_template_reminder,omitempty" gorm:"column:whatsapp_template_reminder"`
+	WhatsAppTemplateReminderHours int   `json:"whatsapp_template_reminder_hours" gorm:"column:whatsapp_template_reminder_hours;default:24"`
 
 	// SMS Settings (future use)
 	SMSAPIKey   string `json:"sms_api_key,omitempty"`

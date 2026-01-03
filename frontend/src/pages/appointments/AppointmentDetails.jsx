@@ -15,11 +15,12 @@ import {
   EditOutlined,
   DeleteOutlined,
   CalendarOutlined,
+  WhatsAppOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { appointmentsAPI } from '../../services/api';
+import { appointmentsAPI, whatsappBusinessAPI } from '../../services/api';
 
 import { usePermission } from '../../contexts/AuthContext';
 
@@ -36,6 +37,7 @@ const formatDateTime = (dateTime) => {
 const AppointmentDetails = () => {
   const [appointment, setAppointment] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
   const { canEdit, canDelete } = usePermission();
@@ -63,6 +65,21 @@ const AppointmentDetails = () => {
       navigate('/appointments');
     } catch (error) {
       message.error('Erro ao deletar agendamento');
+    }
+  };
+
+  const handleSendWhatsAppConfirmation = async () => {
+    setSendingWhatsApp(true);
+    try {
+      const response = await whatsappBusinessAPI.sendConfirmation(id);
+      if (response.data.success) {
+        message.success(`Confirmação enviada para ${response.data.patient_name} via WhatsApp!`);
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || 'Erro ao enviar confirmação';
+      message.error(errorMsg);
+    } finally {
+      setSendingWhatsApp(false);
     }
   };
 
@@ -125,6 +142,17 @@ const AppointmentDetails = () => {
             >
               Voltar
             </Button>
+            {canEdit('appointments') && appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
+              <Button
+                type="default"
+                icon={<WhatsAppOutlined />}
+                onClick={handleSendWhatsAppConfirmation}
+                loading={sendingWhatsApp}
+                style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
+              >
+                Enviar Confirmação
+              </Button>
+            )}
             {canEdit('appointments') && (
               <Button
                 type="primary"

@@ -152,6 +152,17 @@ func UpdateTenantSettings(c *gin.Context) {
 		smtpPassword = encrypted
 	}
 
+	// Encrypt WhatsApp access token if provided
+	whatsappAccessToken := ""
+	if input.WhatsAppAccessToken != "" {
+		encrypted, err := helpers.EncryptIfNeeded(input.WhatsAppAccessToken)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt WhatsApp access token"})
+			return
+		}
+		whatsappAccessToken = encrypted
+	}
+
 	// Check if settings exist - use database.DB for public schema
 	var count int64
 	database.DB.Table("public.tenant_settings").Where("tenant_id = ?", tenantID).Count(&count)
@@ -172,8 +183,9 @@ func UpdateTenantSettings(c *gin.Context) {
 
 	// Build update query - only update password if provided (use database.DB for public schema)
 	var result *gorm.DB
-	if smtpPassword != "" {
-		// Update including password
+	// Build dynamic update based on which sensitive fields are provided
+	if smtpPassword != "" && whatsappAccessToken != "" {
+		// Update including both SMTP password and WhatsApp token
 		result = database.DB.Exec(`
 			UPDATE public.tenant_settings
 			SET
@@ -186,6 +198,9 @@ func UpdateTenantSettings(c *gin.Context) {
 				smtp_host = ?, smtp_port = ?, smtp_username = ?, smtp_password = ?,
 				smtp_from_name = ?, smtp_from_email = ?, smtp_use_tls = ?,
 				whatsapp_api_key = ?, whatsapp_number = ?, sms_api_key = ?, sms_provider = ?,
+				whatsapp_phone_number_id = ?, whatsapp_access_token = ?, whatsapp_business_account_id = ?,
+				whatsapp_webhook_verify_token = ?, whatsapp_enabled = ?,
+				whatsapp_template_confirmation = ?, whatsapp_template_reminder = ?, whatsapp_template_reminder_hours = ?,
 				updated_at = NOW()
 			WHERE tenant_id = ?
 		`,
@@ -198,10 +213,47 @@ func UpdateTenantSettings(c *gin.Context) {
 			input.SMTPHost, input.SMTPPort, input.SMTPUsername, smtpPassword,
 			input.SMTPFromName, input.SMTPFromEmail, input.SMTPUseTLS,
 			input.WhatsAppAPIKey, input.WhatsAppNumber, input.SMSAPIKey, input.SMSProvider,
+			input.WhatsAppPhoneNumberID, whatsappAccessToken, input.WhatsAppBusinessAccountID,
+			input.WhatsAppWebhookVerifyToken, input.WhatsAppEnabled,
+			input.WhatsAppTemplateConfirmation, input.WhatsAppTemplateReminder, input.WhatsAppTemplateReminderHours,
 			tenantID,
 		)
-	} else {
-		// Update without changing password
+	} else if smtpPassword != "" {
+		// Update including SMTP password only
+		result = database.DB.Exec(`
+			UPDATE public.tenant_settings
+			SET
+				clinic_name = ?, clinic_cnpj = ?, clinic_address = ?, clinic_city = ?,
+				clinic_state = ?, clinic_zip = ?, clinic_phone = ?, clinic_email = ?,
+				working_hours_start = ?, working_hours_end = ?, default_appointment_duration = ?,
+				lunch_break_enabled = ?, lunch_break_start = ?, lunch_break_end = ?,
+				payment_cash_enabled = ?, payment_credit_card_enabled = ?, payment_debit_card_enabled = ?,
+				payment_pix_enabled = ?, payment_transfer_enabled = ?, payment_insurance_enabled = ?,
+				smtp_host = ?, smtp_port = ?, smtp_username = ?, smtp_password = ?,
+				smtp_from_name = ?, smtp_from_email = ?, smtp_use_tls = ?,
+				whatsapp_api_key = ?, whatsapp_number = ?, sms_api_key = ?, sms_provider = ?,
+				whatsapp_phone_number_id = ?, whatsapp_business_account_id = ?,
+				whatsapp_webhook_verify_token = ?, whatsapp_enabled = ?,
+				whatsapp_template_confirmation = ?, whatsapp_template_reminder = ?, whatsapp_template_reminder_hours = ?,
+				updated_at = NOW()
+			WHERE tenant_id = ?
+		`,
+			input.ClinicName, input.ClinicCNPJ, input.ClinicAddress, input.ClinicCity,
+			input.ClinicState, input.ClinicZip, input.ClinicPhone, input.ClinicEmail,
+			input.WorkingHoursStart, input.WorkingHoursEnd, input.DefaultAppointmentDuration,
+			input.LunchBreakEnabled, input.LunchBreakStart, input.LunchBreakEnd,
+			input.PaymentCashEnabled, input.PaymentCreditCardEnabled, input.PaymentDebitCardEnabled,
+			input.PaymentPixEnabled, input.PaymentTransferEnabled, input.PaymentInsuranceEnabled,
+			input.SMTPHost, input.SMTPPort, input.SMTPUsername, smtpPassword,
+			input.SMTPFromName, input.SMTPFromEmail, input.SMTPUseTLS,
+			input.WhatsAppAPIKey, input.WhatsAppNumber, input.SMSAPIKey, input.SMSProvider,
+			input.WhatsAppPhoneNumberID, input.WhatsAppBusinessAccountID,
+			input.WhatsAppWebhookVerifyToken, input.WhatsAppEnabled,
+			input.WhatsAppTemplateConfirmation, input.WhatsAppTemplateReminder, input.WhatsAppTemplateReminderHours,
+			tenantID,
+		)
+	} else if whatsappAccessToken != "" {
+		// Update including WhatsApp token only
 		result = database.DB.Exec(`
 			UPDATE public.tenant_settings
 			SET
@@ -214,6 +266,9 @@ func UpdateTenantSettings(c *gin.Context) {
 				smtp_host = ?, smtp_port = ?, smtp_username = ?,
 				smtp_from_name = ?, smtp_from_email = ?, smtp_use_tls = ?,
 				whatsapp_api_key = ?, whatsapp_number = ?, sms_api_key = ?, sms_provider = ?,
+				whatsapp_phone_number_id = ?, whatsapp_access_token = ?, whatsapp_business_account_id = ?,
+				whatsapp_webhook_verify_token = ?, whatsapp_enabled = ?,
+				whatsapp_template_confirmation = ?, whatsapp_template_reminder = ?, whatsapp_template_reminder_hours = ?,
 				updated_at = NOW()
 			WHERE tenant_id = ?
 		`,
@@ -226,6 +281,43 @@ func UpdateTenantSettings(c *gin.Context) {
 			input.SMTPHost, input.SMTPPort, input.SMTPUsername,
 			input.SMTPFromName, input.SMTPFromEmail, input.SMTPUseTLS,
 			input.WhatsAppAPIKey, input.WhatsAppNumber, input.SMSAPIKey, input.SMSProvider,
+			input.WhatsAppPhoneNumberID, whatsappAccessToken, input.WhatsAppBusinessAccountID,
+			input.WhatsAppWebhookVerifyToken, input.WhatsAppEnabled,
+			input.WhatsAppTemplateConfirmation, input.WhatsAppTemplateReminder, input.WhatsAppTemplateReminderHours,
+			tenantID,
+		)
+	} else {
+		// Update without changing sensitive passwords/tokens
+		result = database.DB.Exec(`
+			UPDATE public.tenant_settings
+			SET
+				clinic_name = ?, clinic_cnpj = ?, clinic_address = ?, clinic_city = ?,
+				clinic_state = ?, clinic_zip = ?, clinic_phone = ?, clinic_email = ?,
+				working_hours_start = ?, working_hours_end = ?, default_appointment_duration = ?,
+				lunch_break_enabled = ?, lunch_break_start = ?, lunch_break_end = ?,
+				payment_cash_enabled = ?, payment_credit_card_enabled = ?, payment_debit_card_enabled = ?,
+				payment_pix_enabled = ?, payment_transfer_enabled = ?, payment_insurance_enabled = ?,
+				smtp_host = ?, smtp_port = ?, smtp_username = ?,
+				smtp_from_name = ?, smtp_from_email = ?, smtp_use_tls = ?,
+				whatsapp_api_key = ?, whatsapp_number = ?, sms_api_key = ?, sms_provider = ?,
+				whatsapp_phone_number_id = ?, whatsapp_business_account_id = ?,
+				whatsapp_webhook_verify_token = ?, whatsapp_enabled = ?,
+				whatsapp_template_confirmation = ?, whatsapp_template_reminder = ?, whatsapp_template_reminder_hours = ?,
+				updated_at = NOW()
+			WHERE tenant_id = ?
+		`,
+			input.ClinicName, input.ClinicCNPJ, input.ClinicAddress, input.ClinicCity,
+			input.ClinicState, input.ClinicZip, input.ClinicPhone, input.ClinicEmail,
+			input.WorkingHoursStart, input.WorkingHoursEnd, input.DefaultAppointmentDuration,
+			input.LunchBreakEnabled, input.LunchBreakStart, input.LunchBreakEnd,
+			input.PaymentCashEnabled, input.PaymentCreditCardEnabled, input.PaymentDebitCardEnabled,
+			input.PaymentPixEnabled, input.PaymentTransferEnabled, input.PaymentInsuranceEnabled,
+			input.SMTPHost, input.SMTPPort, input.SMTPUsername,
+			input.SMTPFromName, input.SMTPFromEmail, input.SMTPUseTLS,
+			input.WhatsAppAPIKey, input.WhatsAppNumber, input.SMSAPIKey, input.SMSProvider,
+			input.WhatsAppPhoneNumberID, input.WhatsAppBusinessAccountID,
+			input.WhatsAppWebhookVerifyToken, input.WhatsAppEnabled,
+			input.WhatsAppTemplateConfirmation, input.WhatsAppTemplateReminder, input.WhatsAppTemplateReminderHours,
 			tenantID,
 		)
 	}
