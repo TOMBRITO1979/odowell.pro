@@ -66,3 +66,6 @@ docs/n8n_credentials.txt
 
 # Workflow exports with sensitive data
 docs/workflows/
+
+# Database dumps
+*.dump
