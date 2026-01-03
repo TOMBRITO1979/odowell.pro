@@ -30,7 +30,7 @@ const { Text } = Typography;
 const PatientPortalLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isPatient } = useAuth();
+  const { user, logout, isPatient, loading: authLoading } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [clinicInfo, setClinicInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +48,9 @@ const PatientPortalLayout = () => {
   }, []);
 
   useEffect(() => {
+    // Wait for auth context to finish loading before checking user type
+    if (authLoading) return;
+
     // SECURITY: Verify user is actually a patient before making any API calls
     // This prevents staff tokens from being used on patient portal
     if (!isPatient) {
@@ -57,7 +60,7 @@ const PatientPortalLayout = () => {
       return;
     }
     fetchClinicInfo();
-  }, [isPatient, logout, navigate]);
+  }, [isPatient, authLoading, logout, navigate]);
 
   const fetchClinicInfo = async () => {
     try {
@@ -130,7 +133,7 @@ const PatientPortalLayout = () => {
     },
   ];
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <Spin size="large" />

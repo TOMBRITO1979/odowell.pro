@@ -113,8 +113,8 @@ const PatientBookAppointment = () => {
 
       await patientPortalAPI.createAppointment({
         dentist_id: values.dentist_id,
-        start_time: startTime.format('YYYY-MM-DDTHH:mm:ss'),
-        end_time: endTime.format('YYYY-MM-DDTHH:mm:ss'),
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
         procedure: values.procedure,
         notes: values.notes,
       });
