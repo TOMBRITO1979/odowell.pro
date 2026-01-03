@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
 
+    <!-- Prevenir cache agressivo -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
 
@@ -28,6 +33,34 @@
     <!-- SEO Meta Tags -->
     <meta name="description" content="Sistema completo de gestão para clínicas odontológicas" />
     <meta name="keywords" content="odontologia, gestão, clínica, dental, pacientes, agenda" />
+
+    <!-- Limpar dados corrompidos ANTES do app carregar -->
+    <script>
+      (function() {
+        try {
+          // Verificar se localStorage está acessível e válido
+          var testKey = '__storage_test__';
+          localStorage.setItem(testKey, testKey);
+          localStorage.removeItem(testKey);
+
+          // Verificar se os dados salvos são JSON válido
+          var user = localStorage.getItem('user');
+          if (user) {
+            try {
+              JSON.parse(user);
+            } catch (e) {
+              console.warn('Dados corrompidos detectados, limpando...');
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              localStorage.removeItem('tenant');
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao acessar localStorage:', e);
+          // Se localStorage está inacessível, o app ainda funcionará
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

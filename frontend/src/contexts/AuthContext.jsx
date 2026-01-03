@@ -24,38 +24,78 @@ export const AuthProvider = ({ children }) => {
     let mounted = true;
 
     const initializeAuth = async () => {
-      const token = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-      const storedTenant = localStorage.getItem('tenant');
+      try {
+        const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        const storedTenant = localStorage.getItem('tenant');
 
-      if (token && storedUser) {
-        if (mounted) {
-          setUser(JSON.parse(storedUser));
-          if (storedTenant) {
-            setTenant(JSON.parse(storedTenant));
-          }
-          // Extract permissions from JWT
-          const perms = extractPermissions(token);
-          setPermissions(perms);
-        }
+        if (token && storedUser) {
+          // Parse stored data with error handling
+          let parsedUser = null;
+          let parsedTenant = null;
 
-        // Verify token is still valid
-        try {
-          const response = await authAPI.getMe();
-          if (mounted) {
-            setUser(response.data.user);
-            setTenant(response.data.tenant);
+          try {
+            parsedUser = JSON.parse(storedUser);
+          } catch (parseError) {
+            console.error('Erro ao parsear user do localStorage, limpando dados:', parseError);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('tenant');
+            if (mounted) setLoading(false);
+            return;
           }
-        } catch {
-          if (mounted) {
-            logout();
+
+          try {
+            if (storedTenant) {
+              parsedTenant = JSON.parse(storedTenant);
+            }
+          } catch (parseError) {
+            console.error('Erro ao parsear tenant do localStorage:', parseError);
+            localStorage.removeItem('tenant');
           }
-        } finally {
+
+          if (mounted) {
+            setUser(parsedUser);
+            if (parsedTenant) {
+              setTenant(parsedTenant);
+            }
+            // Extract permissions from JWT
+            const perms = extractPermissions(token);
+            setPermissions(perms);
+          }
+
+          // Verify token is still valid
+          try {
+            const response = await authAPI.getMe();
+            if (mounted) {
+              setUser(response.data.user);
+              setTenant(response.data.tenant);
+            }
+          } catch {
+            if (mounted) {
+              logout();
+            }
+          } finally {
+            if (mounted) {
+              setLoading(false);
+            }
+          }
+        } else {
           if (mounted) {
             setLoading(false);
           }
         }
-      } else {
+      } catch (error) {
+        // Catch any unexpected errors during initialization
+        console.error('Erro ao inicializar autenticação, limpando dados:', error);
+        try {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('tenant');
+        } catch (e) {
+          // localStorage might be full or inaccessible
+          console.error('Erro ao limpar localStorage:', e);
+        }
         if (mounted) {
           setLoading(false);
         }
