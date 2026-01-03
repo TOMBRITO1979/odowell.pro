@@ -19,7 +19,6 @@ import {
   PlusOutlined,
   ClockCircleOutlined,
   UserOutlined,
-  MedicineBoxOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -106,17 +105,19 @@ const PatientAppointments = () => {
       style={{
         marginBottom: 12,
         borderRadius: 12,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        background: 'linear-gradient(135deg, #f8fdf9 0%, #f0f9f2 100%)',
+        border: '1px solid #d9f0df',
       }}
     >
       <Row gutter={[12, 12]}>
-        {/* Data e Hora */}
-        <Col xs={24} sm={12}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* Data */}
+        <Col xs={12} sm={6}>
+          <div style={{ textAlign: 'center' }}>
             <div
               style={{
-                width: 48,
-                height: 48,
+                width: 50,
+                height: 50,
+                margin: '0 auto 8px',
                 borderRadius: 12,
                 background: 'linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%)',
                 display: 'flex',
@@ -124,49 +125,66 @@ const PatientAppointments = () => {
                 justifyContent: 'center',
               }}
             >
-              <CalendarOutlined style={{ fontSize: 20, color: '#fff' }} />
+              <CalendarOutlined style={{ fontSize: 22, color: '#fff' }} />
             </div>
-            <div>
-              <Text strong style={{ fontSize: 16, display: 'block' }}>
-                {dayjs(appointment.start_time).format('DD/MM/YYYY')}
-              </Text>
-              <Text type="secondary">
-                <ClockCircleOutlined style={{ marginRight: 4 }} />
-                {dayjs(appointment.start_time).format('HH:mm')} - {dayjs(appointment.end_time).format('HH:mm')}
-              </Text>
-            </div>
-          </div>
-        </Col>
-
-        {/* Profissional e Procedimento */}
-        <Col xs={24} sm={12}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <Text>
-              <UserOutlined style={{ marginRight: 6, color: '#66BB6A' }} />
-              {appointment.dentist?.name || 'Nao definido'}
+            <Text strong style={{ display: 'block', fontSize: 14 }}>
+              {dayjs(appointment.start_time).format('DD/MM')}
             </Text>
-            <Text type="secondary">
-              <MedicineBoxOutlined style={{ marginRight: 6 }} />
-              {procedureLabels[appointment.procedure] || appointment.procedure}
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {dayjs(appointment.start_time).format('dddd')}
             </Text>
           </div>
         </Col>
 
-        {/* Status e Ações */}
-        <Col xs={24}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
-            <Tag color={statusColors[appointment.status]} style={{ margin: 0 }}>
+        {/* Horário */}
+        <Col xs={12} sm={6}>
+          <div style={{ textAlign: 'center' }}>
+            <ClockCircleOutlined style={{ fontSize: 24, color: '#66BB6A', marginBottom: 8 }} />
+            <Text strong style={{ display: 'block' }}>
+              {dayjs(appointment.start_time).format('HH:mm')}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              ate {dayjs(appointment.end_time).format('HH:mm')}
+            </Text>
+          </div>
+        </Col>
+
+        {/* Profissional */}
+        <Col xs={12} sm={6}>
+          <div style={{ textAlign: 'center' }}>
+            <UserOutlined style={{ fontSize: 24, color: '#66BB6A', marginBottom: 8 }} />
+            <Text strong style={{ display: 'block', fontSize: 13 }}>
+              {appointment.dentist?.name?.split(' ')[0] || 'Profissional'}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {procedureLabels[appointment.procedure] || 'Consulta'}
+            </Text>
+          </div>
+        </Col>
+
+        {/* Status */}
+        <Col xs={12} sm={6}>
+          <div style={{ textAlign: 'center' }}>
+            <Tag
+              color={statusColors[appointment.status]}
+              style={{ marginBottom: 8 }}
+            >
               {statusLabels[appointment.status]}
             </Tag>
             {showActions && (appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
               <Popconfirm
                 title="Cancelar consulta"
-                description="Tem certeza que deseja cancelar?"
+                description="Tem certeza?"
                 onConfirm={() => handleCancelAppointment(appointment.id)}
                 okText="Sim"
                 cancelText="Nao"
               >
-                <Button danger size="small" icon={<DeleteOutlined />}>
+                <Button
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  block
+                >
                   Cancelar
                 </Button>
               </Popconfirm>
@@ -206,7 +224,7 @@ const PatientAppointments = () => {
     }
 
     return (
-      <div>
+      <Space direction="vertical" style={{ width: '100%' }} size="middle">
         {appointments.map((appointment) => (
           <AppointmentCard
             key={appointment.id}
@@ -214,7 +232,7 @@ const PatientAppointments = () => {
             showActions={showActions}
           />
         ))}
-      </div>
+      </Space>
     );
   };
 

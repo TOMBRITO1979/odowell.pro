@@ -91,81 +91,82 @@ const PatientMedicalRecords = () => {
       style={{
         marginBottom: 12,
         borderRadius: 12,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        background: 'linear-gradient(135deg, #f8fdf9 0%, #f0f9f2 100%)',
+        border: '1px solid #d9f0df',
+        cursor: 'pointer',
       }}
-      hoverable
       onClick={() => handleViewRecord(record.id)}
     >
-      <Row gutter={[12, 8]} align="middle">
-        {/* Icone e Tipo */}
-        <Col xs={24} sm={8}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <Row gutter={[12, 12]}>
+        {/* Tipo */}
+        <Col xs={12} sm={6}>
+          <div style={{ textAlign: 'center' }}>
             <div
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 10,
-                background: `linear-gradient(135deg, ${typeColors[record.type] === 'purple' ? '#9c27b0' : typeColors[record.type] === 'blue' ? '#2196f3' : typeColors[record.type] === 'green' ? '#4caf50' : typeColors[record.type] === 'orange' ? '#ff9800' : typeColors[record.type] === 'cyan' ? '#00bcd4' : '#3f51b5'} 0%, ${typeColors[record.type] === 'purple' ? '#7b1fa2' : typeColors[record.type] === 'blue' ? '#1976d2' : typeColors[record.type] === 'green' ? '#388e3c' : typeColors[record.type] === 'orange' ? '#f57c00' : typeColors[record.type] === 'cyan' ? '#0097a7' : '#303f9f'} 100%)`,
+                width: 50,
+                height: 50,
+                margin: '0 auto 8px',
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <FileTextOutlined style={{ fontSize: 20, color: '#fff' }} />
+              <FileTextOutlined style={{ fontSize: 22, color: '#fff' }} />
             </div>
-            <div>
-              <Tag color={typeColors[record.type] || 'default'} style={{ margin: 0 }}>
-                {typeLabels[record.type] || record.type}
-              </Tag>
-              <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>
-                <CalendarOutlined style={{ marginRight: 4 }} />
-                {dayjs(record.created_at).format('DD/MM/YYYY')}
-              </Text>
-            </div>
+            <Tag color={typeColors[record.type] || 'default'} style={{ margin: 0 }}>
+              {typeLabels[record.type] || record.type}
+            </Tag>
+          </div>
+        </Col>
+
+        {/* Data */}
+        <Col xs={12} sm={6}>
+          <div style={{ textAlign: 'center' }}>
+            <CalendarOutlined style={{ fontSize: 24, color: '#66BB6A', marginBottom: 8 }} />
+            <Text strong style={{ display: 'block' }}>
+              {dayjs(record.created_at).format('DD/MM/YY')}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {dayjs(record.created_at).format('HH:mm')}
+            </Text>
           </div>
         </Col>
 
         {/* Profissional */}
-        <Col xs={24} sm={8}>
-          <Text>
-            <UserOutlined style={{ marginRight: 6, color: '#66BB6A' }} />
-            {record.dentist_name || 'Nao informado'}
-          </Text>
-          {record.dentist_cro && (
-            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-              CRO: {record.dentist_cro}
+        <Col xs={12} sm={6}>
+          <div style={{ textAlign: 'center' }}>
+            <UserOutlined style={{ fontSize: 24, color: '#66BB6A', marginBottom: 8 }} />
+            <Text strong style={{ display: 'block', fontSize: 13 }}>
+              {record.dentist_name?.split(' ')[0] || 'Profissional'}
             </Text>
-          )}
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {record.dentist_cro ? `CRO: ${record.dentist_cro}` : ''}
+            </Text>
+          </div>
         </Col>
 
-        {/* Diagnóstico e Assinatura */}
-        <Col xs={24} sm={8}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ flex: 1 }}>
-              {record.diagnosis && (
-                <Text type="secondary" ellipsis style={{ maxWidth: 150 }}>
-                  {record.diagnosis}
-                </Text>
-              )}
-            </div>
-            <Space>
-              {record.is_signed && (
-                <Tag icon={<SafetyCertificateOutlined />} color="success">
-                  Assinado
-                </Tag>
-              )}
-              <Button
-                type="primary"
-                size="small"
-                icon={<EyeOutlined />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleViewRecord(record.id);
-                }}
-              >
-                Ver
-              </Button>
-            </Space>
+        {/* Ações */}
+        <Col xs={12} sm={6}>
+          <div style={{ textAlign: 'center' }}>
+            {record.is_signed && (
+              <Tag icon={<SafetyCertificateOutlined />} color="success" style={{ marginBottom: 8 }}>
+                Assinado
+              </Tag>
+            )}
+            <Button
+              type="primary"
+              size="small"
+              icon={<EyeOutlined />}
+              block
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewRecord(record.id);
+              }}
+            >
+              Ver
+            </Button>
           </div>
         </Col>
       </Row>
@@ -187,7 +188,7 @@ const PatientMedicalRecords = () => {
           <Select
             placeholder="Filtrar"
             allowClear
-            style={{ width: 140 }}
+            style={{ width: 130 }}
             value={filterType || undefined}
             onChange={(value) => setFilterType(value || '')}
             suffixIcon={<FilterOutlined />}
@@ -211,14 +212,14 @@ const PatientMedicalRecords = () => {
             description="Nenhum prontuario encontrado"
           />
         ) : (
-          <div>
-            <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Text type="secondary">
               Total: {records.length} registro(s)
             </Text>
             {records.map((record) => (
               <RecordCard key={record.id} record={record} />
             ))}
-          </div>
+          </Space>
         )}
       </Card>
 
