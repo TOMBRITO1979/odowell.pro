@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
-  Table,
   Tag,
   Button,
   Space,
@@ -12,17 +11,21 @@ import {
   Spin,
   message,
   Popconfirm,
+  Row,
+  Col,
 } from 'antd';
 import {
   CalendarOutlined,
   PlusOutlined,
   ClockCircleOutlined,
   UserOutlined,
+  MedicineBoxOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { patientPortalAPI } from '../../services/api';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const statusColors = {
   scheduled: 'blue',
@@ -97,76 +100,123 @@ const PatientAppointments = () => {
     }
   };
 
-  const columns = [
-    {
-      title: 'Data',
-      dataIndex: 'start_time',
-      key: 'date',
-      render: (value) => (
-        <Space>
-          <CalendarOutlined />
-          {dayjs(value).format('DD/MM/YYYY')}
-        </Space>
-      ),
-      sorter: (a, b) => dayjs(a.start_time).unix() - dayjs(b.start_time).unix(),
-    },
-    {
-      title: 'Horario',
-      key: 'time',
-      render: (_, record) => (
-        <Space>
-          <ClockCircleOutlined />
-          {dayjs(record.start_time).format('HH:mm')} - {dayjs(record.end_time).format('HH:mm')}
-        </Space>
-      ),
-    },
-    {
-      title: 'Profissional',
-      key: 'dentist',
-      render: (_, record) => (
-        <Space>
-          <UserOutlined />
-          {record.dentist?.name || 'Nao definido'}
-        </Space>
-      ),
-    },
-    {
-      title: 'Procedimento',
-      dataIndex: 'procedure',
-      key: 'procedure',
-      render: (value) => procedureLabels[value] || value,
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>
-      ),
-    },
-    {
-      title: 'Acoes',
-      key: 'actions',
-      render: (_, record) => {
-        if (record.status === 'scheduled' || record.status === 'confirmed') {
-          return (
-            <Popconfirm
-              title="Cancelar consulta"
-              description="Tem certeza que deseja cancelar esta consulta?"
-              onConfirm={() => handleCancelAppointment(record.id)}
-              okText="Sim"
-              cancelText="Nao"
+  const AppointmentCard = ({ appointment, showActions = false }) => (
+    <Card
+      size="small"
+      style={{
+        marginBottom: 12,
+        borderRadius: 12,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+      }}
+    >
+      <Row gutter={[12, 12]}>
+        {/* Data e Hora */}
+        <Col xs={24} sm={12}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <Button danger size="small">
-                Cancelar
-              </Button>
-            </Popconfirm>
-          );
-        }
-        return null;
-      },
-    },
-  ];
+              <CalendarOutlined style={{ fontSize: 20, color: '#fff' }} />
+            </div>
+            <div>
+              <Text strong style={{ fontSize: 16, display: 'block' }}>
+                {dayjs(appointment.start_time).format('DD/MM/YYYY')}
+              </Text>
+              <Text type="secondary">
+                <ClockCircleOutlined style={{ marginRight: 4 }} />
+                {dayjs(appointment.start_time).format('HH:mm')} - {dayjs(appointment.end_time).format('HH:mm')}
+              </Text>
+            </div>
+          </div>
+        </Col>
+
+        {/* Profissional e Procedimento */}
+        <Col xs={24} sm={12}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Text>
+              <UserOutlined style={{ marginRight: 6, color: '#66BB6A' }} />
+              {appointment.dentist?.name || 'Nao definido'}
+            </Text>
+            <Text type="secondary">
+              <MedicineBoxOutlined style={{ marginRight: 6 }} />
+              {procedureLabels[appointment.procedure] || appointment.procedure}
+            </Text>
+          </div>
+        </Col>
+
+        {/* Status e Ações */}
+        <Col xs={24}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+            <Tag color={statusColors[appointment.status]} style={{ margin: 0 }}>
+              {statusLabels[appointment.status]}
+            </Tag>
+            {showActions && (appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
+              <Popconfirm
+                title="Cancelar consulta"
+                description="Tem certeza que deseja cancelar?"
+                onConfirm={() => handleCancelAppointment(appointment.id)}
+                okText="Sim"
+                cancelText="Nao"
+              >
+                <Button danger size="small" icon={<DeleteOutlined />}>
+                  Cancelar
+                </Button>
+              </Popconfirm>
+            )}
+          </div>
+        </Col>
+      </Row>
+    </Card>
+  );
+
+  const renderAppointmentList = (appointments, showActions = false) => {
+    if (loading) {
+      return (
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <Spin size="large" />
+        </div>
+      );
+    }
+
+    if (appointments.length === 0) {
+      return (
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={showActions ? "Nenhuma consulta agendada" : "Nenhuma consulta no historico"}
+        >
+          {showActions && (
+            <Button
+              type="primary"
+              onClick={() => navigate('/patient/book')}
+              disabled={hasPending}
+            >
+              Agendar Consulta
+            </Button>
+          )}
+        </Empty>
+      );
+    }
+
+    return (
+      <div>
+        {appointments.map((appointment) => (
+          <AppointmentCard
+            key={appointment.id}
+            appointment={appointment}
+            showActions={showActions}
+          />
+        ))}
+      </div>
+    );
+  };
 
   const tabItems = [
     {
@@ -176,30 +226,7 @@ const PatientAppointments = () => {
           <CalendarOutlined /> Proximas ({upcomingAppointments.length})
         </span>
       ),
-      children: (
-        <Table
-          dataSource={upcomingAppointments}
-          columns={columns}
-          rowKey="id"
-          loading={loading}
-          locale={{
-            emptyText: (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="Nenhuma consulta agendada"
-              >
-                <Button
-                  type="primary"
-                  onClick={() => navigate('/patient/book')}
-                  disabled={hasPending}
-                >
-                  Agendar Consulta
-                </Button>
-              </Empty>
-            ),
-          }}
-        />
-      ),
+      children: renderAppointmentList(upcomingAppointments, true),
     },
     {
       key: 'past',
@@ -208,22 +235,7 @@ const PatientAppointments = () => {
           <ClockCircleOutlined /> Historico ({pastAppointments.length})
         </span>
       ),
-      children: (
-        <Table
-          dataSource={pastAppointments}
-          columns={columns.filter((col) => col.key !== 'actions')}
-          rowKey="id"
-          loading={loading}
-          locale={{
-            emptyText: (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="Nenhuma consulta no historico"
-              />
-            ),
-          }}
-        />
-      ),
+      children: renderAppointmentList(pastAppointments, false),
     },
   ];
 
@@ -245,9 +257,10 @@ const PatientAppointments = () => {
             onClick={() => navigate('/patient/book')}
             disabled={hasPending}
           >
-            Agendar Consulta
+            Agendar
           </Button>
         }
+        bodyStyle={{ padding: '12px 16px' }}
       >
         <Tabs
           activeKey={activeTab}

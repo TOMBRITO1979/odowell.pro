@@ -9,10 +9,10 @@ import {
   Space,
   Tag,
   Descriptions,
-  Divider,
   Empty,
   Spin,
   message,
+  Popconfirm,
 } from 'antd';
 import {
   CalendarOutlined,
@@ -21,6 +21,9 @@ import {
   PhoneOutlined,
   EnvironmentOutlined,
   PlusOutlined,
+  MedicineBoxOutlined,
+  DeleteOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { patientPortalAPI } from '../../services/api';
@@ -105,12 +108,15 @@ const PatientDashboard = () => {
 
   return (
     <div>
-      <Title level={4}>Bem-vindo(a), {user?.name}!</Title>
+      <Title level={4} style={{ marginBottom: 16 }}>Bem-vindo(a), {user?.name}!</Title>
 
-      <Row gutter={[24, 24]}>
+      <Row gutter={[16, 16]}>
         {/* Clinic Info Card */}
         <Col xs={24} lg={12}>
-          <Card title="Dados da Clinica" extra={<EnvironmentOutlined />}>
+          <Card
+            title={<><EnvironmentOutlined style={{ marginRight: 8 }} />Dados da Clinica</>}
+            size="small"
+          >
             {clinicInfo?.clinic ? (
               <Descriptions column={1} size="small">
                 <Descriptions.Item label="Nome">
@@ -124,7 +130,7 @@ const PatientDashboard = () => {
                 <Descriptions.Item label="Telefone">
                   <PhoneOutlined /> {clinicInfo.clinic.phone || 'Nao informado'}
                 </Descriptions.Item>
-                <Descriptions.Item label="Horario de Funcionamento">
+                <Descriptions.Item label="Horario">
                   <ClockCircleOutlined /> {clinicInfo.working_hours?.start || '08:00'} - {clinicInfo.working_hours?.end || '18:00'}
                 </Descriptions.Item>
               </Descriptions>
@@ -136,7 +142,10 @@ const PatientDashboard = () => {
 
         {/* Dentists Card */}
         <Col xs={24} lg={12}>
-          <Card title="Profissionais" extra={<UserOutlined />}>
+          <Card
+            title={<><UserOutlined style={{ marginRight: 8 }} />Profissionais</>}
+            size="small"
+          >
             {clinicInfo?.dentists && clinicInfo.dentists.length > 0 ? (
               <Space direction="vertical" style={{ width: '100%' }}>
                 {clinicInfo.dentists.map((dentist) => (
@@ -162,70 +171,122 @@ const PatientDashboard = () => {
         {/* Upcoming Appointments */}
         <Col span={24}>
           <Card
-            title="Proximas Consultas"
-            extra={
+            title={<><CalendarOutlined style={{ marginRight: 8 }} />Proximas Consultas</>}
+            size="small"
+          >
+            {/* Aviso e Botão em linhas separadas */}
+            {hasPending && (
+              <Paragraph type="warning" style={{ marginBottom: 12 }}>
+                Voce ja possui uma consulta agendada. Para agendar outra, aguarde a conclusao ou cancele a atual.
+              </Paragraph>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => navigate('/patient/book')}
                 disabled={hasPending}
+                block
+                size="large"
               >
-                Agendar Consulta
+                Agendar Nova Consulta
               </Button>
-            }
-          >
-            {hasPending && (
-              <Paragraph type="warning" style={{ marginBottom: 16 }}>
-                Voce ja possui uma consulta agendada. Para agendar outra, aguarde a conclusao ou cancele a consulta atual.
-              </Paragraph>
-            )}
+            </div>
 
             {upcomingAppointments.length > 0 ? (
-              <Space direction="vertical" style={{ width: '100%' }} size="large">
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
                 {upcomingAppointments.map((appointment) => (
                   <Card
                     key={appointment.id}
                     size="small"
-                    style={{ background: '#fafafa' }}
+                    style={{
+                      borderRadius: 12,
+                      background: 'linear-gradient(135deg, #f8fdf9 0%, #f0f9f2 100%)',
+                      border: '1px solid #d9f0df',
+                    }}
                   >
-                    <Row gutter={16} align="middle">
-                      <Col xs={24} sm={8}>
-                        <Space>
-                          <CalendarOutlined style={{ fontSize: 24, color: '#66BB6A' }} />
-                          <div>
-                            <Text strong style={{ display: 'block' }}>
-                              {dayjs(appointment.start_time).format('DD/MM/YYYY')}
-                            </Text>
-                            <Text type="secondary">
-                              {dayjs(appointment.start_time).format('HH:mm')} - {dayjs(appointment.end_time).format('HH:mm')}
-                            </Text>
-                          </div>
-                        </Space>
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <Text>
-                          <UserOutlined /> {appointment.dentist?.name || 'Nao definido'}
-                        </Text>
-                        <br />
-                        <Text type="secondary">
-                          {procedureLabels[appointment.procedure] || appointment.procedure}
-                        </Text>
-                      </Col>
-                      <Col xs={24} sm={4}>
-                        <Tag color={statusColors[appointment.status]}>
-                          {statusLabels[appointment.status]}
-                        </Tag>
-                      </Col>
-                      <Col xs={24} sm={4} style={{ textAlign: 'right' }}>
-                        {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
-                          <Button
-                            danger
-                            size="small"
-                            onClick={() => handleCancelAppointment(appointment.id)}
+                    <Row gutter={[12, 12]}>
+                      {/* Data e Hora */}
+                      <Col xs={12} sm={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div
+                            style={{
+                              width: 50,
+                              height: 50,
+                              margin: '0 auto 8px',
+                              borderRadius: 12,
+                              background: 'linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
                           >
-                            Cancelar
-                          </Button>
-                        )}
+                            <CalendarOutlined style={{ fontSize: 22, color: '#fff' }} />
+                          </div>
+                          <Text strong style={{ display: 'block', fontSize: 14 }}>
+                            {dayjs(appointment.start_time).format('DD/MM')}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {dayjs(appointment.start_time).format('dddd')}
+                          </Text>
+                        </div>
+                      </Col>
+
+                      {/* Horário */}
+                      <Col xs={12} sm={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <ClockCircleOutlined style={{ fontSize: 24, color: '#66BB6A', marginBottom: 8 }} />
+                          <Text strong style={{ display: 'block' }}>
+                            {dayjs(appointment.start_time).format('HH:mm')}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            ate {dayjs(appointment.end_time).format('HH:mm')}
+                          </Text>
+                        </div>
+                      </Col>
+
+                      {/* Profissional */}
+                      <Col xs={12} sm={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <UserOutlined style={{ fontSize: 24, color: '#66BB6A', marginBottom: 8 }} />
+                          <Text strong style={{ display: 'block', fontSize: 13 }}>
+                            {appointment.dentist?.name?.split(' ')[0] || 'Profissional'}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {procedureLabels[appointment.procedure] || 'Consulta'}
+                          </Text>
+                        </div>
+                      </Col>
+
+                      {/* Status */}
+                      <Col xs={12} sm={6}>
+                        <div style={{ textAlign: 'center' }}>
+                          <Tag
+                            color={statusColors[appointment.status]}
+                            style={{ marginBottom: 8 }}
+                          >
+                            {statusLabels[appointment.status]}
+                          </Tag>
+                          {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
+                            <Popconfirm
+                              title="Cancelar consulta"
+                              description="Tem certeza?"
+                              onConfirm={() => handleCancelAppointment(appointment.id)}
+                              okText="Sim"
+                              cancelText="Nao"
+                            >
+                              <Button
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                                block
+                              >
+                                Cancelar
+                              </Button>
+                            </Popconfirm>
+                          )}
+                        </div>
                       </Col>
                     </Row>
                   </Card>
@@ -235,28 +296,35 @@ const PatientDashboard = () => {
               <Empty
                 description="Voce nao possui consultas agendadas"
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-              >
-                <Button type="primary" onClick={() => navigate('/patient/book')}>
-                  Agendar Primeira Consulta
-                </Button>
-              </Empty>
+              />
             )}
           </Card>
         </Col>
 
         {/* Quick Links */}
         <Col span={24}>
-          <Card title="Acesso Rapido">
-            <Row gutter={16}>
-              <Col xs={24} sm={8}>
+          <Card title="Acesso Rapido" size="small">
+            <Row gutter={[12, 12]}>
+              <Col xs={12} sm={8}>
                 <Button
                   block
                   size="large"
                   icon={<CalendarOutlined />}
                   onClick={() => navigate('/patient/appointments')}
-                  style={{ height: 60 }}
+                  style={{ height: 56, whiteSpace: 'normal', lineHeight: 1.2 }}
                 >
-                  Historico de Consultas
+                  Historico
+                </Button>
+              </Col>
+              <Col xs={12} sm={8}>
+                <Button
+                  block
+                  size="large"
+                  icon={<FileTextOutlined />}
+                  onClick={() => navigate('/patient/medical-records')}
+                  style={{ height: 56, whiteSpace: 'normal', lineHeight: 1.2 }}
+                >
+                  Prontuarios
                 </Button>
               </Col>
               <Col xs={24} sm={8}>
@@ -265,22 +333,9 @@ const PatientDashboard = () => {
                   size="large"
                   icon={<UserOutlined />}
                   onClick={() => navigate('/patient/profile')}
-                  style={{ height: 60 }}
+                  style={{ height: 56, whiteSpace: 'normal', lineHeight: 1.2 }}
                 >
                   Meus Dados
-                </Button>
-              </Col>
-              <Col xs={24} sm={8}>
-                <Button
-                  block
-                  size="large"
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={() => navigate('/patient/book')}
-                  disabled={hasPending}
-                  style={{ height: 60 }}
-                >
-                  Nova Consulta
                 </Button>
               </Col>
             </Row>
