@@ -410,13 +410,35 @@ func SendAppointmentConfirmation(c *gin.Context) {
 	// Normalize phone number
 	phone := normalizePhoneNumber(appointment.PatientPhone)
 
-	// Build template message with parameters
-	// Common parameters for appointment confirmation:
-	// {{1}} = patient name
-	// {{2}} = date
-	// {{3}} = time
-	// {{4}} = dentist name (optional)
-	// {{5}} = clinic name (optional)
+	// First, fetch the template to know how many parameters it needs
+	templateParams, err := getTemplateParameterCount(settings.WhatsAppBusinessAccountID, accessToken, settings.WhatsAppTemplateConfirmation)
+	if err != nil {
+		log.Printf("[WhatsApp] Error fetching template params: %v, using default 3 params", err)
+		templateParams = 3 // Default to 3 params (name, date, time)
+	}
+
+	// Prepare clinic name with fallback
+	clinicName := settings.ClinicName
+	if clinicName == "" {
+		clinicName = "nossa clínica"
+	}
+
+	// Build parameters based on template requirements
+	// Common order: {{1}}=name, {{2}}=date, {{3}}=time, {{4}}=dentist, {{5}}=clinic
+	allParams := []MetaTemplateParam{
+		{Type: "text", Text: appointment.PatientName},
+		{Type: "text", Text: dateStr},
+		{Type: "text", Text: timeStr},
+		{Type: "text", Text: appointment.DentistName},
+		{Type: "text", Text: clinicName},
+	}
+
+	// Use only the number of parameters the template expects
+	params := allParams
+	if templateParams > 0 && templateParams < len(allParams) {
+		params = allParams[:templateParams]
+	}
+
 	message := MetaTemplateMessage{
 		MessagingProduct: "whatsapp",
 		RecipientType:    "individual",
@@ -429,14 +451,8 @@ func SendAppointmentConfirmation(c *gin.Context) {
 			},
 			Components: []MetaTemplateCompParams{
 				{
-					Type: "body",
-					Parameters: []MetaTemplateParam{
-						{Type: "text", Text: appointment.PatientName},
-						{Type: "text", Text: dateStr},
-						{Type: "text", Text: timeStr},
-						{Type: "text", Text: appointment.DentistName},
-						{Type: "text", Text: settings.ClinicName},
-					},
+					Type:       "body",
+					Parameters: params,
 				},
 			},
 		},
@@ -457,6 +473,50 @@ func SendAppointmentConfirmation(c *gin.Context) {
 		"patient_name": appointment.PatientName,
 		"appointment":  fmt.Sprintf("%s às %s", dateStr, timeStr),
 	})
+}
+
+// getTemplateParameterCount fetches template from Meta API and counts body parameters
+func getTemplateParameterCount(businessAccountID, accessToken, templateName string) (int, error) {
+	url := fmt.Sprintf("%s/%s/message_templates?name=%s&fields=components",
+		MetaGraphAPIURL, businessAccountID, templateName)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("meta API returned %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	var templatesResp MetaTemplatesResponse
+	if err := json.Unmarshal(body, &templatesResp); err != nil {
+		return 0, err
+	}
+
+	if len(templatesResp.Data) == 0 {
+		return 0, fmt.Errorf("template not found")
+	}
+
+	// Count parameters in body component
+	for _, comp := range templatesResp.Data[0].Components {
+		if comp.Type == "BODY" && comp.Text != "" {
+			re := regexp.MustCompile(`\{\{(\d+)\}\}`)
+			matches := re.FindAllString(comp.Text, -1)
+			return len(matches), nil
+		}
+	}
+
+	return 0, nil
 }
 
 // TestWhatsAppConnection tests the WhatsApp Business API connection
@@ -689,19 +749,40 @@ func sendMetaMessage(phoneNumberID, accessToken string, message MetaTemplateMess
 	return &result, nil
 }
 
-// normalizePhoneNumber normalizes a Brazilian phone number for WhatsApp
+// normalizePhoneNumber normalizes a phone number for WhatsApp
+// Supports international numbers (starting with country code) and Brazilian numbers
 func normalizePhoneNumber(phone string) string {
 	// Remove all non-digit characters
 	re := regexp.MustCompile(`\D`)
 	phone = re.ReplaceAllString(phone, "")
 
-	// If starts with 0, remove it
+	// If starts with 0, remove it (Brazilian local format)
 	if strings.HasPrefix(phone, "0") {
 		phone = phone[1:]
 	}
 
-	// Add Brazil country code if not present
-	if !strings.HasPrefix(phone, "55") {
+	// Check if it's already an international number (starts with common country codes)
+	// US/Canada: 1, UK: 44, Portugal: 351, etc.
+	internationalPrefixes := []string{"1", "44", "351", "34", "33", "49", "39", "81", "86", "91"}
+	isInternational := false
+	for _, prefix := range internationalPrefixes {
+		// Check if number starts with country code and has reasonable length
+		if strings.HasPrefix(phone, prefix) && len(phone) >= 10 {
+			// For US numbers (1xxx), make sure it's not a local Brazilian number
+			if prefix == "1" && len(phone) == 11 {
+				// Could be Brazilian (55 + 2-digit DDD + 9-digit number = 13 digits usually)
+				// US number would be 1 + 10 digits = 11 digits
+				isInternational = true
+			} else if prefix != "1" {
+				isInternational = true
+			}
+			break
+		}
+	}
+
+	// Only add Brazil country code if it's not an international number
+	// and doesn't already have 55 prefix
+	if !isInternational && !strings.HasPrefix(phone, "55") {
 		phone = "55" + phone
 	}
 
