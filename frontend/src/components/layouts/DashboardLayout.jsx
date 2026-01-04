@@ -179,6 +179,9 @@ const DashboardLayout = () => {
   const trialInfo = getTrialInfo();
 
   // Filter menu items based on permissions
+  // Ordem: Dashboard, Agenda, Atendimento, Pacientes, Lista de Espera, Prontuários, Receituário, Exames,
+  // Termos de Consentimento, Notif. Portal, Leads, Tarefas, Financeiro, Estoque, Campanhas, Relatórios,
+  // Usuários, Assinatura, LGPD, Certificado Digital, Adm Empresas
   const allMenuItems = [
     {
       key: '/',
@@ -187,31 +190,15 @@ const DashboardLayout = () => {
       permission: 'dashboard',
     },
     {
-      key: '/attendance',
-      icon: <AppstoreOutlined />,
-      label: 'Atendimento',
-      permission: 'appointments',
-    },
-    {
       key: '/appointments',
       icon: <CalendarOutlined />,
       label: 'Agenda',
       permission: 'appointments',
     },
     {
-      key: '/portal-notifications',
-      icon: <BellOutlined />,
-      label: (
-        <Badge count={portalNotificationsCount} offset={[10, 0]} size="small">
-          Notif. Portal
-        </Badge>
-      ),
-      permission: 'appointments',
-    },
-    {
-      key: '/waiting-list',
-      icon: <ClockCircleOutlined />,
-      label: 'Lista de Espera',
+      key: '/attendance',
+      icon: <AppstoreOutlined />,
+      label: 'Atendimento',
       permission: 'appointments',
     },
     {
@@ -221,10 +208,10 @@ const DashboardLayout = () => {
       permission: 'patients',
     },
     {
-      key: '/leads',
-      icon: <UsergroupAddOutlined />,
-      label: 'Leads',
-      permission: 'leads',
+      key: '/waiting-list',
+      icon: <ClockCircleOutlined />,
+      label: 'Lista de Espera',
+      permission: 'appointments',
     },
     {
       key: '/medical-records',
@@ -249,6 +236,22 @@ const DashboardLayout = () => {
       icon: <FileTextOutlined />,
       label: 'Termos de Consentimento',
       permission: 'clinical_records',
+    },
+    {
+      key: '/portal-notifications',
+      icon: <BellOutlined />,
+      label: (
+        <Badge count={portalNotificationsCount} offset={[10, 0]} size="small">
+          Notif. Portal
+        </Badge>
+      ),
+      permission: 'appointments',
+    },
+    {
+      key: '/leads',
+      icon: <UsergroupAddOutlined />,
+      label: 'Leads',
+      permission: 'leads',
     },
     {
       key: '/tasks',
