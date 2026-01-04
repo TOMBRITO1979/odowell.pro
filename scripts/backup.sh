@@ -8,6 +8,11 @@
 
 set -e
 
+# Carregar variáveis de ambiente
+if [ -f /root/drcrwell/.env ]; then
+    export $(grep -v '^#' /root/drcrwell/.env | xargs)
+fi
+
 # Configurações
 BACKUP_DIR="/root/drcrwell/backups"
 RETENTION_DAYS=7
