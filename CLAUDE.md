@@ -57,7 +57,7 @@ make logs-db
 ### Database Access
 
 ```bash
-docker exec -it $(docker ps -q -f name=postgres) psql -U drcrwell_user -d drcrwell_db
+docker exec -it $(docker ps -q -f name=postgres) psql -U odowell_app -d drcrwell_db
 \dn                    # List schemas
 \dt tenant_1.*         # List tenant tables
 ```
@@ -244,6 +244,60 @@ The system supports digital signature for prescriptions and medical records usin
 4. System prompts for certificate password
 5. System decrypts certificate, generates SHA-256 hash of document, signs with RSA
 6. Document is marked as signed (cannot be edited/deleted)
+
+## AWS S3 Storage
+
+### Configuration
+- **Bucket**: `odowell-app`
+- **Region**: `us-east-1` (N. Virginia)
+- **IAM User**: `OdoWell-S3-user`
+
+### File Structure
+```
+odowell-app/
+├── backups/                          # Database backups (90-day retention)
+│   └── odowell_backup_YYYYMMDD_HHMMSS.sql.gz
+└── tenant_X_subdomain/               # Tenant files (no expiration)
+    └── exams/
+        └── [CPF]/
+            └── [timestamp]_[filename]
+```
+
+### Environment Variables
+```env
+AWS_ACCESS_KEY_ID=xxx
+AWS_SECRET_ACCESS_KEY=xxx
+AWS_BUCKET_NAME=odowell-app
+AWS_REGION=us-east-1
+```
+
+## Backup System
+
+### Automatic Backups
+- **Schedule**: 2x/day (00:00 and 12:00 via cron)
+- **Local retention**: 7 days
+- **S3 retention**: 90 days (lifecycle rule)
+
+### Scripts
+- `scripts/backup.sh` - PostgreSQL backup + S3 upload
+- `scripts/restore.sh` - Restore from backup
+- `scripts/backup-redis.sh` - Redis backup
+
+### Manual Commands
+```bash
+# Run backup manually
+/root/drcrwell/scripts/backup.sh
+
+# List available backups
+ls -lh /root/drcrwell/backups/
+
+# Restore from backup (creates safety backup first)
+/root/drcrwell/scripts/restore.sh odowell_backup_YYYYMMDD_HHMMSS.sql.gz
+```
+
+### Logs
+- `/root/drcrwell/backups/backup.log` - Backup execution logs
+- `/root/drcrwell/backups/cron.log` - Cron job output
 
 ## Deployment & GitHub
 
