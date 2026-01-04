@@ -299,6 +299,23 @@ ls -lh /root/drcrwell/backups/
 - `/root/drcrwell/backups/backup.log` - Backup execution logs
 - `/root/drcrwell/backups/cron.log` - Cron job output
 
+## Horizontal Scaling
+
+### Distributed Locking
+O sistema suporta múltiplas instâncias (horizontal scaling) através de distributed locks via Redis.
+
+**Schedulers com lock:**
+- `Campaign Scheduler` - Envio de campanhas (TTL: 55s)
+- `Trial Expiration Checker` - Expiração de trials (TTL: 55min)
+- `Retention Scheduler` - Limpeza de dados (TTL: 23h)
+- `SLA Checker` - Verificação LGPD (TTL: 23h)
+
+**Arquivos:**
+- `internal/cache/redis.go` - `AcquireSchedulerLock()`, `ReleaseSchedulerLock()`
+- `internal/scheduler/*.go` - Todos usam distributed lock
+
+**Comportamento:** Apenas 1 instância executa cada scheduler por vez. Outras instâncias logam "Skipping - another instance holds the lock".
+
 ## Deployment & GitHub
 
 ### Docker Images
