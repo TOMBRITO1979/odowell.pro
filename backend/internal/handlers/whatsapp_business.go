@@ -57,8 +57,9 @@ type MetaTemplateCompParams struct {
 }
 
 type MetaTemplateParam struct {
-	Type string `json:"type"`
-	Text string `json:"text,omitempty"`
+	Type          string `json:"type"`
+	Text          string `json:"text,omitempty"`
+	ParameterName string `json:"parameter_name,omitempty"`
 }
 
 type MetaSendMessageResponse struct {
@@ -410,12 +411,15 @@ func SendAppointmentConfirmation(c *gin.Context) {
 	// Normalize phone number
 	phone := normalizePhoneNumber(appointment.PatientPhone)
 
-	// First, fetch the template to know how many parameters it needs
-	templateParams, err := getTemplateParameterCount(settings.WhatsAppBusinessAccountID, accessToken, settings.WhatsAppTemplateConfirmation)
+	// Fetch template to get parameter names
+	paramNames, templateText, err := getTemplateParameterInfo(settings.WhatsAppBusinessAccountID, accessToken, settings.WhatsAppTemplateConfirmation)
 	if err != nil {
-		log.Printf("[WhatsApp] Error fetching template params: %v, using default 3 params", err)
-		templateParams = 3 // Default to 3 params (name, date, time)
+		log.Printf("[WhatsApp] Error fetching template params: %v, using default params", err)
+		// Default to common parameter names
+		paramNames = []string{"paciente", "data", "hora", "dentista"}
 	}
+	log.Printf("[WhatsApp] Template '%s' has %d parameters: %v. Body: %s",
+		settings.WhatsAppTemplateConfirmation, len(paramNames), paramNames, templateText)
 
 	// Prepare clinic name with fallback
 	clinicName := settings.ClinicName
@@ -423,20 +427,41 @@ func SendAppointmentConfirmation(c *gin.Context) {
 		clinicName = "nossa clínica"
 	}
 
-	// Build parameters based on template requirements
-	// Common order: {{1}}=name, {{2}}=date, {{3}}=time, {{4}}=dentist, {{5}}=clinic
-	allParams := []MetaTemplateParam{
-		{Type: "text", Text: appointment.PatientName},
-		{Type: "text", Text: dateStr},
-		{Type: "text", Text: timeStr},
-		{Type: "text", Text: appointment.DentistName},
-		{Type: "text", Text: clinicName},
+	// Map parameter names to values
+	// Supports common variations like paciente/nome, denista/dentista, etc.
+	paramValues := map[string]string{
+		"paciente":  appointment.PatientName,
+		"nome":      appointment.PatientName,
+		"data":      dateStr,
+		"hora":      timeStr,
+		"denista":   appointment.DentistName, // Common typo in template
+		"dentista":  appointment.DentistName,
+		"clinica":   clinicName,
+		"1":         appointment.PatientName,
+		"2":         dateStr,
+		"3":         timeStr,
+		"4":         appointment.DentistName,
+		"5":         clinicName,
 	}
 
-	// Use only the number of parameters the template expects
-	params := allParams
-	if templateParams > 0 && templateParams < len(allParams) {
-		params = allParams[:templateParams]
+	// Build parameters with names
+	params := make([]MetaTemplateParam, len(paramNames))
+	for i, name := range paramNames {
+		value, ok := paramValues[name]
+		if !ok {
+			value = "" // Default to empty if not found
+			log.Printf("[WhatsApp] Warning: Unknown parameter name '%s'", name)
+		}
+		params[i] = MetaTemplateParam{
+			Type:          "text",
+			Text:          value,
+			ParameterName: name,
+		}
+	}
+
+	log.Printf("[WhatsApp] Sending to: %s, Template: %s, Params count: %d", phone, settings.WhatsAppTemplateConfirmation, len(params))
+	for i, p := range params {
+		log.Printf("[WhatsApp] Param[%d] %s=%s", i, p.ParameterName, p.Text)
 	}
 
 	message := MetaTemplateMessage{
@@ -475,48 +500,56 @@ func SendAppointmentConfirmation(c *gin.Context) {
 	})
 }
 
-// getTemplateParameterCount fetches template from Meta API and counts body parameters
-func getTemplateParameterCount(businessAccountID, accessToken, templateName string) (int, error) {
+// getTemplateParameterInfo fetches template from Meta API and extracts parameter names
+// Returns: parameter names slice, body text (for debugging), error
+func getTemplateParameterInfo(businessAccountID, accessToken, templateName string) ([]string, string, error) {
 	url := fmt.Sprintf("%s/%s/message_templates?name=%s&fields=components",
 		MetaGraphAPIURL, businessAccountID, templateName)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return 0, err
+		return nil, "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
+
 	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("meta API returned %d", resp.StatusCode)
+		log.Printf("[WhatsApp] Template API error: %s", string(body))
+		return nil, "", fmt.Errorf("meta API returned %d", resp.StatusCode)
 	}
 
-	body, _ := io.ReadAll(resp.Body)
 	var templatesResp MetaTemplatesResponse
 	if err := json.Unmarshal(body, &templatesResp); err != nil {
-		return 0, err
+		return nil, "", err
 	}
 
 	if len(templatesResp.Data) == 0 {
-		return 0, fmt.Errorf("template not found")
+		return nil, "", fmt.Errorf("template not found")
 	}
 
-	// Count parameters in body component
+	// Extract parameter names from body component
+	// Match both numbered {{1}} and named {{name}} placeholders
 	for _, comp := range templatesResp.Data[0].Components {
 		if comp.Type == "BODY" && comp.Text != "" {
-			re := regexp.MustCompile(`\{\{(\d+)\}\}`)
-			matches := re.FindAllString(comp.Text, -1)
-			return len(matches), nil
+			re := regexp.MustCompile(`\{\{([^}]+)\}\}`)
+			matches := re.FindAllStringSubmatch(comp.Text, -1)
+			paramNames := make([]string, len(matches))
+			for i, match := range matches {
+				paramNames[i] = match[1] // Extract the name inside {{...}}
+			}
+			return paramNames, comp.Text, nil
 		}
 	}
 
-	return 0, nil
+	return nil, "", nil
 }
 
 // TestWhatsAppConnection tests the WhatsApp Business API connection
@@ -718,6 +751,10 @@ func sendMetaMessage(phoneNumberID, accessToken string, message MetaTemplateMess
 		return nil, fmt.Errorf("erro ao serializar mensagem: %v", err)
 	}
 
+	// Log the JSON being sent for debugging
+	log.Printf("[WhatsApp] Sending to URL: %s", url)
+	log.Printf("[WhatsApp] Request JSON: %s", string(jsonData))
+
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("erro ao criar requisição: %v", err)
@@ -734,6 +771,8 @@ func sendMetaMessage(phoneNumberID, accessToken string, message MetaTemplateMess
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
+
+	log.Printf("[WhatsApp] Response status: %d, body: %s", resp.StatusCode, string(body))
 
 	if resp.StatusCode != http.StatusOK {
 		var metaErr MetaErrorResponse
