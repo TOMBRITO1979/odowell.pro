@@ -63,6 +63,49 @@ func GenerateAppointmentsListPDF(c *gin.Context) {
 	var appointments []models.Appointment
 	db.Raw(sqlQuery).Scan(&appointments)
 
+	// Collect unique patient and dentist IDs to avoid N+1 queries
+	patientIDs := make([]uint, 0, len(appointments))
+	dentistIDs := make([]uint, 0, len(appointments))
+	patientIDMap := make(map[uint]bool)
+	dentistIDMap := make(map[uint]bool)
+
+	for _, apt := range appointments {
+		if !patientIDMap[apt.PatientID] {
+			patientIDs = append(patientIDs, apt.PatientID)
+			patientIDMap[apt.PatientID] = true
+		}
+		if !dentistIDMap[apt.DentistID] {
+			dentistIDs = append(dentistIDs, apt.DentistID)
+			dentistIDMap[apt.DentistID] = true
+		}
+	}
+
+	// Fetch all patients in a single query
+	patientNames := make(map[uint]string)
+	if len(patientIDs) > 0 {
+		var patients []struct {
+			ID   uint
+			Name string
+		}
+		db.Raw("SELECT id, name FROM patients WHERE id IN (?) AND deleted_at IS NULL", patientIDs).Scan(&patients)
+		for _, p := range patients {
+			patientNames[p.ID] = p.Name
+		}
+	}
+
+	// Fetch all dentists in a single query
+	dentistNames := make(map[uint]string)
+	if len(dentistIDs) > 0 {
+		var dentists []struct {
+			ID   uint
+			Name string
+		}
+		db.Raw("SELECT id, name FROM public.users WHERE id IN (?)", dentistIDs).Scan(&dentists)
+		for _, d := range dentists {
+			dentistNames[d.ID] = d.Name
+		}
+	}
+
 	pdf := gofpdf.New("L", "mm", "A4", "")
 	pdf.SetMargins(10, 10, 10)
 	pdf.SetAutoPageBreak(true, 10)
@@ -112,9 +155,9 @@ func GenerateAppointmentsListPDF(c *gin.Context) {
 	pdf.SetTextColor(0, 0, 0)
 	pdf.SetFont("Arial", "", 7)
 	for _, apt := range appointments {
-		var patientName, dentistName string
-		db.Raw("SELECT name FROM patients WHERE id = ? AND deleted_at IS NULL", apt.PatientID).Scan(&patientName)
-		db.Raw("SELECT name FROM public.users WHERE id = ?", apt.DentistID).Scan(&dentistName)
+		// Use pre-fetched names from maps (avoids N+1 queries)
+		patientName := patientNames[apt.PatientID]
+		dentistName := dentistNames[apt.DentistID]
 
 		if len(patientName) > 25 {
 			patientName = patientName[:22] + "..."

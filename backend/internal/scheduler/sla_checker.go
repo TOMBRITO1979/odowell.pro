@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
@@ -10,20 +11,29 @@ import (
 )
 
 // StartSLAChecker starts the daily SLA checker for LGPD data requests
+// Uses distributed lock to prevent duplicate execution across multiple instances
 func StartSLAChecker() {
 	go func() {
-		// Run immediately on startup
-		checkSLADeadlines()
+		// Run immediately on startup (with lock)
+		// Lock TTL is 23 hours (slightly less than 24 hour interval)
+		if cache.AcquireSchedulerLock(LockSLA, 23*time.Hour) {
+			checkSLADeadlines()
+		}
 
 		// Then run every day at 8:00 AM
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			checkSLADeadlines()
+			// Try to acquire lock before running
+			if cache.AcquireSchedulerLock(LockSLA, 23*time.Hour) {
+				checkSLADeadlines()
+			} else {
+				log.Println("SLA Checker: Skipping - another instance holds the lock")
+			}
 		}
 	}()
-	log.Println("SLA Checker scheduler started")
+	log.Println("SLA Checker scheduler started (with distributed lock)")
 }
 
 // checkSLADeadlines checks all pending data requests for SLA deadlines

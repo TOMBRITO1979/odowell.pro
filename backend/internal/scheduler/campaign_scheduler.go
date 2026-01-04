@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/helpers"
 	"drcrwell/backend/internal/models"
@@ -13,18 +14,27 @@ import (
 )
 
 // StartCampaignScheduler starts the campaign scheduler that processes scheduled campaigns
+// Uses distributed lock to prevent duplicate campaign sends across multiple instances
 func StartCampaignScheduler() {
-	log.Println("Campaign Scheduler started - checking for scheduled campaigns every minute")
+	log.Println("Campaign Scheduler started - checking for scheduled campaigns every minute (with distributed lock)")
 
-	// Run immediately on start
-	processScheduledCampaigns()
+	// Run immediately on start (with lock)
+	if cache.AcquireSchedulerLock(LockCampaign, 55*time.Second) {
+		processScheduledCampaigns()
+	}
 
 	// Then run every minute
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		processScheduledCampaigns()
+		// Try to acquire lock before running
+		// Lock TTL is 55 seconds (slightly less than 1 minute interval)
+		if cache.AcquireSchedulerLock(LockCampaign, 55*time.Second) {
+			processScheduledCampaigns()
+		} else {
+			log.Println("Campaign Scheduler: Skipping - another instance holds the lock")
+		}
 	}
 }
 

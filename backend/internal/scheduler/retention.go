@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/models"
 	"log"
@@ -15,9 +16,10 @@ var DefaultRetentionConfig = map[string]int{
 }
 
 // StartRetentionScheduler starts the data retention cleanup job
+// Uses distributed lock to prevent duplicate execution across multiple instances
 func StartRetentionScheduler() {
 	go runRetentionCleanup()
-	log.Println("Scheduler started - Retention cleanup running daily at 3AM")
+	log.Println("Scheduler started - Retention cleanup running daily at 3AM (with distributed lock)")
 }
 
 // runRetentionCleanup runs daily to clean up old data
@@ -33,15 +35,22 @@ func runRetentionCleanup() {
 	// Wait until 3AM
 	time.Sleep(timeUntil3AM)
 
-	// Run immediately
-	performRetentionCleanup()
+	// Run with lock (lock TTL is 23 hours to ensure it releases before next run)
+	if cache.AcquireSchedulerLock(LockRetention, 23*time.Hour) {
+		performRetentionCleanup()
+	}
 
 	// Then run every 24 hours
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		performRetentionCleanup()
+		// Try to acquire lock before running
+		if cache.AcquireSchedulerLock(LockRetention, 23*time.Hour) {
+			performRetentionCleanup()
+		} else {
+			log.Println("Retention Scheduler: Skipping - another instance holds the lock")
+		}
 	}
 }
 

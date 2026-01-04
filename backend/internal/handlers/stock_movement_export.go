@@ -62,6 +62,49 @@ func GenerateStockMovementsListPDF(c *gin.Context) {
 	var movements []models.StockMovement
 	db.Raw(sqlQuery).Scan(&movements)
 
+	// Collect unique product and user IDs to avoid N+1 queries
+	productIDs := make([]uint, 0, len(movements))
+	userIDs := make([]uint, 0, len(movements))
+	productIDMap := make(map[uint]bool)
+	userIDMap := make(map[uint]bool)
+
+	for _, mov := range movements {
+		if !productIDMap[mov.ProductID] {
+			productIDs = append(productIDs, mov.ProductID)
+			productIDMap[mov.ProductID] = true
+		}
+		if !userIDMap[mov.UserID] {
+			userIDs = append(userIDs, mov.UserID)
+			userIDMap[mov.UserID] = true
+		}
+	}
+
+	// Fetch all products in a single query
+	productNames := make(map[uint]string)
+	if len(productIDs) > 0 {
+		var products []struct {
+			ID   uint
+			Name string
+		}
+		db.Raw("SELECT id, name FROM products WHERE id IN (?)", productIDs).Scan(&products)
+		for _, p := range products {
+			productNames[p.ID] = p.Name
+		}
+	}
+
+	// Fetch all users in a single query
+	userNames := make(map[uint]string)
+	if len(userIDs) > 0 {
+		var users []struct {
+			ID   uint
+			Name string
+		}
+		db.Raw("SELECT id, name FROM public.users WHERE id IN (?)", userIDs).Scan(&users)
+		for _, u := range users {
+			userNames[u.ID] = u.Name
+		}
+	}
+
 	pdf := gofpdf.New("L", "mm", "A4", "")
 	pdf.SetMargins(10, 10, 10)
 	pdf.SetAutoPageBreak(true, 10)
@@ -112,9 +155,9 @@ func GenerateStockMovementsListPDF(c *gin.Context) {
 	pdf.SetTextColor(0, 0, 0)
 	pdf.SetFont("Arial", "", 7)
 	for _, movement := range movements {
-		var productName, userName string
-		db.Raw("SELECT name FROM products WHERE id = ?", movement.ProductID).Scan(&productName)
-		db.Raw("SELECT name FROM public.users WHERE id = ?", movement.UserID).Scan(&userName)
+		// Use pre-fetched names from maps (avoids N+1 queries)
+		productName := productNames[movement.ProductID]
+		userName := userNames[movement.UserID]
 
 		if len(productName) > 25 {
 			productName = productName[:22] + "..."

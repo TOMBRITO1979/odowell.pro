@@ -1,16 +1,25 @@
 package scheduler
 
 import (
+	"drcrwell/backend/internal/cache"
 	"drcrwell/backend/internal/database"
 	"drcrwell/backend/internal/models"
 	"log"
 	"time"
 )
 
+// Scheduler lock names (for distributed locking)
+const (
+	LockTrialExpiration = "trial_expiration"
+	LockRetention       = "retention"
+	LockSLA             = "sla_checker"
+	LockCampaign        = "campaign"
+)
+
 // StartScheduler starts background jobs
 func StartScheduler() {
 	go runTrialExpirationChecker()
-	log.Println("Scheduler started - Trial expiration checker running every hour")
+	log.Println("Scheduler started - Trial expiration checker running every hour (with distributed lock)")
 
 	go StartRetentionScheduler()
 
@@ -22,16 +31,25 @@ func StartScheduler() {
 }
 
 // runTrialExpirationChecker runs every hour to check and deactivate expired trials
+// Uses distributed lock to prevent duplicate execution across multiple instances
 func runTrialExpirationChecker() {
-	// Run immediately on start
-	checkExpiredTrials()
+	// Run immediately on start (with lock)
+	if cache.AcquireSchedulerLock(LockTrialExpiration, 55*time.Minute) {
+		checkExpiredTrials()
+	}
 
 	// Then run every hour
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		checkExpiredTrials()
+		// Try to acquire lock before running
+		// Lock TTL is 55 minutes (slightly less than 1 hour interval)
+		if cache.AcquireSchedulerLock(LockTrialExpiration, 55*time.Minute) {
+			checkExpiredTrials()
+		} else {
+			log.Println("Trial Scheduler: Skipping - another instance holds the lock")
+		}
 	}
 }
 

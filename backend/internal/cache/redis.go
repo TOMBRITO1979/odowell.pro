@@ -356,3 +356,70 @@ func HashToken(token string) string {
 	}
 	return token
 }
+
+// ============================================
+// DISTRIBUTED LOCKING (for horizontal scaling)
+// ============================================
+
+const (
+	// SchedulerLockPrefix is the Redis key prefix for scheduler locks
+	SchedulerLockPrefix = "scheduler_lock"
+)
+
+// AcquireSchedulerLock tries to acquire a distributed lock for a scheduler
+// Returns true if lock was acquired, false if another instance holds the lock
+// lockName: unique name for the scheduler (e.g., "campaign", "trial", "sla", "retention")
+// ttl: how long the lock should be held (should be slightly less than scheduler interval)
+func AcquireSchedulerLock(lockName string, ttl time.Duration) bool {
+	if Client == nil {
+		// If Redis is not available, allow execution (single instance mode)
+		log.Printf("[SchedulerLock] Redis not available, allowing %s scheduler to run", lockName)
+		return true
+	}
+
+	key := CacheKey(SchedulerLockPrefix, lockName)
+
+	// Try to set the lock with NX (only if not exists)
+	success, err := Client.SetNX(ctx, key, time.Now().Unix(), ttl).Result()
+	if err != nil {
+		log.Printf("[SchedulerLock] Error acquiring lock for %s: %v (allowing execution)", lockName, err)
+		return true // On error, allow execution to avoid blocking all schedulers
+	}
+
+	if success {
+		log.Printf("[SchedulerLock] Acquired lock for %s scheduler", lockName)
+	}
+
+	return success
+}
+
+// ReleaseSchedulerLock releases a scheduler lock
+// Note: In most cases, we let the lock expire naturally (TTL)
+// This is only needed if scheduler finishes early and we want to release immediately
+func ReleaseSchedulerLock(lockName string) {
+	if Client == nil {
+		return
+	}
+
+	key := CacheKey(SchedulerLockPrefix, lockName)
+	if err := Client.Del(ctx, key).Err(); err != nil {
+		log.Printf("[SchedulerLock] Error releasing lock for %s: %v", lockName, err)
+	}
+}
+
+// ExtendSchedulerLock extends the TTL of an existing lock
+// Use this for long-running scheduler tasks
+func ExtendSchedulerLock(lockName string, ttl time.Duration) bool {
+	if Client == nil {
+		return true
+	}
+
+	key := CacheKey(SchedulerLockPrefix, lockName)
+	success, err := Client.Expire(ctx, key, ttl).Result()
+	if err != nil {
+		log.Printf("[SchedulerLock] Error extending lock for %s: %v", lockName, err)
+		return false
+	}
+
+	return success
+}
