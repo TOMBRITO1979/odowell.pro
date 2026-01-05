@@ -94,21 +94,36 @@ mkdir -p "$BACKUP_DIR"
 
 log "Iniciando backup do OdoWell..."
 
-# Encontrar container do PostgreSQL
-POSTGRES_CONTAINER=$(docker ps -q -f name=drcrwell_postgres 2>/dev/null)
+# Configurações do banco de dados externo (Worker VPS)
+DB_HOST="${DB_HOST:-5.78.93.61}"
+DB_PORT="${DB_PORT:-5432}"
+DB_USER="${DB_USER:-odowell_app}"
+DB_NAME="${DB_NAME:-drcrwell_db}"
 
-if [ -z "$POSTGRES_CONTAINER" ]; then
-    error "Container PostgreSQL não encontrado!"
-    exit 1
+log "Conectando ao PostgreSQL externo: $DB_HOST:$DB_PORT"
+
+# Verificar se psql está disponível
+if ! command -v pg_dump &> /dev/null; then
+    error "pg_dump não encontrado! Instalando postgresql-client..."
+    apt-get update -qq && apt-get install -y -qq postgresql-client > /dev/null 2>&1
 fi
 
-log "Container PostgreSQL: $POSTGRES_CONTAINER"
+# Testar conexão com o banco
+log "Testando conexão com o banco de dados..."
+PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    error "Não foi possível conectar ao banco de dados!"
+    exit 1
+fi
+log "Conexão OK"
 
 # Criar backup
 log "Criando dump do banco de dados..."
-docker exec "$POSTGRES_CONTAINER" pg_dump \
-    -U odowell_app \
-    -d drcrwell_db \
+PGPASSWORD="$DB_PASSWORD" pg_dump \
+    -h "$DB_HOST" \
+    -p "$DB_PORT" \
+    -U "$DB_USER" \
+    -d "$DB_NAME" \
     --no-owner \
     --no-acl \
     2>&1 | gzip > "$BACKUP_FILE"

@@ -1,77 +1,16 @@
 version: '3.8'
 
+# =============================================================================
+# OdoWell Docker Stack - Production Configuration
+# =============================================================================
+# PostgreSQL foi migrado para VPS dedicada (5.78.93.61)
+# O banco de dados agora roda nativamente na Worker VPS para melhor performance
+# =============================================================================
+
 services:
-  postgres:
-    image: postgres:15-alpine
-    command: >
-      postgres
-      -c max_connections=500
-      -c shared_buffers=1GB
-      -c effective_cache_size=3GB
-      -c maintenance_work_mem=256MB
-      -c checkpoint_completion_target=0.9
-      -c wal_buffers=64MB
-      -c default_statistics_target=100
-      -c random_page_cost=1.1
-      -c effective_io_concurrency=200
-      -c work_mem=10MB
-      -c min_wal_size=256MB
-      -c max_wal_size=1GB
-      -c max_worker_processes=8
-      -c max_parallel_workers_per_gather=4
-      -c max_parallel_workers=8
-      -c max_parallel_maintenance_workers=4
-      -c log_statement=mod
-      -c log_min_duration_statement=1000
-      -c ssl=on
-      -c ssl_cert_file=/run/secrets/pg_ssl_cert
-      -c ssl_key_file=/run/secrets/pg_ssl_key
-      -c timezone=${TZ:-America/Sao_Paulo}
-      -c archive_mode=on
-      -c archive_command='cp %p /var/lib/postgresql/wal_archive/%f'
-      -c wal_level=replica
-    environment:
-      POSTGRES_DB: ${DB_NAME:-drcrwell_db}
-      POSTGRES_USER: ${DB_USER:-odowell_app}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      PGDATA: /var/lib/postgresql/data/pgdata
-      TZ: ${TZ:-America/Sao_Paulo}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - wal_archive:/var/lib/postgresql/wal_archive
-    networks:
-      - network_public
-    secrets:
-      - source: pg_ssl_cert
-        uid: '70'
-        gid: '70'
-        mode: 0644
-      - source: pg_ssl_key
-        uid: '70'
-        gid: '70'
-        mode: 0600
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U odowell_app -d ${DB_NAME:-drcrwell_db}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-      placement:
-        constraints:
-          - node.role == manager
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+  # PostgreSQL removido - agora roda na Worker VPS (5.78.93.61)
+  # Para restaurar o container local, descomente o serviço abaixo
+  # e altere DB_HOST para 'postgres' no backend
 
   redis:
     image: redis:7-alpine
@@ -106,13 +45,13 @@ services:
   backend:
     image: ${DOCKER_USERNAME:-tomautomations}/drcrwell-backend:latest
     environment:
-      # Database
-      DB_HOST: postgres
+      # Database (External - VPS 5.78.93.61)
+      DB_HOST: 5.78.93.61
       DB_PORT: 5432
       DB_USER: ${DB_USER:-odowell_app}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME:-drcrwell_db}
-      DB_SSL_MODE: ${DB_SSL_MODE:-require}
+      DB_SSL_MODE: require
       # Encryption Key for sensitive data
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       # Stripe
@@ -197,7 +136,6 @@ services:
         - "traefik.http.middlewares.drcrwell-security.headers.frameDeny=true"
         - "traefik.http.routers.drcrwell-backend.middlewares=drcrwell-security"
     depends_on:
-      - postgres
       - redis
 
   frontend:
@@ -261,15 +199,6 @@ networks:
     external: true
 
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
-  wal_archive:
-    driver: local
-
-secrets:
-  pg_ssl_cert:
-    external: true
-  pg_ssl_key:
-    external: true
+  # postgres_data e wal_archive removidos - DB agora na Worker VPS
