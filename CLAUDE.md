@@ -10,9 +10,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |-------|------------|
 | Backend | Go 1.21 + Gin |
 | Frontend | React 18 + Vite + Ant Design |
-| Database | PostgreSQL 15 (schema-per-tenant) |
-| Cache | Redis (optional) |
-| Deployment | Docker Swarm + Traefik |
+| Database | PostgreSQL 15 (schema-per-tenant) - VPS dedicada |
+| Cache | Redis |
+| Deployment | Docker Swarm + Traefik (2 VPS)
 
 **Live URLs:** Frontend: `https://app.odowell.pro` | API: `https://api.odowell.pro`
 
@@ -57,12 +57,28 @@ make logs-db
 ### Database Access
 
 ```bash
-docker exec -it $(docker ps -q -f name=postgres) psql -U odowell_app -d drcrwell_db
+# PostgreSQL roda na Worker VPS dedicada (5.78.93.61)
+PGPASSWORD=$DB_PASSWORD psql -h 5.78.93.61 -U odowell_app -d drcrwell_db
 \dn                    # List schemas
 \dt tenant_1.*         # List tenant tables
 ```
 
 ## Architecture
+
+### Infrastructure (2 VPS)
+
+```
+Manager VPS (8 cores, 30GB RAM)
+├── Backend (6 réplicas)
+├── Frontend (1 réplica)
+├── Redis
+└── Traefik (load balancer)
+
+Worker VPS (4 cores, 16GB RAM) - IP: 5.78.93.61
+└── PostgreSQL 15 (nativo, dedicado)
+    ├── SSL habilitado
+    └── max_connections=500
+```
 
 ### Multitenant: Schema-per-Tenant
 
@@ -275,13 +291,14 @@ AWS_REGION=us-east-1
 
 ### Automatic Backups
 - **Schedule**: 2x/day (00:00 and 12:00 via cron)
+- **Database**: Conecta diretamente ao PostgreSQL externo (5.78.93.61)
 - **Local retention**: 7 days
 - **S3 retention**: 90 days (lifecycle rule)
 
 ### Scripts
-- `scripts/backup.sh` - PostgreSQL backup + S3 upload
-- `scripts/restore.sh` - Restore from backup
-- `scripts/backup-redis.sh` - Redis backup
+- `scripts/backup.sh` - PostgreSQL backup (via pg_dump remoto) + S3 upload
+- `scripts/health_monitor.sh` - Monitoramento a cada 5 minutos
+- `scripts/collect_logs.sh` - Coleta diária de logs dos serviços
 
 ### Manual Commands
 ```bash
@@ -291,13 +308,14 @@ AWS_REGION=us-east-1
 # List available backups
 ls -lh /root/drcrwell/backups/
 
-# Restore from backup (creates safety backup first)
-/root/drcrwell/scripts/restore.sh odowell_backup_YYYYMMDD_HHMMSS.sql.gz
+# Check health monitor logs
+tail -50 /root/drcrwell/logs/health_monitor.log
 ```
 
 ### Logs
 - `/root/drcrwell/backups/backup.log` - Backup execution logs
-- `/root/drcrwell/backups/cron.log` - Cron job output
+- `/root/drcrwell/logs/health_monitor.log` - Health check logs
+- `/root/drcrwell/logs/daily/` - Logs diários coletados
 
 ## Horizontal Scaling
 
@@ -320,17 +338,18 @@ O sistema suporta múltiplas instâncias (horizontal scaling) através de distri
 
 ### Docker Images
 ```bash
-# Build and push backend
-cd backend
-docker build -t tomautomations/drcrwell-backend:latest .
+# Build and push backend (from /root/drcrwell/backend)
+docker build --no-cache -t tomautomations/drcrwell-backend:latest .
 docker push tomautomations/drcrwell-backend:latest
 docker service update --image tomautomations/drcrwell-backend:latest drcrwell_backend --force
 
-# Build and push frontend
-cd frontend
+# Build and push frontend (from /root/drcrwell/frontend)
 docker build --build-arg VITE_API_URL=https://api.odowell.pro -t tomautomations/drcrwell-frontend:latest .
 docker push tomautomations/drcrwell-frontend:latest
 docker service update --image tomautomations/drcrwell-frontend:latest drcrwell_frontend --force
+
+# Check running services
+docker service ls | grep drcrwell
 ```
 
 ### GitHub Commit (Safe)
